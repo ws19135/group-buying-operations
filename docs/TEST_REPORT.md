@@ -16,7 +16,7 @@
 | 文件產生 | `npm run docs:gen` | 0 | 43 張表、79 個外鍵、79 個端點 |
 | Worker 安全預設 | `npm run worker:once`（`AUTOMATION_ENABLED` 未設為 on） | 0 | 不執行任何自動化並說明原因 |
 | 相依套件弱點 | `npm audit --omit=dev` | 1（有弱點） | 3 項（1 moderate、2 high），見 KNOWN_ISSUES T3 |
-| CI（GitHub Actions） | `.github/workflows/ci.yml` | — | 以 PR 上的實際執行結果為準（此處未能在本機執行 Actions） |
+| CI（GitHub Actions） | `.github/workflows/ci.yml`（typecheck／lint／test／build） | — | **success**（提交 `bcd944d`，push 與 PR 各一次：[run 40657504352](https://github.com/ws19135/group-buying-operations/actions/runs/40657504352)、[run 40657524435](https://github.com/ws19135/group-buying-operations/actions/runs/40657524435)）；CI 不含 E2E |
 
 ## 2. 自動化測試明細（`npm test`）
 
@@ -56,4 +56,3 @@
 | 真實外部整合（LINE／Email／電商 API／Google） | 無憑證與授權（BLOCKED） |
 | 與真實歷史結案數字的手工對帳 | 沒有真實資料 |
 | 備份還原演練、負載／壓力、SAST | 未執行 |
-| GitHub Actions 的實際執行 | 需在 PR 上觀察 |
