@@ -8,7 +8,7 @@ import { audit } from '../lib/audit';
 import { ids } from '../lib/ids';
 import { isHttpUrl, normalizeName, nonEmpty } from '../lib/text';
 import { camelize } from '../lib/case';
-import { likePattern, listPaged, pageParams, patchEntity, type ListResult } from '../lib/repo';
+import { likePattern, listPaged, pageParams, patchEntity, applyClears, type ListResult } from '../lib/repo';
 import { idempotent } from '../lib/idempotency';
 
 export const VENDOR_STATUS = ['PROSPECT', 'CONTACTED', 'ACTIVE', 'PAUSED', 'BLACKLISTED'] as const;
@@ -165,7 +165,8 @@ export async function getVendor(actor: Actor, id: string) {
 
 export async function updateVendor(actor: Actor, id: string, raw: z.input<typeof vendorUpdateSchema>) {
   requirePerm(actor, 'vendor.write');
-  const input = vendorUpdateSchema.parse(raw);
+  const parsed = vendorUpdateSchema.parse(raw);
+  const input = applyClears(parsed, raw, ['companyName','taxId','category','website','cooperationNote','internalNote']);
   return withTx(async (tx) => {
     if (input.name || input.taxId) {
       const cur = await tx.query('SELECT name, tax_id FROM vendors WHERE id=$1 AND organization_id=$2 AND deleted_at IS NULL', [id, actor.orgId]);

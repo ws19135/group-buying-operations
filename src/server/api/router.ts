@@ -17,6 +17,9 @@ export interface Ctx {
 
 export interface PublicCtx extends Omit<Ctx, 'actor'> { actor: Actor | null }
 
+/** 請求內容上限（訂單 CSV 上限 2 MB，其餘請求遠小於此） */
+const MAX_BODY_BYTES = 4_000_000;
+
 export type Handled = { status?: number; data: unknown; headers?: Record<string, string> };
 export type Handler = (ctx: Ctx) => Promise<unknown | Handled>;
 export type PublicHandler = (ctx: PublicCtx) => Promise<unknown | Handled>;
@@ -97,7 +100,10 @@ export async function dispatch(req: Request, pathSegments: string[]): Promise<Re
     if (method !== 'GET' && method !== 'HEAD') {
       if (!sameOrigin(req)) return json(403, { error: { code: 'FORBIDDEN', message: '跨來源請求被拒絕', requestId } });
       const ct = req.headers.get('content-type') ?? '';
+      const declared = Number(req.headers.get('content-length') ?? 0);
+      if (declared > MAX_BODY_BYTES) return json(413, { error: { code: 'VALIDATION', message: '請求內容過大', requestId } });
       const text = await req.text();
+      if (text.length > MAX_BODY_BYTES) return json(413, { error: { code: 'VALIDATION', message: '請求內容過大', requestId } });
       if (text) {
         if (!ct.includes('application/json')) return json(415, { error: { code: 'VALIDATION', message: '請求內容必須是 application/json', requestId } });
         try { body = JSON.parse(text); } catch { return json(400, { error: { code: 'VALIDATION', message: 'JSON 格式錯誤', requestId } }); }

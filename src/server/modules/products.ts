@@ -8,7 +8,7 @@ import { audit } from '../lib/audit';
 import { ids } from '../lib/ids';
 import { isHttpUrl, normalizeName, nonEmpty } from '../lib/text';
 import { camelize } from '../lib/case';
-import { likePattern, listPaged, pageParams, patchEntity } from '../lib/repo';
+import { likePattern, listPaged, pageParams, patchEntity, applyClears } from '../lib/repo';
 import { idempotent } from '../lib/idempotency';
 import { campaignScope } from '../lib/scope';
 
@@ -132,7 +132,8 @@ export async function getProduct(actor: Actor, id: string) {
 
 export async function updateProduct(actor: Actor, id: string, raw: z.input<typeof productUpdateSchema>) {
   requirePerm(actor, 'product.write');
-  const input = productUpdateSchema.parse(raw);
+  const parsed = productUpdateSchema.parse(raw);
+  const input = applyClears(parsed, raw, ['category','description','listingUrl','sellingPoints','complianceNote']);
   return withTx(async (tx) => {
     if (input.name) {
       const cur = await tx.query('SELECT vendor_id FROM products WHERE id=$1 AND organization_id=$2 AND deleted_at IS NULL', [id, actor.orgId]);

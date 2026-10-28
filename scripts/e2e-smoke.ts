@@ -107,9 +107,10 @@ async function main() {
         ['/vendors', '廠商列表', '06-vendors.png'], ['/hosts', '團主列表', ''], ['/communities', '社群列表', ''], ['/products', '商品列表', ''],
         ['/imports', '訂單匯入', '07-imports.png'], ['/exceptions', '例外', '08-exceptions.png'], ['/automation', '自動化', '09-automation.png'], ['/audit', '稽核', ''], ['/notifications', '通知', ''],
         ['/campaigns/new', '新增檔期', ''], ['/vendors/new', '新增廠商', ''], ['/hosts/new', '新增團主', ''], ['/communities/new', '新增社群', ''], ['/products/new', '新增商品', ''],
-      ] as const) await visit(page, w, url, label, { shot: shot || undefined });
-      const auto = await page.locator('body').innerText();
-      record('自動化頁面明示預設停用／僅測試 Adapter', /停用/.test(auto) && /測試/.test(auto));
+      ] as const) {
+        const body = await visit(page, w, url, label, { shot: shot || undefined });
+        if (url === '/automation') record('自動化頁面明示預設停用／僅測試 Adapter／不對真人發送', /預設全部停用/.test(body) && /測試 Adapter/.test(body) && /不會對任何真人發送/.test(body));
+      }
 
       // 檔期詳情與日期調整預覽
       await page.goto(`${BASE}/campaigns?q=${encodeURIComponent('防曬')}`, { waitUntil: 'networkidle' });
@@ -118,15 +119,28 @@ async function main() {
       if (await link.count()) {
         await Promise.all([page.waitForURL(/\/campaigns\/CMP-/), link.click()]);
         await page.waitForLoadState('networkidle');
-        const detail = await page.locator('body').innerText();
-        record('檔期詳情顯示八階段任務', /籌備與寄樣/.test(detail) && /復盤與結案/.test(detail));
+        const base = page.url().split('?')[0];
+        const overview = await page.locator('body').innerText();
+        record('檔期詳情顯示狀態與廠商', /進行中/.test(overview) && /晴空保養/.test(overview));
         await page.screenshot({ path: path.join(SHOTS, '10-campaign-detail.png'), fullPage: true });
+        await page.goto(`${base}?tab=tasks`, { waitUntil: 'networkidle' });
+        const tasksBody = await page.locator('body').innerText();
+        record('任務分頁依八階段分組', /籌備與寄樣/.test(tasksBody) && /試用與回饋/.test(tasksBody) && /復盤與結案/.test(tasksBody));
+        await page.screenshot({ path: path.join(SHOTS, '10b-campaign-tasks.png'), fullPage: true });
+        await page.goto(base, { waitUntil: 'networkidle' });
         await page.getByTestId('btn-reschedule').click();
-        await page.getByTestId('field-closeDate').fill(await page.getByTestId('field-closeDate').inputValue());
+        const closeInput = page.getByTestId('rs-closeDate');
+        const cur = await closeInput.inputValue();
+        const next = new Date(`${cur}T00:00:00Z`); next.setUTCDate(next.getUTCDate() + 1);
+        await closeInput.fill(next.toISOString().slice(0, 10));
         await page.getByTestId('btn-preview').click();
-        await page.getByTestId('reschedule-preview').waitFor({ timeout: 15_000 }).catch(() => undefined);
-        record('日期調整先預覽（尚未套用）', (await page.getByTestId('reschedule-dialog').count()) > 0);
+        await page.getByTestId('reschedule-preview').waitFor({ timeout: 15_000 });
+        const rows = await page.locator('[data-testid^="preview-row-"]').count();
+        record('日期調整先預覽影響（逐任務前後值），尚未套用', rows >= 10, `${rows} 列`);
+        record('預覽後才出現「確認」按鈕', (await page.getByTestId('btn-confirm-reschedule').count()) > 0);
         await page.screenshot({ path: path.join(SHOTS, '11-reschedule-preview.png') });
+        const still = await (await ctx.request.get(`${BASE}/api/campaigns/${base.split('/').pop()}`)).json();
+        record('預覽沒有改動資料（結團日不變）', still?.data?.closeDate === cur, `closeDate=${still?.data?.closeDate}`);
         w.take();
       }
       await ctx.close();

@@ -71,6 +71,57 @@
 
 ---
 
+## 2026-10-28｜Phase 1 MVP 建置（分支 `feat/erp-mvp-phase1`）
+
+### 目標
+在不碰正式資料、不部署、不對外發送的前提下，依藍圖與路線圖建置可在本機／隔離環境操作的團購 ERP Phase 1 MVP，並把現況盤點、決策、追溯與驗證證據都記在本儲存庫。
+
+### 已檢查來源
+- 本儲存庫：README、藍圖、路線圖、開發紀錄、研究報告、Mermaid（開工前**沒有任何程式碼**）。
+- `zhaocai-groupbuy-system`：CLAUDE.md、README、ROADMAP、DATA_MODEL、PLATFORM_LESSONS、SRS／SAD／SDD、舊版 Apps Script 原始碼（本機版）。
+- `groupbuy-flow-sop`：README、前置確認、踩雷、表單說明、`build_nx.py` 設定參數、收件 Apps Script。
+- 環境：Node 22、無 Docker → 安裝 PostgreSQL 16；Chromium＋Playwright 預裝。
+
+### 變更（模組）
+| 區塊 | 內容 |
+|---|---|
+| 資料庫 | 8 支 migration、43 張表；觸發器：禁止實體刪除、稽核不可改、版本／更新時間自動維護；角色資料 |
+| 服務層 `src/server` | 認證、RBAC＋資料範圍、稽核、冪等、廠商／團主／社群／商品、檔期（多 SKU／多團主／曝光）、衝突偵測、工作流程引擎（模板版本化、排程、預覽重排、鎖定）、狀態機與 G1–G5、任務、訂單 CSV 匯入、佣金規則、Dashboard、自動化（8 個工作）、通知佇列、進件 |
+| API | 單一路由表 79 個端點；統一錯誤、CSRF、冪等鍵、樂觀鎖 |
+| 前端 `src/app`、`src/ui` | 36 個頁面（繁中、淺色、手機可用）；由前端建置者分身代理完成 |
+| 腳本 | migrate／seed／seed-demo／reset-db／worker／gen-docs／e2e-smoke |
+| CI | `.github/workflows/ci.yml` |
+| 文件 | 現況盤點、複用矩陣、需求追溯、ADR（19 項）、工作流程映射、Dashboard 規格、自動化、API、架構、部署、測試報告、UAT 證據、功能矩陣、已知問題；資料字典／ERD／API 清單自動產生 |
+
+### 已完成與證據
+`npm run typecheck`、`npm run lint`、`npm test`（11 檔 162 項）、`npm run build`、`npm run e2e`（49/49）皆退出碼 0；詳見 [TEST_REPORT.md](TEST_REPORT.md)、[UAT_EVIDENCE.md](UAT_EVIDENCE.md)。完成度逐項見 [FEATURE_STATUS_MATRIX.md](FEATURE_STATUS_MATRIX.md)。
+
+### 與規格的差異
+- 路線圖要求 P0 完成後才開始程式實作；依使用者明確指示直接建置 Phase 1，所有因規格缺漏而做的決定記為 PROPOSED（ADR）。
+- 找不到「八階段」定義 → ADR-004。藍圖的「營運 PM」與任務的「營運小編」合併為一個角色。
+- SOP 的「圖文素材」原本接在「試用回饋」之後；改接在「開團審核（G1）」之後，避免未核准就製作。
+- 新增 G2／G3／G5 關卡任務（共 15 步）。不套用招財兔分潤公式。
+
+### 測試／驗證
+見 TEST_REPORT。開發中由測試與文件審閱抓到並修正 6 類缺陷（G4 檢查缺漏、404/403 洩漏任務存在、鎖定任務預覽誤判、自動化冪等鍵粒度、Dashboard 目標欄位外洩、連結 scheme／清空欄位等）。
+
+### 風險與阻擋
+- BLOCKED：真實 LINE／Email、電商 API／Webhook、Google Workspace、真實資料、Production。
+- 安全缺口：SSO／MFA、密碼重設、備份還原演練、RLS（見 KNOWN_ISSUES K1–K7）。
+- 相依套件弱點：zod 3（high）、next 15 經 postcss（high）需主版本升級；vitest（僅開發）。
+
+### 需要 Owner 決策
+見 [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md) 末段「仍待 Owner 裁決的事項」（試點群組、團主可見資料、訂單來源、金流模式、KPI／結算口徑、與 Sheets 過渡關係、技術棧與登入方式、八階段定義）。
+
+### 下一步（建議 Phase 2）
+1. Owner 審閱 ADR 與 KPI 口徑；選定試點群組與一檔已結案案例，做手工對帳。
+2. 訂單來源：決定平台後做 API／Webhook 或排程匯入；結單快照。
+3. 履約與售後（庫存、出貨、退款、客訴）。
+4. 財務：入帳、費用、佣金試算與批次結算（覆寫雙欄、調整批次）。
+5. 身分與營運：SSO／MFA、備份還原演練、監控告警、升級 zod 4／next 16。
+
+---
+
 ## 後續紀錄格式
 
 每次變更新增一節，至少包含：

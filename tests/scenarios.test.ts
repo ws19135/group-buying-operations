@@ -283,6 +283,12 @@ describe('API 層行為', () => {
     expect((await c.call('PATCH', '/auth/login', {})).status).toBe(405);
   });
 
+  it('過大的請求被拒（413）', async () => {
+    const c = await Client.forActor(w.manager);
+    const r = await c.call('POST', '/vendors', { name: 'x'.repeat(4_100_000) });
+    expect(r.status).toBe(413);
+  });
+
   it('樂觀鎖：用過期版本更新會得到 409 並提示目前版本', async () => {
     const c = await Client.forActor(w.manager);
     const v = await c.call('POST', '/vendors', { name: `版本測試${Date.now()}` });
@@ -332,5 +338,30 @@ describe('連結欄位只接受 http(s)（避免 javascript: 之類的連結被�
     expect((await c.call('POST', `/products/${p.data.id}/assets`, { kind: 'LINK', title: 'x', url: 'javascript:alert(1)' })).status).toBe(422);
     expect((await c.call('POST', `/products/${p.data.id}/assets`, { kind: 'LINK', title: 'x', url: 'https://example.invalid/a.png' })).status).toBe(201);
     await expect(receiveVendorIntake(w.editor, `lnk-${Date.now()}`, { vendorName: 'A', contactName: 'b', contactInfo: 'c', itemName: 'd', itemUrl: 'javascript:alert(1)' })).rejects.toThrow();
+  });
+});
+
+describe('更新時可清空欄位／取消指派／團主社群角色', () => {
+  it('送空字串會清空可清空的欄位；必填欄位不能清空', async () => {
+    const c = await Client.forActor(w.manager);
+    const v = await c.call('POST', '/vendors', { name: `清空測試${Date.now()}`, category: '食品', website: 'https://example.invalid/x', internalNote: '備註' });
+    expect((await c.call('PATCH', `/vendors/${v.data.id}`, { category: '', website: '', internalNote: '' })).status).toBe(200);
+    const row = (await query(`SELECT category, website, internal_note FROM vendors WHERE id=$1`, [v.data.id]))[0];
+    expect(row).toEqual({ category: null, website: null, internal_note: null });
+    expect((await c.call('PATCH', `/vendors/${v.data.id}`, { name: '' })).status).toBe(422);
+    const aud = await query(`SELECT before_data, after_data FROM audit_logs WHERE entity_id=$1 AND action='vendor.update'`, [v.data.id]);
+    expect(aud[0].before_data.category).toBe('食品'); expect(aud[0].after_data.category).toBeNull();
+  });
+
+  it('可取消任務指派；團主與社群關聯可指定角色', async () => {
+    const c = await Client.forActor(w.manager);
+    const v = await mkVendor(w); const camp = await mkCampaign(w, v.id);
+    const tid = (await query<{ id: string }>(`SELECT id FROM tasks WHERE campaign_id=$1 AND step_key='CREATIVE_ASSETS'`, [camp.id]))[0].id;
+    expect((await query(`SELECT assignee_user_id FROM tasks WHERE id=$1`, [tid]))[0].assignee_user_id).toBe(w.editor.userId);
+    expect((await c.call('PATCH', `/tasks/${tid}`, { assigneeUserId: '' })).status).toBe(200);
+    expect((await query(`SELECT assignee_user_id FROM tasks WHERE id=$1`, [tid]))[0].assignee_user_id).toBeNull();
+    const h = await mkHost(w); const cm = (await c.call('POST', '/communities', { platform: 'LINE', name: `角色社群${Date.now()}` })).data.id;
+    expect((await c.call('POST', `/hosts/${h.id}/communities`, { communityId: cm, role: 'ADMIN' })).status).toBe(201);
+    expect((await query(`SELECT role FROM host_communities WHERE host_id=$1 AND community_id=$2`, [h.id, cm]))[0].role).toBe('ADMIN');
   });
 });

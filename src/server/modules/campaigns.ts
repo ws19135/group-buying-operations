@@ -10,7 +10,7 @@ import { ids, todayTaipei } from '../lib/ids';
 import { camelize } from '../lib/case';
 import { isIsoDate } from '../lib/dates';
 import { normalizeName, nonEmpty } from '../lib/text';
-import { likePattern, listPaged, pageParams, patchEntity } from '../lib/repo';
+import { likePattern, listPaged, pageParams, patchEntity, applyClears } from '../lib/repo';
 import { idempotent } from '../lib/idempotency';
 import { campaignScope } from '../lib/scope';
 import { detectConflicts, type Conflict } from './conflicts';
@@ -254,7 +254,8 @@ export const campaignUpdateSchema = z.object({
 
 export async function updateCampaign(actor: Actor, id: string, raw: z.input<typeof campaignUpdateSchema>) {
   requirePerm(actor, 'campaign.write');
-  const input = campaignUpdateSchema.parse(raw);
+  const parsed = campaignUpdateSchema.parse(raw);
+  const input = applyClears(parsed, raw, ['description','internalNote']);
   if (input.targetRevenue !== undefined && !can(actor, 'campaign.sensitive.read')) throw forbidden('沒有修改檔期目標的權限');
   return withTx(async (tx) => {
     const c = await loadScoped(actor, id, tx, true);

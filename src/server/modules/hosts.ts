@@ -8,7 +8,7 @@ import { ids } from '../lib/ids';
 import { isHttpUrl, normalizeName, nonEmpty } from '../lib/text';
 import { camelize } from '../lib/case';
 import { isIsoDate } from '../lib/dates';
-import { likePattern, listPaged, pageParams, patchEntity } from '../lib/repo';
+import { likePattern, listPaged, pageParams, patchEntity, applyClears } from '../lib/repo';
 import { idempotent } from '../lib/idempotency';
 
 const optText = (max = 500) => z.string().trim().max(max).optional().or(z.literal('').transform(() => undefined));
@@ -97,7 +97,8 @@ export async function getHost(actor: Actor, id: string) {
 
 export async function updateHost(actor: Actor, id: string, raw: z.input<typeof hostUpdateSchema>) {
   requirePerm(actor, 'host.write');
-  const input = hostUpdateSchema.parse(raw);
+  const parsed = hostUpdateSchema.parse(raw);
+  const input = applyClears(parsed, raw, ['legalName','contactEmail','contactPhone','lineId','audienceNote','cooperationTerms','internalNote']);
   return withTx(async (tx) => {
     if (input.displayName) {
       const dupe = await tx.query('SELECT id FROM hosts WHERE organization_id=$1 AND normalized_name=$2 AND deleted_at IS NULL AND id<>$3', [actor.orgId, normalizeName(input.displayName), id]);
@@ -269,7 +270,8 @@ export async function getCommunity(actor: Actor, id: string) {
 
 export async function updateCommunity(actor: Actor, id: string, raw: z.input<typeof communityUpdateSchema>) {
   requirePerm(actor, 'community.write');
-  const input = communityUpdateSchema.parse(raw);
+  const parsed = communityUpdateSchema.parse(raw);
+  const input = applyClears(parsed, raw, ['url','note']);
   return withTx(async (tx) => {
     if (input.name || input.platform) {
       const cur = await tx.query('SELECT name, platform FROM communities WHERE id=$1 AND organization_id=$2 AND deleted_at IS NULL', [id, actor.orgId]);

@@ -395,6 +395,7 @@
 | response | jsonb | 是 |  |  |
 | status_code | integer | 是 |  |  |
 | created_at | timestamp with time zone | 否 | `now()` |  |
+| request_hash | text | 是 |  |  |
 
 索引：`idempotency_keys_pkey`（唯一）
 

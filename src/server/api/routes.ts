@@ -80,7 +80,7 @@ export const routes: RouteDef[] = [
   R('POST', '/hosts/:id/archive', async (c) => hosts.archiveHost(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
   R('POST', '/hosts/:id/availability', async (c) => created(await hosts.addAvailability(c.actor, c.params.id, c.body as never))),
   R('POST', '/availability/:id/remove', async (c) => hosts.removeAvailability(c.actor, c.params.id)),
-  R('POST', '/hosts/:id/communities', async (c) => created(await hosts.linkHostCommunity(c.actor, c.params.id, body(c, z.object({ communityId: z.string(), role: z.enum(['OWNER', 'ADMIN', 'MEMBER']).optional() })).communityId))),
+  R('POST', '/hosts/:id/communities', async (c) => { const b = body(c, z.object({ communityId: z.string(), role: z.enum(['OWNER', 'ADMIN', 'MEMBER']).optional() })); return created(await hosts.linkHostCommunity(c.actor, c.params.id, b.communityId, b.role)); }),
   R('POST', '/hosts/:id/communities/:cid/unlink', async (c) => hosts.unlinkHostCommunity(c.actor, c.params.id, c.params.cid)),
   R('GET', '/communities', async (c) => hosts.listCommunities(c.actor, c.query)),
   R('POST', '/communities', async (c) => {

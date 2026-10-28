@@ -1,6 +1,7 @@
 import '@/server/api/routes';
 import { dispatch } from '@/server/api/router';
 import type { Actor } from '@/server/lib/permissions';
+import { resetRateLimits } from '@/server/lib/rate-limit';
 import { PW, emailOf } from './helpers';
 
 export interface ApiResult<T = any> { status: number; json: any; data: T; error?: { code: string; message: string; requestId: string }; headers: Headers } // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -10,6 +11,7 @@ export class Client {
   constructor(public email?: string, public password: string = PW) {}
 
   static async forActor(actor: Actor): Promise<Client> {
+    resetRateLimits();   // 登入限流是正式行為；測試之間不互相影響
     const c = new Client(emailOf(actor));
     const r = await c.call('POST', '/auth/login', { email: c.email, password: PW });
     if (r.status !== 200) throw new Error(`登入失敗 ${r.status} ${JSON.stringify(r.json)}`);

@@ -177,7 +177,7 @@ export async function setTaskStatus(actor: Actor, id: string, raw: z.input<typeo
 }
 
 const updateInput = z.object({
-  assigneeUserId: z.string().nullable().optional(),
+  assigneeUserId: z.string().nullable().optional().transform((v) => (v === '' ? null : v)),
   plannedStart: z.string().refine(isIsoDate, '日期格式需為 YYYY-MM-DD').optional(),
   plannedEnd: z.string().refine(isIsoDate, '日期格式需為 YYYY-MM-DD').optional(),
   reason: z.string().trim().max(500).optional(),

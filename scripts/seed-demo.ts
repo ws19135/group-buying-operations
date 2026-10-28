@@ -120,7 +120,10 @@ async function main() {
     for (let i = 0; i < count; i++) {
       n++;
       const day = d(startOffset + Math.floor(rand() * (endOffset - startOffset + 1)));
-      const hh = String(8 + Math.floor(rand() * 14)).padStart(2, '0'), mm = String(Math.floor(rand() * 60)).padStart(2, '0');
+      // 今天的訂單不可晚於現在（避免「資料截至」落在未來）
+      const nowHour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Taipei', hour: '2-digit', hourCycle: 'h23' }).format(new Date()));
+      const maxH = day === t ? Math.max(1, nowHour) : 22;
+      const hh = String(Math.min(maxH - 1, 8 + Math.floor(rand() * 14))).padStart(2, '0'), mm = String(Math.floor(rand() * 60)).padStart(2, '0');
       const r = rand();
       const status = r < 0.82 ? 'PAID' : r < 0.88 ? 'PARTIAL_REFUND' : r < 0.91 ? 'REFUNDED' : r < 0.96 ? 'CANCELLED' : 'PENDING';
       const lines = 1 + Math.floor(rand() * 2);

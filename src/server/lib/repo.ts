@@ -79,3 +79,14 @@ export async function patchEntity(tx: Tx, actor: Actor, spec: PatchSpec): Promis
   });
   return { before, after, changed: true };
 }
+
+/**
+ * 更新時「送空字串＝清空欄位」。各 schema 為了建立時的便利把空字串轉成 undefined（略過），
+ * 更新時用這個把原始請求中為 '' 的可清空欄位改成 null 後再寫入。必填欄位不在 keys 內，空字串仍會被驗證擋下。
+ */
+export function applyClears<T extends Record<string, unknown>>(input: T, raw: unknown, keys: readonly string[]): T {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const out: Record<string, unknown> = { ...input };
+  for (const k of keys) if (r[k] === '') out[k] = null;
+  return out as T;
+}

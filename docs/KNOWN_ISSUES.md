@@ -40,6 +40,6 @@
 |---|---|---|
 | T1 | 整合測試使用本機 PostgreSQL 16；CI 使用 `postgres:16` service | 尚未在其他版本驗證 |
 | T2 | E2E 煙霧測試只在本環境預裝的 Chromium 驗證，未做跨瀏覽器 | |
-| T3 | 沒有負載／壓力測試、沒有安全掃描（SAST／相依套件弱點掃描） | `npm audit` 結果見 TEST_REPORT |
+| T3 | 沒有負載／壓力測試、沒有 SAST。`npm audit`（2026-10-28）：**正式相依** zod 3.25 有 1 個 high（超大集合驗證耗記憶體；修正需升到 zod 4，屬破壞性升級；已以 4 MB 請求上限＋各陣列 `.max()` 降低風險）、next 15.5 經 postcss 有 1 moderate／1 high（建置期 CSS 處理；修正需升到 next 16，屬主版本升級）；**僅開發用** vitest／tinypool 有 critical（測試執行器，不隨產品部署） | 上線前評估升級 zod 4、next 16，並在 CI 加入 `npm audit --omit=dev` |
 | T4 | 與真實歷史結案數字的手工對帳（RM P3 Exit）無法進行 | 沒有真實資料（BLOCKED） |
 | T5 | 所有業績數字測試都使用虛構資料；KPI 口徑（ADR-010）尚未經 Owner／財務確認 | |
