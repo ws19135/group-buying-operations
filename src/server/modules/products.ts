@@ -6,13 +6,14 @@ import { can, requirePerm } from '../lib/permissions';
 import { AppError, forbidden, notFound, validation } from '../lib/errors';
 import { audit } from '../lib/audit';
 import { ids } from '../lib/ids';
-import { normalizeName, nonEmpty } from '../lib/text';
+import { isHttpUrl, normalizeName, nonEmpty } from '../lib/text';
 import { camelize } from '../lib/case';
 import { likePattern, listPaged, pageParams, patchEntity } from '../lib/repo';
 import { idempotent } from '../lib/idempotency';
 import { campaignScope } from '../lib/scope';
 
 const optText = (max = 500) => z.string().trim().max(max).optional().or(z.literal('').transform(() => undefined));
+const optUrl = (max = 500) => z.string().trim().max(max).refine(isHttpUrl, '連結需為 http:// 或 https:// 開頭的網址').optional().or(z.literal('').transform(() => undefined));
 const money = z.number().int().min(0).max(1_000_000_000);
 
 export const skuSchema = z.object({
@@ -28,7 +29,7 @@ export const productCreateSchema = z.object({
   name: z.string().trim().min(1, '請輸入商品名稱').max(160),
   category: optText(60),
   description: optText(3000),
-  listingUrl: optText(500),
+  listingUrl: optUrl(500),
   sellingPoints: optText(3000),
   complianceNote: optText(2000),
   skus: z.array(skuSchema).max(50).optional(),
@@ -205,7 +206,7 @@ export async function setProductReview(actor: Actor, id: string, to: string, not
 export const assetSchema = z.object({
   kind: z.enum(['IMAGE', 'DOCUMENT', 'CERTIFICATE', 'LINK', 'OTHER']),
   title: z.string().trim().min(1).max(160),
-  url: z.string().trim().url('連結格式不正確').max(500),
+  url: z.string().trim().max(500).refine(isHttpUrl, '連結需為 http:// 或 https:// 開頭的網址'),
 });
 export async function addAsset(actor: Actor, productId: string, raw: z.input<typeof assetSchema>) {
   requirePerm(actor, 'product.write');

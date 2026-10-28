@@ -10,3 +10,13 @@ export function nonEmpty(s: string | null | undefined): string | null {
   const t = (s ?? '').trim();
   return t ? t : null;
 }
+
+/** 使用者輸入的連結只接受 http(s)，避免 javascript:／data: 等 scheme 被存入後在介面上變成可執行連結 */
+export function isHttpUrl(s: string): boolean {
+  try {
+    const u = new URL(s);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}

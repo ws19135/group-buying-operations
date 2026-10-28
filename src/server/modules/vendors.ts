@@ -6,7 +6,7 @@ import { can, requirePerm } from '../lib/permissions';
 import { AppError, forbidden, notFound, validation } from '../lib/errors';
 import { audit } from '../lib/audit';
 import { ids } from '../lib/ids';
-import { normalizeName, nonEmpty } from '../lib/text';
+import { isHttpUrl, normalizeName, nonEmpty } from '../lib/text';
 import { camelize } from '../lib/case';
 import { likePattern, listPaged, pageParams, patchEntity, type ListResult } from '../lib/repo';
 import { idempotent } from '../lib/idempotency';
@@ -15,6 +15,7 @@ export const VENDOR_STATUS = ['PROSPECT', 'CONTACTED', 'ACTIVE', 'PAUSED', 'BLAC
 
 const taxId = z.string().trim().regex(/^\d{8}$/, '統一編號需為 8 碼數字').optional().or(z.literal('').transform(() => undefined));
 const optText = (max = 500) => z.string().trim().max(max).optional().or(z.literal('').transform(() => undefined));
+const optUrl = (max = 300) => z.string().trim().max(max).refine(isHttpUrl, '連結需為 http:// 或 https:// 開頭的網址').optional().or(z.literal('').transform(() => undefined));
 
 export const contactSchema = z.object({
   name: z.string().trim().min(1, '請輸入聯絡人姓名').max(80),
@@ -30,7 +31,7 @@ export const vendorCreateSchema = z.object({
   companyName: optText(160),
   taxId,
   category: optText(60),
-  website: optText(300),
+  website: optUrl(300),
   status: z.enum(VENDOR_STATUS).optional(),
   cooperationNote: optText(2000),
   internalNote: optText(2000),

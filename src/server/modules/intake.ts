@@ -5,7 +5,7 @@ import type { Actor } from '../lib/permissions';
 import { requirePerm, systemActor } from '../lib/permissions';
 import { audit } from '../lib/audit';
 import { ids } from '../lib/ids';
-import { normalizeName } from '../lib/text';
+import { isHttpUrl, normalizeName } from '../lib/text';
 import { camelize } from '../lib/case';
 import { isIsoDate } from '../lib/dates';
 import { insertVendor } from './vendors';
@@ -22,9 +22,9 @@ export const intakePayloadSchema = z.object({
   taxId: z.string().trim().regex(/^\d{8}$/).optional().or(z.literal('').transform(() => undefined)),
   contactName: z.string().trim().min(1).max(80),
   contactInfo: z.string().trim().min(1).max(200),
-  website: optText(300),
+  website: z.string().trim().max(300).refine(isHttpUrl, '連結需為 http(s) 網址').optional().or(z.literal('').transform(() => undefined)),
   itemName: z.string().trim().min(1).max(160),
-  itemUrl: optText(500),
+  itemUrl: z.string().trim().max(500).refine(isHttpUrl, '連結需為 http(s) 網址').optional().or(z.literal('').transform(() => undefined)),
   sellingPoints: optText(3000),
   listPrice: z.number().int().min(0).optional(),
   groupPrice: z.number().int().min(0).optional(),

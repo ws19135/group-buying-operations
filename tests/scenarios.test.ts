@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { query } from '@/server/lib/db';
 import { addCampaignHost, addCampaignProduct, addPlacement, createCampaign, getCampaign, removeCampaignHost, setPlacementStatus } from '@/server/modules/campaigns';
 import { createVendor } from '@/server/modules/vendors';
+import { receiveVendorIntake } from '@/server/modules/intake';
 import { addAvailability, linkHostCommunity, unlinkHostCommunity } from '@/server/modules/hosts';
 import { createProduct, addSku, setProductReview } from '@/server/modules/products';
 import { detectConflicts } from '@/server/modules/conflicts';
@@ -314,3 +315,22 @@ describe('API 層行為', () => {
 });
 
 void addCampaignHost; void transitionCampaign; void setTaskStatus;
+
+describe('連結欄位只接受 http(s)（避免 javascript: 之類的連結被存入）', () => {
+  it('廠商官網、社群網址、商品連結、素材連結、任務證據連結、進件連結', async () => {
+    const c = await Client.forActor(w.manager);
+    const bad = ['javascript:alert(1)', 'data:text/html,<script>1</script>', 'ftp://example.invalid/x', 'not a url'];
+    for (const b of bad) {
+      expect((await c.call('POST', '/vendors', { name: `連結測試${Math.random()}`, website: b })).status, b).toBe(422);
+      expect((await c.call('POST', '/communities', { platform: 'LINE', name: `連結測試${Math.random()}`, url: b })).status, b).toBe(422);
+    }
+    const v = await c.call('POST', '/vendors', { name: `連結廠商${Date.now()}`, website: 'https://example.invalid/shop' });
+    expect(v.status).toBe(201);
+    expect((await c.call('POST', '/products', { vendorId: v.data.id, name: '連結商品', listingUrl: 'javascript:alert(1)' })).status).toBe(422);
+    const p = await c.call('POST', '/products', { vendorId: v.data.id, name: '連結商品2', listingUrl: 'https://example.invalid/p' });
+    expect(p.status).toBe(201);
+    expect((await c.call('POST', `/products/${p.data.id}/assets`, { kind: 'LINK', title: 'x', url: 'javascript:alert(1)' })).status).toBe(422);
+    expect((await c.call('POST', `/products/${p.data.id}/assets`, { kind: 'LINK', title: 'x', url: 'https://example.invalid/a.png' })).status).toBe(201);
+    await expect(receiveVendorIntake(w.editor, `lnk-${Date.now()}`, { vendorName: 'A', contactName: 'b', contactInfo: 'c', itemName: 'd', itemUrl: 'javascript:alert(1)' })).rejects.toThrow();
+  });
+});

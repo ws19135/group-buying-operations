@@ -160,14 +160,18 @@ export async function listCampaigns(actor: Actor, q: URLSearchParams) {
   const internal = isInternal(actor);
   const sensitive = can(actor, 'campaign.sensitive.read');
   const hostFilter = actor.role === 'HOST' ? `AND ch.host_id = ANY(${(params.push(actor.hostIds), `$${params.length}`)}::text[])` : '';
+  params.push(todayTaipei());
+  const todayP = `$${params.length}`;
+  let roleFilter = '';
+  if (!internal) { params.push(actor.role); roleFilter = `AND t.owner_role=$${params.length}`; }
   const res = await listPaged<Record<string, unknown>>(
     `SELECT c.id, c.title, c.status, c.vendor_id, v.name AS vendor_name, c.open_date, c.close_date, c.owner_user_id, ou.name AS owner_name,
        c.version, c.updated_at ${sensitive ? ', c.target_revenue' : ''},
        (SELECT coalesce(json_agg(json_build_object('hostId', h.id, 'name', h.display_name, 'status', ch.status) ORDER BY ch.id), '[]'::json)
           FROM campaign_hosts ch JOIN hosts h ON h.id=ch.host_id WHERE ch.campaign_id=c.id AND ch.deleted_at IS NULL ${hostFilter}) AS hosts,
-       (SELECT count(*)::int FROM tasks t WHERE t.campaign_id=c.id AND t.status<>'SKIPPED' AND t.status<>'CANCELLED' ${internal ? '' : `AND t.owner_role='${actor.role}'`}) AS task_total,
-       (SELECT count(*)::int FROM tasks t WHERE t.campaign_id=c.id AND t.status='DONE' ${internal ? '' : `AND t.owner_role='${actor.role}'`}) AS task_done,
-       (SELECT count(*)::int FROM tasks t WHERE t.campaign_id=c.id AND t.status IN ('TODO','IN_PROGRESS','BLOCKED','WAITING_APPROVAL') AND t.planned_end < '${todayTaipei()}'::date ${internal ? '' : `AND t.owner_role='${actor.role}'`}) AS overdue_count
+       (SELECT count(*)::int FROM tasks t WHERE t.campaign_id=c.id AND t.status<>'SKIPPED' AND t.status<>'CANCELLED' ${roleFilter}) AS task_total,
+       (SELECT count(*)::int FROM tasks t WHERE t.campaign_id=c.id AND t.status='DONE' ${roleFilter}) AS task_done,
+       (SELECT count(*)::int FROM tasks t WHERE t.campaign_id=c.id AND t.status IN ('TODO','IN_PROGRESS','BLOCKED','WAITING_APPROVAL') AND t.planned_end < ${todayP}::date ${roleFilter}) AS overdue_count
      FROM campaigns c JOIN vendors v ON v.id=c.vendor_id LEFT JOIN users ou ON ou.id=c.owner_user_id
      WHERE ${where.join(' AND ')}`, params, 'c.open_date DESC NULLS LAST, c.id DESC', pageParams(q));
   res.items = camelize(res.items);

@@ -8,7 +8,7 @@ import { audit, emitEvent } from '../lib/audit';
 import { ids, todayTaipei } from '../lib/ids';
 import { camelize } from '../lib/case';
 import { isIsoDate } from '../lib/dates';
-import { nonEmpty } from '../lib/text';
+import { isHttpUrl, nonEmpty } from '../lib/text';
 import { listPaged, pageParams } from '../lib/repo';
 import { campaignScope } from '../lib/scope';
 import { computeSchedule, type CampaignInputs, type FixedDates, type Params } from '../workflow/schedule';
@@ -124,7 +124,7 @@ const statusInput = z.object({
   to: z.enum(['TODO', 'IN_PROGRESS', 'BLOCKED', 'DONE', 'SKIPPED']),
   reason: z.string().trim().max(500).optional(),
   evidenceNote: z.string().trim().max(1000).optional(),
-  evidenceUrl: z.string().trim().url().max(500).optional().or(z.literal('').transform(() => undefined)),
+  evidenceUrl: z.string().trim().max(500).refine(isHttpUrl, '連結需為 http:// 或 https:// 開頭的網址').optional().or(z.literal('').transform(() => undefined)),
   force: z.boolean().optional(),
 });
 

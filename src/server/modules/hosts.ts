@@ -5,13 +5,14 @@ import { can, requirePerm } from '../lib/permissions';
 import { AppError, forbidden, notFound, validation } from '../lib/errors';
 import { audit } from '../lib/audit';
 import { ids } from '../lib/ids';
-import { normalizeName, nonEmpty } from '../lib/text';
+import { isHttpUrl, normalizeName, nonEmpty } from '../lib/text';
 import { camelize } from '../lib/case';
 import { isIsoDate } from '../lib/dates';
 import { likePattern, listPaged, pageParams, patchEntity } from '../lib/repo';
 import { idempotent } from '../lib/idempotency';
 
 const optText = (max = 500) => z.string().trim().max(max).optional().or(z.literal('').transform(() => undefined));
+const optUrl = (max = 300) => z.string().trim().max(max).refine(isHttpUrl, '連結需為 http:// 或 https:// 開頭的網址').optional().or(z.literal('').transform(() => undefined));
 export const HOST_STATUS = ['ACTIVE', 'PAUSED', 'ENDED'] as const;
 export const PLATFORMS = ['LINE', 'FACEBOOK', 'INSTAGRAM', 'THREADS', 'YOUTUBE', 'OTHER'] as const;
 
@@ -163,7 +164,7 @@ export async function removeAvailability(actor: Actor, id: string) {
 export const communityCreateSchema = z.object({
   platform: z.enum(PLATFORMS),
   name: z.string().trim().min(1, '請輸入社群名稱').max(120),
-  url: optText(300),
+  url: optUrl(300),
   memberCount: z.number().int().min(0).optional(),
   status: z.enum(HOST_STATUS).optional(),
   note: optText(1000),
