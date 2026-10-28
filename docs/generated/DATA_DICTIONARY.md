@@ -218,6 +218,24 @@
 
 索引：`campaigns_dates_idx`、`campaigns_natural_uq`（唯一）、`campaigns_org_status_idx`、`campaigns_pkey`（唯一）、`campaigns_vendor_idx`
 
+## `case_events`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | bigint | 否 | `nextval('case_events_id_seq'::regclass)` |  |
+| organization_id | text | 否 |  | organizations.id |
+| case_id | text | 否 |  | service_cases.id |
+| event_type | text | 否 |  |  |
+| from_status | text | 是 |  |  |
+| to_status | text | 是 |  |  |
+| note | text | 是 |  |  |
+| is_internal | boolean | 否 | `false` |  |
+| actor_user_id | text | 是 |  |  |
+| actor_role | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+
+索引：`case_events_case_idx`、`case_events_pkey`（唯一）
+
 ## `commission_rules`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -315,6 +333,48 @@
 | version | integer | 否 | `1` |  |
 
 索引：`exceptions_campaign_idx`、`exceptions_open_uq`（唯一）、`exceptions_org_status_idx`、`exceptions_pkey`（唯一）
+
+## `expenses`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| campaign_id | text | 是 |  | campaigns.id |
+| category | text | 否 |  |  |
+| amount | bigint | 否 |  |  |
+| incurred_on | date | 否 |  |  |
+| note | text | 是 |  |  |
+| status | text | 否 | `'RECORDED'::text` |  |
+| void_reason | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`expenses_campaign_idx`、`expenses_org_idx`、`expenses_pkey`（唯一）
+
+## `fulfillment_batches`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| campaign_id | text | 否 |  | campaigns.id |
+| kind | text | 否 | `'ORDER'::text` |  |
+| label | text | 否 |  |  |
+| status | text | 否 | `'PENDING'::text` |  |
+| planned_ship_date | date | 是 |  |  |
+| note | text | 是 |  |  |
+| cancel_reason | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`fulfillment_batches_campaign_idx`、`fulfillment_batches_pkey`（唯一）
 
 ## `host_availability`
 
@@ -440,6 +500,49 @@
 
 索引：`import_errors_batch_idx`、`import_errors_pkey`（唯一）
 
+## `inventory_movements`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| sku_id | text | 否 |  | skus.id |
+| campaign_id | text | 是 |  | campaigns.id |
+| shipment_id | text | 是 |  | shipments.id |
+| delta | integer | 否 |  |  |
+| reason_code | text | 否 |  |  |
+| reason | text | 否 |  |  |
+| reverses_id | text | 是 |  | inventory_movements.id |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+
+索引：`inventory_movements_pkey`（唯一）、`inventory_reverses_uq`（唯一）、`inventory_sku_idx`
+
+## `invoices`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| invoice_no | text | 否 |  |  |
+| invoice_date | date | 否 |  |  |
+| amount | bigint | 否 |  |  |
+| title_text | text | 是 |  |  |
+| tax_id_text | text | 是 |  |  |
+| campaign_id | text | 是 |  | campaigns.id |
+| note | text | 是 |  |  |
+| status | text | 否 | `'DRAFT'::text` |  |
+| issued_at | timestamp with time zone | 是 |  |  |
+| voided_at | timestamp with time zone | 是 |  |  |
+| void_reason | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`invoices_no_live_uq`（唯一）、`invoices_org_idx`、`invoices_pkey`（唯一）
+
 ## `notifications`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -513,6 +616,34 @@
 
 索引：`organizations_pkey`（唯一）
 
+## `payments`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| direction | text | 否 |  |  |
+| counterparty_type | text | 否 |  |  |
+| counterparty_id | text | 是 |  |  |
+| amount | bigint | 否 |  |  |
+| paid_on | date | 否 |  |  |
+| reference_no | text | 是 |  |  |
+| note | text | 是 |  |  |
+| campaign_id | text | 是 |  | campaigns.id |
+| settlement_item_id | text | 是 |  | settlement_items.id |
+| match_status | text | 否 | `'UNMATCHED'::text` |  |
+| matched_at | timestamp with time zone | 是 |  |  |
+| matched_by | text | 是 |  |  |
+| status | text | 否 | `'ACTIVE'::text` |  |
+| void_reason | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`payments_campaign_idx`、`payments_org_idx`、`payments_pkey`（唯一）
+
 ## `product_assets`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -560,6 +691,32 @@
 
 索引：`products_name_uq`（唯一）、`products_pkey`（唯一）、`products_vendor_idx`
 
+## `refund_requests`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| case_id | text | 否 |  | service_cases.id |
+| campaign_id | text | 否 |  | campaigns.id |
+| order_id | text | 是 |  | orders.id |
+| amount | bigint | 否 |  |  |
+| reason | text | 否 |  |  |
+| status | text | 否 | `'REQUESTED'::text` |  |
+| requested_by | text | 是 |  |  |
+| decided_by | text | 是 |  |  |
+| decided_at | timestamp with time zone | 是 |  |  |
+| decision_note | text | 是 |  |  |
+| completed_by | text | 是 |  |  |
+| completed_at | timestamp with time zone | 是 |  |  |
+| completion_note | text | 是 |  |  |
+| writeback_applied | boolean | 否 | `false` |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| version | integer | 否 | `1` |  |
+
+索引：`refund_requests_case_idx`、`refund_requests_order_idx`、`refund_requests_pkey`（唯一）、`refund_requests_status_idx`
+
 ## `roles`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -570,6 +727,35 @@
 | is_internal | boolean | 否 | `true` |  |
 
 索引：`roles_pkey`（唯一）
+
+## `service_cases`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| campaign_id | text | 否 |  | campaigns.id |
+| order_id | text | 是 |  | orders.id |
+| case_type | text | 否 |  |  |
+| status | text | 否 | `'OPEN'::text` |  |
+| priority | text | 否 | `'MEDIUM'::text` |  |
+| title | text | 否 |  |  |
+| description | text | 是 |  |  |
+| buyer_ref | text | 是 |  |  |
+| assignee_user_id | text | 是 |  | users.id |
+| due_date | date | 是 |  |  |
+| resolution | text | 是 |  |  |
+| internal_note | text | 是 |  |  |
+| resolved_at | timestamp with time zone | 是 |  |  |
+| closed_at | timestamp with time zone | 是 |  |  |
+| cancelled_at | timestamp with time zone | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`service_cases_assignee_idx`、`service_cases_campaign_idx`、`service_cases_order_idx`、`service_cases_pkey`（唯一）、`service_cases_status_idx`
 
 ## `sessions`
 
@@ -585,6 +771,21 @@
 
 索引：`sessions_pkey`（唯一）、`sessions_user_idx`
 
+## `settlement_adjustments`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| settlement_id | text | 否 |  | settlements.id |
+| item_id | text | 否 |  | settlement_items.id |
+| amount | bigint | 否 |  |  |
+| reason | text | 否 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+
+索引：`settlement_adjustments_idx`、`settlement_adjustments_pkey`（唯一）
+
 ## `settlement_items`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -599,8 +800,13 @@
 | commission_override | bigint | 是 |  |  |
 | override_reason | text | 是 |  |  |
 | created_at | timestamp with time zone | 否 | `now()` |  |
+| rate_percent | numeric | 是 |  |  |
+| rule_id | text | 是 |  |  |
+| rule_version | integer | 是 |  |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| updated_by | text | 是 |  |  |
 
-索引：`settlement_items_pkey`（唯一）
+索引：`settlement_items_host_idx`、`settlement_items_pkey`（唯一）、`settlement_items_uq`（唯一）
 
 ## `settlements`
 
@@ -618,8 +824,46 @@
 | confirmed_at | timestamp with time zone | 是 |  |  |
 | confirmed_by | text | 是 |  |  |
 | version | integer | 否 | `1` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| campaign_id | text | 是 |  | campaigns.id |
+| data_as_of | timestamp with time zone | 是 |  |  |
+| data_status | text | 是 |  |  |
+| voided_at | timestamp with time zone | 是 |  |  |
+| voided_by | text | 是 |  |  |
+| void_reason | text | 是 |  |  |
 
-索引：`settlements_pkey`（唯一）
+索引：`settlements_campaign_live_uq`（唯一）、`settlements_org_idx`、`settlements_pkey`（唯一）
+
+## `shipments`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| campaign_id | text | 否 |  | campaigns.id |
+| batch_id | text | 否 |  | fulfillment_batches.id |
+| sku_id | text | 是 |  | skus.id |
+| quantity | integer | 否 |  |  |
+| carrier | text | 是 |  |  |
+| tracking_no | text | 是 |  |  |
+| status | text | 否 | `'PENDING'::text` |  |
+| planned_date | date | 是 |  |  |
+| shipped_date | date | 是 |  |  |
+| delivered_date | date | 是 |  |  |
+| exception_reason | text | 是 |  |  |
+| cancel_reason | text | 是 |  |  |
+| receipt_confirmed_at | timestamp with time zone | 是 |  |  |
+| receipt_confirmed_by | text | 是 |  |  |
+| receipt_signer | text | 是 |  |  |
+| receipt_note | text | 是 |  |  |
+| note | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`shipments_batch_idx`、`shipments_campaign_idx`、`shipments_pkey`（唯一）、`shipments_tracking_uq`（唯一）
 
 ## `skus`
 

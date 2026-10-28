@@ -9,7 +9,7 @@
 |---|---|:-:|---|
 | Typecheck | `npm run typecheck`（`tsc --noEmit`） | 0 | 無錯誤 |
 | Lint | `npm run lint`（`eslint .`） | 0 | 0 error、0 warning |
-| 單元＋整合＋API＋RBAC＋情境＋Migration | `npm test`（`vitest run`） | 0 | **11 個檔案、162 項測試全部通過**（約 9.6 秒） |
+| 單元＋整合＋API＋RBAC＋情境＋Migration | `npm test`（`vitest run`） | 0 | **14 個檔案、245 項測試全部通過**（約 12 秒；含 Phase 2 新增履約 29、售後 31、財務 22，另有 CSRF 比對測試） |
 | Build | `npm run build`（`next build`） | 0 | 成功，36 個頁面路由＋1 個 API 入口 |
 | E2E 煙霧測試 | `E2E_PASSWORD=… npm run e2e` | 0 | **49/49 通過**（`docs/uat/e2e-results.json`） |
 | DEMO 種子 | `npm run db:seed:demo` | 0 | 4 檔團購、110 張虛構訂單 |

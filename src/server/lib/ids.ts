@@ -51,6 +51,13 @@ export const ids = {
     return `IMP-${d}-${pad(await next(db, 'IMP', d), 4)}`;
   },
   commissionRule: async (db: Queryable) => `CMR-${pad(await next(db, 'CMR', ''), 4)}`,
+  serviceCase: async (db: Queryable) => `CAS-${pad(await next(db, 'CAS', ''), 6)}`,
+  refundRequest: async (db: Queryable) => `RFD-${pad(await next(db, 'RFD', ''), 6)}`,
+  settlementItem: async (db: Queryable) => `SIT-${pad(await next(db, 'SIT', ''), 6)}`,
+  settlementAdjustment: async (db: Queryable) => `ADJ-${pad(await next(db, 'ADJ', ''), 6)}`,
+  payment: async (db: Queryable) => `PAY-${pad(await next(db, 'PAY', ''), 6)}`,
+  invoice: async (db: Queryable) => `INV-${pad(await next(db, 'INV', ''), 6)}`,
+  expense: async (db: Queryable) => `EXP-${pad(await next(db, 'EXP', ''), 6)}`,
   settlement: async (db: Queryable, now: Date = new Date()) => {
     const d = todayTaipei(now).replace(/-/g, '');
     return `SET-${d}-${pad(await next(db, 'SET', d), 4)}`;
@@ -63,5 +70,8 @@ export const ids = {
     const d = todayTaipei(now).replace(/-/g, '');
     return `NTF-${d}-${pad(await next(db, 'NTF', d), 6)}`;
   },
+  fulfillmentBatch: async (db: Queryable) => `FBT-${pad(await next(db, 'FBT', ''), 6)}`,
+  shipment: async (db: Queryable) => `SHP-${pad(await next(db, 'SHP', ''), 6)}`,
+  inventoryMovement: async (db: Queryable) => `INV-${pad(await next(db, 'INV', ''), 6)}`,
   intake: async (db: Queryable) => `INT-${pad(await next(db, 'INT', ''), 6)}`,
 };

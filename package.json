@@ -17,10 +17,12 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:seed:demo": "tsx scripts/seed-demo.ts",
+    "db:seed:demo:aftersales": "tsx scripts/seed-demo-aftersales.ts",
     "db:reset": "tsx scripts/reset-db.ts",
     "worker:once": "tsx scripts/worker.ts --once",
     "worker": "tsx scripts/worker.ts",
     "e2e": "tsx scripts/e2e-smoke.ts",
+    "e2e:aftersales": "tsx scripts/e2e-aftersales.ts",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
     "docs:gen": "tsx scripts/gen-docs.ts",
     "bootstrap:demo": "tsx scripts/bootstrap-demo.ts"

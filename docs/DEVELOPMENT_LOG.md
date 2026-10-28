@@ -122,6 +122,29 @@
 
 ---
 
+## 2026-10-28｜Phase 2 切片：履約、售後、財務（分支 `feat/erp-mvp-phase1`）
+
+### 目標
+在 2026-11-03 內部討論前，補上 Phase 2 中**不需要外部資源、也不需要 Owner 先定義金額公式**的部分，供示範使用。
+
+### 變更
+- 履約與出貨（migration 009）：出貨批次／出貨單／簽收／庫存異動（append-only）。文件：`docs/phase2/FULFILLMENT.md`。
+- 退款、客訴、售後案件（migration 010）：案件、處理紀錄（append-only）、退款申請與核准／完成、可選寫回訂單（預設關）。文件：`docs/phase2/AFTERSALES.md`。
+- 財務（migration 011）：結算試算／覆寫／調整項／確認鎖定、入帳紀錄、費用、發票紀錄。文件：`docs/phase2/FINANCE.md`。
+- 新增 9 項權限（共 43）；導覽新增「履約出貨」「售後」「財務結算」「我的結算」；檔期頁加相關作業連結。
+- `bootstrap:demo` 串接三支 DEMO 種子（皆冪等）。
+- 佣金口徑抽成共用函式 `commission-calc.ts`，團主 Dashboard 與結算試算共用，輸出不變。
+
+### 證據
+- `npm test`：14 檔 245 項通過（含新增 82 項）；typecheck、lint、build 皆乾淨。
+- `npm run e2e`：49/49；售後另有 `e2e:aftersales` 52/52；財務 UI 19 項斷言（`docs/phase2/finance-ui-results.json`）。
+- 各模組以「故意改壞」驗證測試會轉紅（履約 3 種、售後 7 種、財務 6 種）。
+- 從零資料庫跑 `bootstrap:demo` 兩次（第二次全數略過）。
+
+### 與規格的差異／待 Owner 決策
+- 結算口徑、階梯與扣項、G4 是否自動串接、退款核准者可否為申請者本人、`WAITING_VENDOR` 是否保留、新增 `refund.complete` 權限是否保留。
+- 仍為 BLOCKED／未開工：電商訂單 API、真實 LINE／Email、廠商入口、歷史資料遷移與雙軌對帳、SSO／MFA、Production 與備份演練。
+
 ## 後續紀錄格式
 
 每次變更新增一節，至少包含：

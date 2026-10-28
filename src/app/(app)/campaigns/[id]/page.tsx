@@ -71,6 +71,9 @@ export default withActor(async (actor, props: { params: Params; searchParams: SP
           </div>
         ) : undefined} />
       <Banner kind={c.status === 'CANCELLED' ? 'error' : 'ok'} testid="next-step"><strong>下一步：</strong>{NEXT_HINT[c.status] ?? ''}{c.statusReason ? `（原因：${c.statusReason}）` : ''}</Banner>
+      {internal ? (
+        <p className="muted" data-testid="campaign-related-links">相關作業：<Link href={`/fulfillment?campaignId=${c.id}`}>履約出貨</Link>｜<Link href="/aftersales">售後案件</Link>｜<Link href="/finance">財務結算</Link></p>
+      ) : null}
       <Tabs tabs={tabs} current={tab} base={`/campaigns/${id}`} />
 
       {tab === 'overview' ? (

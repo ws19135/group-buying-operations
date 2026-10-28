@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-10-28T08:30:44.966Z",
+  "ranAt": "2026-10-28T13:29:09.675Z",
   "base": "http://127.0.0.1:3100",
   "total": 49,
   "passed": 49,
@@ -8,7 +8,7 @@
     {
       "name": "健康檢查含資料庫連線",
       "ok": true,
-      "detail": "{\"ok\":true,\"db\":\"up\",\"latencyMs\":1,\"env\":\"development\",\"time\":\"2026-10-28T08:30:15.698Z\"}"
+      "detail": "{\"ok\":true,\"db\":\"up\",\"latencyMs\":2,\"env\":\"development\",\"time\":\"2026-10-28T13:28:41.567Z\"}"
     },
     {
       "name": "未登入造訪 /dashboard 會被導到登入頁",

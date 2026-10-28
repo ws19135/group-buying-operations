@@ -32,11 +32,11 @@
 | 25 | `GET /api/health`（含資料庫連線檢查） | IMPLEMENTED_NEW | E2E／手動 | 無詳細就緒探針、無告警 |
 | 26 | CI（typecheck／lint／test／build） | IMPLEMENTED_NEW | `.github/workflows/ci.yml`（以 PR 上的執行結果為準） | 不含 E2E |
 | 27 | 資料字典／ERD／API 清單（自動產生） | IMPLEMENTED_NEW | `docs/generated` | 業務欄位定義＝PROPOSED |
-| 28 | 履約、庫存、出貨、簽收 | NOT_STARTED | — | Phase 2（RM P4） |
-| 29 | 退款、客訴、售後案件 | NOT_STARTED | — | Phase 2（RM P4）；目前只能由匯入訂單的退款欄位反映 |
+| 28 | 履約、庫存、出貨、簽收 | IMPLEMENTED_NEW | `tests/fulfillment.test.ts`（29）；`docs/phase2/FULFILLMENT.md` | 不接物流 API；庫存不隨出貨自動扣；團主／廠商不能自行簽收（廠商入口未解凍） |
+| 29 | 退款、客訴、售後案件 | IMPLEMENTED_NEW | `tests/aftersales.test.ts`（31）；`scripts/e2e-aftersales.ts`（52/52）；`docs/phase2/AFTERSALES.md` | 不處理真實金流退款；退款寫回訂單預設關閉；逾期案件未接例外自動化 |
 | 30 | 廠商入口（專屬連結／回填） | NOT_STARTED | — | 涉及對外存取，需 Owner 解凍 |
-| 31 | 入帳確認、銀行對帳、發票、費用 | NOT_STARTED | — | Phase 3（RM P5） |
-| 32 | 結算（試算／覆寫／確認／調整批次） | NOT_STARTED（僅 Schema） | `settlements` 表 | 公式待 Owner 定義 |
+| 31 | 入帳確認、銀行對帳、發票、費用 | IMPLEMENTED_NEW（僅紀錄） | `tests/finance.test.ts`（22）；`docs/phase2/FINANCE.md` | 只做紀錄與人工核對；不接銀行、電子發票、金流 |
+| 32 | 結算（試算／覆寫／確認／調整批次） | IMPLEMENTED_NEW（試算，口徑待確認） | `tests/finance.test.ts`；`docs/phase2/FINANCE.md` | 只重用既有佣金口徑；階梯／扣項／運費／平台費／退款扣回時點未做；確認不會自動推進 G4 |
 | 33 | 歷史資料遷移與雙軌對帳 | NOT_STARTED | — | 待決策 #5、#6 |
 | 34 | Google Sheets／Apps Script 相容層、Google 日曆同步 | PROPOSED / BLOCKED | — | 需 Google 授權；目前 CSV＋應用內行事曆 |
 | 35 | 電商訂單 API／Webhook | BLOCKED | — | 缺平台與憑證 |

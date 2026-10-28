@@ -11,7 +11,7 @@ if (process.env.ALLOW_DEMO_IN_PRODUCTION !== 'yes') {
   console.error('bootstrap:demo 只用於示範環境，請設定 ALLOW_DEMO_IN_PRODUCTION=yes 確認這是放虛構資料的環境。');
   process.exit(1);
 }
-for (const f of ['scripts/seed.ts', 'scripts/seed-demo.ts']) {
+for (const f of ['scripts/seed.ts', 'scripts/seed-demo.ts', 'scripts/seed-demo-fulfillment.ts', 'scripts/seed-demo-aftersales.ts', 'scripts/seed-demo-finance.ts']) {
   console.info(`> tsx ${f}`);
   execFileSync(process.execPath, ['node_modules/tsx/dist/cli.mjs', f], { stdio: 'inherit', env: process.env });
 }

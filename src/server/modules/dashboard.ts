@@ -7,6 +7,7 @@ import { addDays, monthRange } from '../lib/dates';
 import { todayTaipei } from '../lib/ids';
 import { camelize } from '../lib/case';
 import { campaignScope } from '../lib/scope';
+import { pickCommissionRule } from '../lib/commission-calc';
 import { attainment, computeSalesFromAgg, dataStatus, estimateCommission, KPI_DEFS, SALES_STATUSES, type DataStatus, type SalesAggRow } from '../lib/kpi';
 
 export interface DataQuality {
@@ -225,13 +226,7 @@ export async function getHostDashboard(actor: Actor, hostIdParam?: string | null
   const rules = (await db.query(
     `SELECT id, scope_type, campaign_id, rate_percent, effective_from, effective_to FROM commission_rules
      WHERE organization_id=$1 AND host_id=$2 AND status='ACTIVE' ORDER BY effective_from DESC`, [actor.orgId, hostId])).rows;
-  const pickRule = (c: { id: string; open_date: string | null; commission_rule_id: string | null }) => {
-    const byId = rules.find((r) => r.id === c.commission_rule_id);
-    if (byId) return byId;
-    const ref = c.open_date ?? today;
-    return rules.find((r) => r.scope_type === 'CAMPAIGN_HOST' && r.campaign_id === c.id)
-      ?? rules.find((r) => r.scope_type === 'HOST_DEFAULT' && r.effective_from <= ref && (!r.effective_to || r.effective_to >= ref));
-  };
+  const pickRule = (c: { id: string; open_date: string | null; commission_rule_id: string | null }) => pickCommissionRule(rules, c, today);
 
   const myCampaigns = campaigns.map((c) => {
     const rule = pickRule(c);

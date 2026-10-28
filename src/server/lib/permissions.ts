@@ -29,6 +29,9 @@ export type Permission =
   | 'dashboard.admin' | 'dashboard.host'
   | 'automation.manage' | 'automation.run'
   | 'exception.read' | 'exception.manage'
+  | 'aftersales.read' | 'aftersales.write' | 'refund.approve' | 'refund.complete'
+  | 'finance.read' | 'finance.write' | 'settlement.confirm'
+  | 'fulfillment.read' | 'fulfillment.write'
   | 'intake.write';
 
 const ALL: Permission[] = [
@@ -45,6 +48,9 @@ const ALL: Permission[] = [
   'dashboard.admin', 'dashboard.host',
   'automation.manage', 'automation.run',
   'exception.read', 'exception.manage',
+  'aftersales.read', 'aftersales.write', 'refund.approve', 'refund.complete',
+  'finance.read', 'finance.write', 'settlement.confirm',
+  'fulfillment.read', 'fulfillment.write',
   'intake.write',
 ];
 
@@ -54,21 +60,25 @@ const ALL: Permission[] = [
  */
 export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
   SYSTEM_ADMIN: ALL,
-  OPS_MANAGER: ALL.filter((p) => !['user.manage', 'commission.write', 'host.self', 'vendor.self'].includes(p)) as Permission[],
+  OPS_MANAGER: ALL.filter((p) => !['user.manage', 'commission.write', 'host.self', 'vendor.self', 'refund.complete', 'finance.write', 'settlement.confirm'].includes(p)) as Permission[],
   OPS_EDITOR: [
     'vendor.read', 'vendor.write', 'host.read', 'host.write', 'community.read', 'community.write',
     'product.read', 'product.write', 'campaign.read', 'campaign.write', 'campaign.transition',
     'task.read', 'task.write', 'task.complete', 'approval.request', 'approval.read',
     'dashboard.admin', 'exception.read', 'exception.manage', 'intake.write', 'order.read', 'order.import',
+    'fulfillment.read', 'fulfillment.write',
+    'aftersales.read', 'aftersales.write',
   ],
   FINANCE: [
     'vendor.read', 'host.read', 'community.read', 'product.read', 'product.cost.read',
     'campaign.read', 'campaign.sensitive.read', 'task.read', 'task.complete', 'approval.read',
     'order.read', 'commission.read', 'commission.write', 'dashboard.admin', 'audit.read',
-    'exception.read',
+    'fulfillment.read',
+    'exception.read', 'aftersales.read', 'refund.complete',
+    'finance.read', 'finance.write', 'settlement.confirm',
   ],
-  HOST: ['host.self', 'community.read', 'product.read', 'campaign.read', 'task.read', 'task.complete', 'dashboard.host', 'commission.read'],
-  VENDOR: ['vendor.self', 'product.read', 'campaign.read', 'task.read', 'task.complete'],
+  HOST: ['host.self', 'community.read', 'product.read', 'campaign.read', 'task.read', 'task.complete', 'dashboard.host', 'commission.read', 'fulfillment.read', 'aftersales.read'],
+  VENDOR: ['vendor.self', 'product.read', 'campaign.read', 'task.read', 'task.complete', 'fulfillment.read', 'aftersales.read'],
 };
 
 export function isRole(v: string): v is RoleKey {
