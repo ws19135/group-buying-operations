@@ -30,10 +30,10 @@ export const importSchema = z.object({
 interface RowErr { line: number; code: string; message: string; raw?: Record<string, string> }
 interface OrderLine { line: number; raw: Record<string, string>; sku: string; qty: number; unit: number }
 
-/** 台北時間 'YYYY-MM-DD HH:mm[:ss]' 或含時區的 ISO 字串 → Date */
+/** 台北時間 'YYYY-MM-DD HH:mm[:ss]'（空白分隔）或含時區的 ISO 字串 → Date。無時區的 'T' 格式有歧義，一律拒絕 */
 export function parseOrderedAt(s: string): Date | null {
   const t = s.trim();
-  if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/.test(t)) {
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(t)) {
     const d = new Date(`${t.replace(' ', 'T')}${t.length === 16 ? ':00' : ''}+08:00`);
     return Number.isNaN(d.getTime()) ? null : d;
   }

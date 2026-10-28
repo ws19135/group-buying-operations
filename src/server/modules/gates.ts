@@ -69,7 +69,9 @@ export async function runGateChecks(db: Queryable, orgId: string, campaignId: st
     out.push(item('orders_fresh', '訂單資料截至結團日之後', 'WARN', !!fresh, imp.rows[0].d ? `最近資料截至 ${imp.rows[0].d.toISOString()}` : '尚無匯入紀錄'));
   }
   if (gate === 'G4') {
-    out.push(item('invoice_done', '請款作業已完成', 'BLOCK', pendingDeps.length === 0));
+    const inv = await db.query(`SELECT status FROM tasks WHERE campaign_id=$1 AND step_key='INVOICE_REQUEST'`, [campaignId]);
+    const invOk = !inv.rows[0] || ['DONE', 'SKIPPED'].includes(inv.rows[0].status);
+    out.push(item('invoice_done', '請款作業（開發票請款）已完成', 'BLOCK', invOk, invOk ? undefined : `目前狀態：${inv.rows[0].status}`));
     out.push(item('settlement_module', '結算試算（Phase 2 尚未實作）', 'WARN', false, '目前以人工確認結算結果；佣金試算與批次結算將於 Phase 2 提供'));
   }
   if (gate === 'G5') {

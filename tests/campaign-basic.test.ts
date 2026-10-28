@@ -15,7 +15,7 @@ describe('檔期建立與任務產生', () => {
     expect(r.tasksCreated).toBe(15);
     const c = await getCampaign(w.editor, r.id);
     expect(c.tasks).toHaveLength(15);
-    const byKey = Object.fromEntries((c.tasks as { stepKey: string; status: string; plannedStart: string; plannedEnd: string }[]).map((t) => [t.stepKey, t]));
+    const byKey = Object.fromEntries((c.tasks as unknown as { stepKey: string; status: string; plannedStart: string; plannedEnd: string }[]).map((t) => [t.stepKey, t]));
     expect(byKey.SAMPLE_SHIP.plannedStart).toBe(dayOffset(5));
     expect(byKey.SAMPLE_SHIP.plannedEnd).toBe(dayOffset(11)); // 7 天，含頭尾
     expect(byKey.TRIAL_ARRIVAL.plannedStart).toBe(dayOffset(12));

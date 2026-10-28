@@ -20,6 +20,8 @@ export interface World {
 }
 
 export const PW = 'Test-Password-123';
+const emails = new Map<string, string>();
+export const emailOf = (a: Actor): string => emails.get(a.userId as string) as string;
 
 export function mkActor(orgId: string, userId: string, role: RoleKey, extra: Partial<Actor> = {}): Actor {
   return { type: 'USER', userId, orgId, role, name: role, hostIds: [], vendorIds: [], requestId: randomUUID(), source: 'TEST', ...extra };
@@ -28,6 +30,7 @@ export function mkActor(orgId: string, userId: string, role: RoleKey, extra: Par
 export async function addUser(orgId: string, role: RoleKey, opts: { hostIds?: string[]; vendorIds?: string[]; email?: string } = {}): Promise<Actor> {
   const email = opts.email ?? `${role.toLowerCase()}-${randomUUID().slice(0, 8)}@example.invalid`;
   const id = await withTx((tx) => createInitialUser(tx, orgId, { email, name: `${role}-測試`, role, password: PW, hostIds: opts.hostIds, vendorIds: opts.vendorIds }));
+  emails.set(id, email);
   return mkActor(orgId, id, role, { hostIds: opts.hostIds ?? [], vendorIds: opts.vendorIds ?? [] });
 }
 
@@ -71,9 +74,9 @@ export async function mkCommunity(w: World, hostIds: string[], name = `社群${u
   return { id: r.id, name };
 }
 
-export async function mkCampaign(w: World, vendorId: string, over: Record<string, unknown> = {}) {
+export async function mkCampaign(w: World, vendorId: string, over: Record<string, unknown> = {}, by: Actor = w.editor) {
   const today = todayTaipei();
-  const r = await createCampaign(w.editor, {
+  const r = await createCampaign(by, {
     title: `檔期${uniq()}`, vendorId,
     sampleReadyDate: addDays(today, 5), openDate: addDays(today, 40), closeDate: addDays(today, 50),
     ...over,

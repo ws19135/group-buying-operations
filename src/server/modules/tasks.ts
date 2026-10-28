@@ -113,6 +113,8 @@ async function loadTaskScoped(tx: Tx, actor: Actor, id: string, lock = false) {
 
 /** 這位使用者能不能操作這個任務：負責角色本人，或有任務管理權限的內部角色 */
 function assertCanActOn(actor: Actor, t: Record<string, unknown>) {
+  // 團主／廠商看不到其他角色的任務：一律回報「找不到」，不洩漏任務是否存在
+  if ((actor.role === 'HOST' || actor.role === 'VENDOR') && t['owner_role'] !== actor.role) throw notFound('任務');
   if (can(actor, 'task.write')) return;
   if (can(actor, 'task.complete') && actor.role === t['owner_role']) return;
   throw forbidden('你不是此任務的負責角色');
