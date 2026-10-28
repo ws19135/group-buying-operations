@@ -1,0 +1,14 @@
+flowchart LR
+    V[Vendor 供應商] --> P[Product / SKU 商品]
+    P --> C[Campaign 檔期]
+    K[Collaborator 團主] --> C
+    C --> O[Order 訂單]
+    O --> F[Fulfillment 履約]
+    O --> R[Refund 退款]
+    O --> M[Commission 分潤]
+    R --> M
+    M --> S[Settlement 結算]
+    F --> S
+    T[Task 任務] -.追蹤.-> C
+    L[Event Log / Change History] -.稽核.-> O
+    A[Role / Permission 權限] -.控制.-> S
