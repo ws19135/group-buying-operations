@@ -72,6 +72,6 @@ export const ids = {
   },
   fulfillmentBatch: async (db: Queryable) => `FBT-${pad(await next(db, 'FBT', ''), 6)}`,
   shipment: async (db: Queryable) => `SHP-${pad(await next(db, 'SHP', ''), 6)}`,
-  inventoryMovement: async (db: Queryable) => `INV-${pad(await next(db, 'INV', ''), 6)}`,
+  inventoryMovement: async (db: Queryable) => `STK-${pad(await next(db, 'STK', ''), 6)}`,
   intake: async (db: Queryable) => `INT-${pad(await next(db, 'INT', ''), 6)}`,
 };

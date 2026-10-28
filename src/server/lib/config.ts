@@ -12,15 +12,6 @@ export function databaseUrl(): string {
   return url;
 }
 
-export function sessionSecret(): string {
-  const s = process.env.SESSION_SECRET;
-  if (!s || s.length < 32) {
-    if (appEnv() === 'production') throw new Error('production 必須設定至少 32 字元的 SESSION_SECRET');
-    return 'dev-only-insecure-secret-do-not-use-in-production';
-  }
-  return s;
-}
-
 export function automationEnabled(): boolean {
   return (process.env.AUTOMATION_ENABLED ?? 'off').toLowerCase() === 'on';
 }

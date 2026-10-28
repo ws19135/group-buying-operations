@@ -32,7 +32,7 @@ async function waitHealthy(timeoutMs = 60_000): Promise<void> {
 
 async function startServer(): Promise<ChildProcess | null> {
   if (process.env.E2E_BASE_URL) return null;
-  const child = spawn('npx', ['next', 'start', '-p', String(PORT)], { env: { ...process.env, APP_ENV: process.env.APP_ENV ?? 'development', SESSION_SECRET: process.env.SESSION_SECRET ?? 'e2e-only-secret-0123456789abcdef0123' }, stdio: 'ignore' });
+  const child = spawn('npx', ['next', 'start', '-p', String(PORT)], { env: { ...process.env, APP_ENV: process.env.APP_ENV ?? 'development' }, stdio: 'ignore' });
   await waitHealthy();
   return child;
 }

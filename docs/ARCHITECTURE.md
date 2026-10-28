@@ -15,11 +15,12 @@ Next.js 15（App Router）
  └─ src/server/              ★ 與框架無關的服務層（本系統的核心）
      ├─ lib/        config、db（pg Pool、交易）、ids、dates、permissions、scope（資料範圍）、audit、idempotency、kpi、csv、password、repo
      ├─ modules/    auth、vendors、hosts(含社群)、products、campaigns、conflicts、tasks、gates(核准/狀態)、orders(匯入)、commission、
-     │              dashboard、automation、notifications、intake、audit-read、org
+     │              dashboard、automation、notifications、intake、audit-read、org、
+     │              fulfillment、aftersales、settlements／finance（Phase 2）
      └─ workflow/   schedule（排程引擎，純函式）、state（狀態機，純資料）、templates、template-default
    │
    ▼
-PostgreSQL 16（43 張表；觸發器：禁止 DELETE、稽核不可改、updated_at/version 自動維護）
+PostgreSQL 16（53 張表；觸發器：禁止 DELETE、稽核不可改、updated_at/version 自動維護）
    ▲
 Worker（scripts/worker.ts）— 預設關閉；讀 events（outbox）、跑 8 個自動化工作、派送通知（僅測試 Adapter）
 ```
@@ -44,7 +45,7 @@ Worker（scripts/worker.ts）— 預設關閉；讀 events（outbox）、跑 8 �
 ## 3. 目錄
 
 ```
-migrations/            8 支 SQL（001 基礎 … 008 冪等雜湊）；不可修改已套用的檔案
+migrations/            11 支 SQL（001 基礎 … 008 冪等雜湊、009 履約、010 售後、011 財務）；不可修改已套用的檔案
 scripts/               migrate、seed、seed-demo、reset-db、worker、gen-docs、e2e-smoke
 src/app/               Next.js 頁面與 API 入口
 src/server/            服務層（見上）

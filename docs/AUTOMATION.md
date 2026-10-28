@@ -22,7 +22,7 @@
 | `overdue_detection` | 逾期任務開例外（`dedupe_key=task_overdue:<id>`）；日期調整或完成後自動結案例外 | 每日 | 例外 |
 | `prelaunch_check` | 已排程且 3 天內開團的檔期重跑 G2 檢查，不通過 → 高風險例外＋通知負責人；通過 → 結案例外。**不會自動核准或開團** | 每日 | 例外、通知 |
 | `campaign_status_progress` | 到開團日：已排程 → 進行中；過結團日：進行中 → 待結單確認（系統操作，稽核 `actor_type=SYSTEM`）；確保結團後任務齊全；通知負責人與主管申請 G3 | 每小時 | 狀態、通知 |
-| `daily_summary` | 產生每日營運摘要（`daily_summaries`，每天一筆）並對管理者／營運主管排入 EMAIL 通知（僅測試 Adapter） | 每日 | 摘要資料、通知 |
+| `daily_summary` | 產生每日營運摘要（`daily_summaries`，每天一筆）並對管理者／營運主管排入 EMAIL 通知（僅測試 Adapter）；同一工作順手清除超過 30 天的 `idempotency_keys`（K6，技術性去重快取；結果在 `stats.idempotencyKeysPurged`） | 每日 | 摘要資料、通知、過期的去重快取 |
 | `notification_dispatch` | 派送佇列：IN_APP 直接送達；EMAIL／LINE 交給 Adapter；失敗重試，3 次後 `DEAD` 並建立例外 | 每分鐘 | 通知狀態 |
 
 ## 例外（`exceptions`）

@@ -52,7 +52,8 @@ function pgToApp(e: unknown): AppError | null {
   if (!code || typeof code !== 'string') return null;
   if (code === '23505') return new AppError('CONFLICT', '資料重複：相同的資料已存在');
   if (code === '23503') return new AppError('VALIDATION', '關聯的資料不存在或仍被使用中');
-  if (code === '23514' || code === '22P02' || code === '22007' || code === '22003') return new AppError('VALIDATION', '欄位內容不符合規則');
+  // 22021／22P05：字串含 NUL 或無法轉碼；2201W／2201X：LIMIT／OFFSET 為負值——都是使用者輸入造成的，不是伺服器錯誤
+  if (code === '23514' || code === '22P02' || code === '22007' || code === '22003' || code === '22021' || code === '22P05' || code === '2201W' || code === '2201X') return new AppError('VALIDATION', '欄位內容不符合規則');
   if (code === '23001') return new AppError('FORBIDDEN', '此資料不可實體刪除');
   if (code === '40001' || code === '40P01') return new AppError('CONFLICT', '系統忙碌，請稍後重試');
   return null;
@@ -86,17 +87,24 @@ export async function dispatch(req: Request, pathSegments: string[]): Promise<Re
   const method = req.method.toUpperCase();
   try {
     const url = new URL(req.url);
-    const path = '/' + pathSegments.map(encodeURIComponent).join('/').replace(/%40/g, '@');
+    let path: string;
+    try { path = '/' + pathSegments.map(encodeURIComponent).join('/').replace(/%40/g, '@'); } catch { return json(400, { error: { code: 'VALIDATION', message: '網址格式錯誤', requestId } }); }
     const candidates = compiled.get(method) ?? [];
     let hit: { params: Record<string, string>; def: RouteDef } | null = null;
     for (const c of candidates) {
       const m = c.re.exec(path);
-      if (m) { hit = { params: Object.fromEntries(c.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])])), def: c.def }; break; }
+      if (m) {
+        try { hit = { params: Object.fromEntries(c.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])])), def: c.def }; } catch { return json(400, { error: { code: 'VALIDATION', message: '網址格式錯誤', requestId } }); }
+        break;
+      }
     }
     if (!hit) {
       const otherMethod = [...compiled.entries()].some(([m2, arr]) => m2 !== method && arr.some((c) => c.re.test(path)));
       return json(otherMethod ? 405 : 404, { error: { code: 'NOT_FOUND', message: otherMethod ? '不支援的請求方法' : '找不到此 API', requestId } });
     }
+    // NUL 字元無法存進 PostgreSQL 文字欄位；在入口就擋下，避免各個查詢各自出現 5xx
+    for (const [k, v] of url.searchParams) if (k.includes('\u0000') || v.includes('\u0000')) return json(422, { error: { code: 'VALIDATION', message: '查詢參數含不允許的字元', requestId } });
+    if (Object.values(hit.params).some((v) => v.includes('\u0000'))) return json(404, { error: { code: 'NOT_FOUND', message: '找不到此資料', requestId } });
     let body: unknown = undefined;
     if (method !== 'GET' && method !== 'HEAD') {
       if (!sameOrigin(req)) return json(403, { error: { code: 'FORBIDDEN', message: '跨來源請求被拒絕', requestId } });
@@ -105,6 +113,7 @@ export async function dispatch(req: Request, pathSegments: string[]): Promise<Re
       if (declared > MAX_BODY_BYTES) return json(413, { error: { code: 'VALIDATION', message: '請求內容過大', requestId } });
       const text = await req.text();
       if (text.length > MAX_BODY_BYTES) return json(413, { error: { code: 'VALIDATION', message: '請求內容過大', requestId } });
+      if (text.includes('\u0000') || /\\u0000/i.test(text)) return json(422, { error: { code: 'VALIDATION', message: '內容含不允許的字元', requestId } });
       if (text) {
         if (!ct.includes('application/json')) return json(415, { error: { code: 'VALIDATION', message: '請求內容必須是 application/json', requestId } });
         try { body = JSON.parse(text); } catch { return json(400, { error: { code: 'VALIDATION', message: 'JSON 格式錯誤', requestId } }); }

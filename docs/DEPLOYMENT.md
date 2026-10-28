@@ -17,7 +17,7 @@ sudo -u postgres psql -c "create database erp_test owner erp"
 
 # 1. 安裝依賴與設定
 npm ci
-cp .env.example .env.local        # 然後編輯：ADMIN_INITIAL_PASSWORD、DEMO_PASSWORD、SESSION_SECRET
+cp .env.example .env.local        # 然後編輯：ADMIN_INITIAL_PASSWORD、DEMO_PASSWORD
 
 # 2. 建 schema 與基礎資料（組織、預設流程模板、初始管理者；沒有任何假資料）
 npm run db:migrate
@@ -60,9 +60,8 @@ npm run docs:gen       # 重新產生 docs/generated（資料字典、ERD、API 
 
 | 變數 | 說明 |
 |---|---|
-| `APP_ENV` | `development`／`test`／`production`；production 會要求 `SESSION_SECRET` ≥ 32 字元、cookie 加 Secure、拒絕 DEMO 種子與資料庫重設 |
+| `APP_ENV` | `development`／`test`／`production`；production 的 cookie 會加 Secure、拒絕 DEMO 種子與資料庫重設 |
 | `DATABASE_URL`／`TEST_DATABASE_URL` | PostgreSQL 連線字串 |
-| `SESSION_SECRET` | 目前 session 以隨機 token＋資料庫雜湊，不依賴此值簽章；保留給後續簽章用途，production 仍要求設定 |
 | `ADMIN_EMAIL`／`ADMIN_INITIAL_PASSWORD`／`ADMIN_NAME` | 僅 `db:seed` 使用 |
 | `DEMO_PASSWORD` | 僅 `db:seed:demo` 使用 |
 | `NOTIFY_ADAPTER` | 目前只支援 `test` |

@@ -122,6 +122,11 @@ export async function updatePayment(actor: Actor, id: string, raw: unknown) {
     if (cur.match_status === 'MATCHED') throw precondition('已核對的入帳不可修改，請先取消核對');
     const patch: Record<string, unknown> = { ...p };
     delete patch.version;
+    // 已關聯結算項目、且這次沒有更換／解除項目時，檔期必須維持等於該項目所屬檔期（不可單獨改掉或清空檔期）
+    if (p.settlementItemId === undefined && cur.settlement_item_id && p.campaignId !== undefined) {
+      const kept = await tx.query<{ campaign_id: string }>('SELECT campaign_id FROM settlement_items WHERE id=$1 AND organization_id=$2', [cur.settlement_item_id, actor.orgId]);
+      if (kept.rows[0] && kept.rows[0].campaign_id !== p.campaignId) throw validation('此入帳已關聯結算項目，檔期必須與該結算項目所屬檔期一致；要更換檔期請先解除或更換結算項目關聯');
+    }
     if (p.settlementItemId) {
       const ic = await itemCampaign(tx, actor, p.settlementItemId);
       const wanted = p.campaignId === undefined ? cur.campaign_id : p.campaignId;

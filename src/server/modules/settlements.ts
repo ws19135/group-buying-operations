@@ -192,6 +192,10 @@ export async function confirmSettlement(actor: Actor, id: string, raw: { note?: 
   return withTx(async (tx) => {
     const s = await lockSettlement(tx, actor, id);
     if (s.status !== 'DRAFT') throw precondition('只有草稿可以確認');
+    // 確認會鎖定金額：先等進行中的訂單匯入結束（與匯入同一把 advisory lock），並鎖住此檔期既有訂單列，
+    // 避免「過期檢查通過之後、確認提交之前」剛好有訂單變動（匯入更新、退款寫回），讓已確認的結算與實際訂單對不上
+    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`import:${actor.orgId}`]);
+    await tx.query('SELECT 1 FROM orders WHERE organization_id=$1 AND campaign_id=$2 FOR SHARE', [actor.orgId, s.campaign_id]);
     const items = (await tx.query<ItemRow>(`SELECT i.*, h.display_name AS host_name FROM settlement_items i JOIN hosts h ON h.id=i.host_id WHERE i.settlement_id=$1 ORDER BY i.host_id`, [id])).rows;
     if (!items.length) throw precondition('此結算沒有任何團主項目，無法確認');
     const calc = await campaignHostCommission(tx, actor.orgId, s.campaign_id);

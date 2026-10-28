@@ -23,7 +23,6 @@ jobs:
       APP_ENV: test
       DATABASE_URL: postgres://erp:erp_ci_pw@127.0.0.1:5432/erp_test
       TEST_DATABASE_URL: postgres://erp:erp_ci_pw@127.0.0.1:5432/erp_test
-      SESSION_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v4
