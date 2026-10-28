@@ -67,6 +67,11 @@ async function salesAgg(db: Queryable, scopeSql: string, scopeParams: unknown[],
   return r.rows.map((x) => ({ status: x.status, n: x.n, gross: Number(x.gross), refund: Number(x.refund), refundedN: x.refunded_n }));
 }
 
+/** 檔期的參與團主（不含已婉拒）：主要團主排前面。供儀表板清單標出「是哪位團主」 */
+const CAMPAIGN_HOSTS_JSON = `(SELECT coalesce(json_agg(json_build_object('hostId', h.id, 'name', h.display_name, 'role', ch.role, 'status', ch.status) ORDER BY (ch.role = 'PRIMARY') DESC, h.display_name), '[]'::json)
+  FROM campaign_hosts ch JOIN hosts h ON h.id = ch.host_id
+  WHERE ch.campaign_id = c.id AND ch.deleted_at IS NULL AND h.deleted_at IS NULL AND ch.status <> 'DECLINED')`;
+
 // ===================== 管理者 Dashboard =====================
 export async function getAdminDashboard(actor: Actor, periodYm?: string | null) {
   requirePerm(actor, 'dashboard.admin');
@@ -81,13 +86,15 @@ export async function getAdminDashboard(actor: Actor, periodYm?: string | null) 
   const showTargets = showSales && can(actor, 'campaign.sensitive.read');   // 檔期目標屬內部敏感資料
 
   const pipeline = (await db.query(`SELECT c.status, count(*)::int AS n FROM campaigns c WHERE (${sc.sql}) GROUP BY c.status`, sc.params)).rows;
+  // 一檔在 30 天內既開團又結團時，兩個事件都要列出（各一列）
+  const n0 = sc.params.length;
+  const upcomingSelect = (event: 'OPEN' | 'CLOSE', col: 'open_date' | 'close_date') =>
+    `SELECT c.id, c.title, c.status, c.open_date, c.close_date, c.vendor_id, v.name AS vendor_name, ${CAMPAIGN_HOSTS_JSON} AS hosts, '${event}' AS event, c.${col} AS event_date
+     FROM campaigns c JOIN vendors v ON v.id = c.vendor_id
+     WHERE (${sc.sql}) AND c.status NOT IN ('CLOSED','CANCELLED') AND c.${col} BETWEEN $${n0 + 1}::date AND $${n0 + 2}::date`;
   const upcoming = (await db.query(
-    `SELECT c.id, c.title, c.status, c.open_date, c.close_date,
-       CASE WHEN c.open_date BETWEEN $${sc.params.length + 1}::date AND $${sc.params.length + 2}::date THEN 'OPEN' ELSE 'CLOSE' END AS event,
-       CASE WHEN c.open_date BETWEEN $${sc.params.length + 1}::date AND $${sc.params.length + 2}::date THEN c.open_date ELSE c.close_date END AS event_date
-     FROM campaigns c WHERE (${sc.sql}) AND c.status NOT IN ('CLOSED','CANCELLED')
-       AND (c.open_date BETWEEN $${sc.params.length + 1}::date AND $${sc.params.length + 2}::date OR c.close_date BETWEEN $${sc.params.length + 1}::date AND $${sc.params.length + 2}::date)
-     ORDER BY event_date, c.id LIMIT 100`, [...sc.params, today, addDays(today, 30)])).rows;
+    `SELECT * FROM (${upcomingSelect('OPEN', 'open_date')} UNION ALL ${upcomingSelect('CLOSE', 'close_date')}) e
+     ORDER BY event_date, id, event DESC LIMIT 100`, [...sc.params, today, addDays(today, 30)])).rows;
 
   let sales = null;
   let unattributed: number | null = null;
@@ -142,8 +149,9 @@ export async function getAdminDashboard(actor: Actor, periodYm?: string | null) 
      FROM tasks t JOIN campaigns c ON c.id=t.campaign_id WHERE (${sc.sql}) AND c.status NOT IN ('CANCELLED','ON_HOLD','CLOSED')`, [...sc.params, today])).rows[0];
   const overdueList = (await db.query(
     `SELECT t.id, t.name, t.campaign_id, c.title AS campaign_title, t.owner_role, t.planned_end, u.name AS assignee_name,
+       c.vendor_id, v.name AS vendor_name, ${CAMPAIGN_HOSTS_JSON} AS hosts,
        ($${sc.params.length + 1}::date - t.planned_end)::int AS days_late
-     FROM tasks t JOIN campaigns c ON c.id=t.campaign_id LEFT JOIN users u ON u.id=t.assignee_user_id
+     FROM tasks t JOIN campaigns c ON c.id=t.campaign_id JOIN vendors v ON v.id=c.vendor_id LEFT JOIN users u ON u.id=t.assignee_user_id
      WHERE (${sc.sql}) AND c.status NOT IN ('CANCELLED','ON_HOLD','CLOSED') AND t.status IN ('TODO','IN_PROGRESS','BLOCKED','WAITING_APPROVAL') AND t.planned_end < $${sc.params.length + 1}::date
      ORDER BY t.planned_end, t.id LIMIT 20`, [...sc.params, today])).rows;
   const exceptions = can(actor, 'exception.read')
@@ -159,6 +167,20 @@ export async function getAdminDashboard(actor: Actor, periodYm?: string | null) 
        count(t.id) FILTER (WHERE t.owner_role='VENDOR' AND t.status IN ('TODO','IN_PROGRESS','BLOCKED') AND t.planned_end < $${sc.params.length + 1}::date)::int AS vendor_overdue
      FROM campaigns c JOIN vendors v ON v.id=c.vendor_id LEFT JOIN tasks t ON t.campaign_id=c.id
      WHERE (${sc.sql}) AND c.status NOT IN ('CLOSED','CANCELLED') GROUP BY v.id, v.name ORDER BY campaigns DESC, v.name LIMIT 30`, [...sc.params, today])).rows;
+  // 廠商合作進度（逐檔）：目前卡在哪個任務、是誰的、完成度、逾期數、哪些團主參與
+  const vendorCampaigns = (await db.query(
+    `SELECT c.id AS campaign_id, c.title, c.status, c.vendor_id, v.name AS vendor_name, c.open_date, c.close_date, ${CAMPAIGN_HOSTS_JSON} AS hosts,
+       count(t.id) FILTER (WHERE t.status NOT IN ('SKIPPED','CANCELLED'))::int AS tasks_total,
+       count(t.id) FILTER (WHERE t.status = 'DONE')::int AS tasks_done,
+       count(t.id) FILTER (WHERE t.status IN ('TODO','IN_PROGRESS','BLOCKED','WAITING_APPROVAL') AND t.planned_end < $${sc.params.length + 1}::date)::int AS overdue,
+       count(t.id) FILTER (WHERE t.owner_role = 'VENDOR' AND t.status IN ('TODO','IN_PROGRESS','BLOCKED') AND t.planned_end < $${sc.params.length + 1}::date)::int AS vendor_overdue,
+       nt.name AS next_task_name, nt.planned_end AS next_task_due, nt.owner_role AS next_task_owner_role
+     FROM campaigns c JOIN vendors v ON v.id = c.vendor_id LEFT JOIN tasks t ON t.campaign_id = c.id
+     LEFT JOIN LATERAL (SELECT x.name, x.planned_end, x.owner_role FROM tasks x WHERE x.campaign_id = c.id AND x.status IN ('TODO','IN_PROGRESS','BLOCKED','WAITING_APPROVAL')
+                        ORDER BY x.planned_end NULLS LAST, x.seq LIMIT 1) nt ON true
+     WHERE (${sc.sql}) AND c.status NOT IN ('CLOSED','CANCELLED')
+     GROUP BY c.id, v.id, v.name, nt.name, nt.planned_end, nt.owner_role
+     ORDER BY overdue DESC, c.open_date NULLS LAST, c.id LIMIT 50`, [...sc.params, today])).rows;
   const communities = (await db.query(
     `SELECT platform, count(*)::int AS n FROM communities WHERE organization_id=$1 AND deleted_at IS NULL AND status='ACTIVE' GROUP BY platform ORDER BY platform`, [actor.orgId])).rows;
   const hostCounts = (await db.query(`SELECT status, count(*)::int AS n FROM hosts WHERE organization_id=$1 AND deleted_at IS NULL GROUP BY status`, [actor.orgId])).rows;
@@ -186,6 +208,7 @@ export async function getAdminDashboard(actor: Actor, periodYm?: string | null) 
     exceptions: camelize(exceptions),
     pendingApprovals,
     vendors: camelize(vendors),
+    vendorCampaigns: camelize(vendorCampaigns),
   };
 }
 

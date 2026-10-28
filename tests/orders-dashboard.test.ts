@@ -6,6 +6,7 @@ import { getAdminDashboard, getHostDashboard } from '@/server/modules/dashboard'
 import { computeSales } from '@/server/lib/kpi';
 import { todayTaipei } from '@/server/lib/ids';
 import type { Actor } from '@/server/lib/permissions';
+import type { AdminDash } from '@/ui/types';
 import { Client } from './api-helper';
 import { addUser, dayOffset, makeWorld, mkCampaign, mkCommunity, mkHost, mkProduct, mkVendor, type World } from './helpers';
 
@@ -262,5 +263,71 @@ describe('敏感欄位不經 Dashboard 外洩', () => {
     expect(JSON.stringify(d)).not.toContain('77777');
     const m = await getAdminDashboard(w.manager);
     expect(JSON.stringify(m)).toContain('77777');
+  });
+});
+
+describe('總覽清單標出是哪位團主、哪家廠商（未來 30 天、逾期任務、廠商合作進度）', () => {
+  let cidB: string, vendorB: string, hostB1: string, hostB2: string;
+
+  beforeAll(async () => {
+    const vB = await mkVendor(w);
+    vendorB = vB.id;
+    hostB1 = (await mkHost(w, '團主甲')).id; hostB2 = (await mkHost(w, '團主乙')).id;
+    cidB = (await mkCampaign(w, vendorB, { hosts: [{ hostId: hostB1 }, { hostId: hostB2 }], sampleReadyDate: dayOffset(-40), openDate: dayOffset(2), closeDate: dayOffset(12) }, w.manager)).id;
+  });
+
+  it('未來 30 天清單：每筆帶廠商與參與團主（含姓名與回覆狀態）', async () => {
+    const a = (await getAdminDashboard(w.manager)) as unknown as AdminDash;
+    const rows = a.upcoming.filter((u) => u.id === cidB);
+    expect(rows.map((r) => r.event).sort()).toEqual(['CLOSE', 'OPEN']);
+    for (const r of rows) {
+      expect(r.vendorId).toBe(vendorB);
+      expect(r.vendorName).toBeTruthy();
+      expect(r.hosts.map((h) => h.name).sort()).toEqual(['團主乙', '團主甲']);
+      expect(r.hosts.every((h) => h.status === 'INVITED')).toBe(true);
+    }
+  });
+
+  it('已婉拒的團主不列入清單', async () => {
+    await query(`UPDATE campaign_hosts SET status='DECLINED' WHERE campaign_id=$1 AND host_id=$2`, [cidB, hostB2]);
+    const a = (await getAdminDashboard(w.manager)) as unknown as AdminDash;
+    const row = a.upcoming.find((u) => u.id === cidB)!;
+    expect(row.hosts.map((h) => h.name)).toEqual(['團主甲']);
+  });
+
+  it('逾期任務：每筆帶檔期的團主與廠商，才知道要找誰', async () => {
+    const a = (await getAdminDashboard(w.manager)) as unknown as AdminDash;
+    const mine = a.overdueTasks.filter((t) => t.campaignId === cidB);
+    expect(mine.length).toBeGreaterThan(0);
+    for (const t of mine) {
+      expect(t.vendorId).toBe(vendorB);
+      expect(t.hosts.map((h) => h.name)).toEqual(['團主甲']);
+      expect(t.daysLate).toBeGreaterThan(0);
+    }
+  });
+
+  it('廠商合作進度（逐檔）：完成度、下一個任務與負責角色、逾期數、團主', async () => {
+    const a = (await getAdminDashboard(w.manager)) as unknown as AdminDash;
+    const row = a.vendorCampaigns.find((v) => v.campaignId === cidB)!;
+    expect(row.vendorId).toBe(vendorB);
+    expect(row.tasksTotal).toBeGreaterThan(0);
+    expect(row.tasksDone).toBe(0);
+    expect(row.overdue).toBeGreaterThan(0);
+    expect(row.nextTaskName).toBeTruthy();
+    expect(row.nextTaskOwnerRole).toBeTruthy();
+    expect(row.hosts.map((h) => h.name)).toEqual(['團主甲']);
+    const overdueFromList = a.overdueTasks.filter((t) => t.campaignId === cidB).length;
+    expect(row.overdue).toBeGreaterThanOrEqual(overdueFromList);
+    // 全部完成的檔期：下一個任務為空
+    await query(`UPDATE tasks SET status='DONE' WHERE campaign_id=$1`, [cidB]);
+    const b = (await getAdminDashboard(w.manager)) as unknown as AdminDash;
+    const done = b.vendorCampaigns.find((v) => v.campaignId === cidB)!;
+    expect(done.nextTaskName).toBeNull();
+    expect(done.overdue).toBe(0);
+    expect(done.tasksDone).toBe(done.tasksTotal);
+  });
+
+  it('團主與廠商角色不能看管理者總覽（看不到其他團主／廠商的資訊）', async () => {
+    await expect(getAdminDashboard(hostUser1)).rejects.toThrow();
   });
 });

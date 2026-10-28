@@ -1,21 +1,24 @@
 /** 各服務函式回傳（經 camelize 後為 unknown）的前端檢視型別 */
 export interface Kpi { value: number | null; source?: string; formula?: string; label?: string }
 export interface DataQualityV { status: 'NO_DATA' | 'DEMO' | 'IMPORT' | 'MIXED'; statusLabel: string; lastImport: { id: string; finishedAt: string | null; dataAsOf: string | null; sourceSystem: string; status: string } | null; openImportErrors: number; warnings: string[] }
+export interface CampaignHostRef { hostId: string; name: string; role: string; status: string }
 export interface AdminDash {
   generatedAt: string; period: { month: string; from: string; to: string }; dataQuality: DataQualityV;
   sales: { gmv: Kpi; refund: Kpi; net: Kpi; orders: Kpi; aov: Kpi; refundRate: Kpi } | null;
   targets: { total: number | null; attainment: Kpi; byCampaign: { id: string; title: string; target: number; net: number; attainment: number | null }[] } | null;
   unattributedNet: number | null;
   pipeline: { status: string; n: number }[];
-  upcoming: { id: string; title: string; status: string; event: string; eventDate: string }[];
+  upcoming: { id: string; title: string; status: string; event: string; eventDate: string; vendorId: string; vendorName: string; hosts: CampaignHostRef[] }[];
   hostPerformance: { hostId: string; name: string; campaigns: number; net: number; orders: number }[];
   communities: { byPlatform: { platform: string; n: number }[]; plannedPlacementsNext7Days: number };
   hosts: { status: string; n: number }[];
   tasks: { open: number; overdue: number; dueToday: number; unassigned: number; blocked: number; waitingApproval: number };
-  overdueTasks: { id: string; name: string; campaignId: string; campaignTitle: string; ownerRole: string; assigneeName: string | null; plannedEnd: string; daysLate: number }[];
+  overdueTasks: { id: string; name: string; campaignId: string; campaignTitle: string; ownerRole: string; assigneeName: string | null; plannedEnd: string; daysLate: number; vendorId: string; vendorName: string; hosts: CampaignHostRef[] }[];
   exceptions: { severity: string; n: number }[];
   pendingApprovals: number;
   vendors: { vendorId: string; name: string; campaigns: number; live: number; tasksTotal: number; tasksDone: number; vendorOverdue: number }[];
+  vendorCampaigns: { campaignId: string; title: string; status: string; vendorId: string; vendorName: string; openDate: string | null; closeDate: string | null; hosts: CampaignHostRef[];
+    tasksTotal: number; tasksDone: number; overdue: number; vendorOverdue: number; nextTaskName: string | null; nextTaskDue: string | null; nextTaskOwnerRole: string | null }[];
 }
 export interface HostDash {
   generatedAt: string; host: { id: string; name: string }; period: { month: string; from: string; to: string }; dataQuality: DataQualityV;
