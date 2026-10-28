@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 import { query, withTx, type Tx } from '../lib/db';
 import { SESSION_TTL_HOURS } from '../lib/config';
-import { AppError, unauthenticated, validation, notFound } from '../lib/errors';
+import { AppError, validation, notFound } from '../lib/errors';
 import { hashPassword, validatePasswordStrength, verifyPassword } from '../lib/password';
 import { isRole, type Actor, type RoleKey, requirePerm } from '../lib/permissions';
 import { audit } from '../lib/audit';

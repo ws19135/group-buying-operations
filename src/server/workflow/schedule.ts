@@ -192,6 +192,7 @@ export function previewReschedule(
   tasks: ExistingTask[],
   next: CampaignInputs,
   params: Params,
+  prev?: { campaign: CampaignInputs; params: Params },
 ): RescheduleRow[] {
   const byKey = new Map(tasks.map((t) => [t.stepKey, t]));
   const fixed = new Map<string, FixedDates>();
@@ -200,7 +201,10 @@ export function previewReschedule(
   }
   const unlockedPlan = computeSchedule(steps, next, params, fixed);
   // 「若不鎖定」的計畫，用來判斷被鎖定的任務是否原本會被更動
-  const freePlan = computeSchedule(steps, next, params, new Map([...fixed].filter(([k]) => FROZEN.has(byKey.get(k)?.status ?? ''))));
+  const frozenOnly = new Map([...fixed].filter(([k]) => FROZEN.has(byKey.get(k)?.status ?? '')));
+  const freePlan = computeSchedule(steps, next, params, frozenOnly);
+  // 有提供「變更前」的輸入時，以「這次變更是否會移動它」判斷；否則退而比較任務目前日期
+  const freePrev = prev ? computeSchedule(steps, prev.campaign, prev.params, frozenOnly) : null;
   const rows: RescheduleRow[] = [];
   for (const s of [...steps].sort((a, b) => a.seq - b.seq)) {
     const t = byKey.get(s.stepKey);
@@ -214,7 +218,8 @@ export function previewReschedule(
     else if (t.status !== 'SKIPPED' && !p.applicable) effect = 'no_longer_applicable';
     else if (t.dateLocked) {
       const f = freePlan.get(s.stepKey);
-      effect = f && (f.plannedStart !== t.plannedStart || f.plannedEnd !== t.plannedEnd) ? 'blocked_by_lock' : 'unchanged';
+      const ref = freePrev ? freePrev.get(s.stepKey) : { plannedStart: t.plannedStart, plannedEnd: t.plannedEnd };
+      effect = f && ref && (f.plannedStart !== ref.plannedStart || f.plannedEnd !== ref.plannedEnd) ? 'blocked_by_lock' : 'unchanged';
     } else if (before.start !== after.start || before.end !== after.end) effect = 'changed';
     rows.push({ stepKey: s.stepKey, name: t.name, status: t.status, locked: t.dateLocked, before, after, effect, issue: p.issue });
   }

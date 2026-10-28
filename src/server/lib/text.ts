@@ -3,7 +3,7 @@ export function normalizeName(s: string): string {
   return s
     .normalize('NFKC')
     .toLowerCase()
-    .replace(/[\s　·・．.,，、:：;；!！?？'"“”‘’()（）\[\]【】「」『』\-_/\\|]+/g, '');
+    .replace(/[\s\u3000\u00b7\u30fb\uff0e.,\uff0c\u3001:\uff1a;\uff1b!\uff01?\uff1f'"\u201c\u201d\u2018\u2019()\uff08\uff09[\]\u3010\u3011\u300c\u300d\u300e\u300f\-_/\\|]+/g, '');
 }
 
 export function nonEmpty(s: string | null | undefined): string | null {

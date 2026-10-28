@@ -16,7 +16,6 @@ const csv = (rows: string[]) => [HEADER, ...rows].join('\n');
 let w: World;
 let cid: string, h1: string, h2: string, comm1: string;
 let hostUser1: Actor, hostUser2: Actor;
-let fileSeq = 0;
 
 beforeAll(async () => {
   w = await makeWorld();
@@ -233,7 +232,7 @@ describe('Dashboard 口徑與一致性', () => {
     const ed = await getAdminDashboard(w.editor);
     expect(ed.sales?.gmv.value).toBeNull();     // 這位小編沒有負責任何有訂單的檔期 → 無資料
     const pipelineTotal = (ed.pipeline as { n: number }[]).reduce((s, x) => s + x.n, 0);
-    expect(pipelineTotal).toBeLessThan((await getAdminDashboard(w.manager)).pipeline.reduce((s: number, x: { n: number }) => s + x.n, 0));
+    expect(pipelineTotal).toBeLessThan(((await getAdminDashboard(w.manager)).pipeline as { n: number }[]).reduce((s, x) => s + x.n, 0));
   });
 });
 

@@ -327,7 +327,7 @@ async function buildPlan(tx: Tx, actor: Actor, id: string, input: RescheduleInpu
   const existing: ExistingTask[] = taskRows.rows.map((t) => ({
     stepKey: t.step_key, name: t.name, status: t.status, plannedStart: t.planned_start, plannedEnd: t.planned_end, dateLocked: t.date_locked,
   }));
-  const rows = previewReschedule(tpl.steps, existing, next, params);
+  const rows = previewReschedule(tpl.steps, existing, next, params, { campaign: cur, params: baseParams });
 
   const fixedStatuses: CampaignStatus[] = ['SCHEDULED', 'RUNNING', 'PENDING_CLOSE_CHECK', 'FULFILLING', 'PENDING_SETTLEMENT', 'PENDING_G2'];
   const requiresReason = fixedStatuses.includes(status);

@@ -9,7 +9,7 @@ let w: World;
 // 兩位團主、兩家廠商，各自一檔，另有一檔兩位團主共同參與
 let hostA: { id: string }, hostB: { id: string }, vendorA: { id: string }, vendorB: { id: string };
 let campA: string, campB: string, campShared: string;
-let hostAUser: Actor, hostBUser: Actor, vendorAUser: Actor, vendorBUser: Actor;
+let hostAUser: Actor, vendorAUser: Actor, vendorBUser: Actor;
 let productA: { id: string; skuIds: string[] };
 
 beforeAll(async () => {
@@ -24,7 +24,6 @@ beforeAll(async () => {
   campB = (await mkCampaign(w, vendorB.id, { ...base, products: [{ productId: productB.id, skuId: productB.skuIds[0] }], hosts: [{ hostId: hostB.id, targetRevenue: 200000 }] }, w.manager)).id;
   campShared = (await mkCampaign(w, vendorA.id, { ...base, title: '共同檔期', hosts: [{ hostId: hostA.id, targetRevenue: 10 }, { hostId: hostB.id, targetRevenue: 20 }] }, w.manager)).id;
   hostAUser = await addUser(w.orgId, 'HOST', { hostIds: [hostA.id] });
-  hostBUser = await addUser(w.orgId, 'HOST', { hostIds: [hostB.id] });
   vendorAUser = await addUser(w.orgId, 'VENDOR', { vendorIds: [vendorA.id] });
   vendorBUser = await addUser(w.orgId, 'VENDOR', { vendorIds: [vendorB.id] });
 });

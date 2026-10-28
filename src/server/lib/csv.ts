@@ -1,6 +1,6 @@
 /** 小型 RFC 4180 CSV 解析器：支援引號、跳脫的雙引號、欄位內換行、BOM、CRLF */
 export function parseCsv(text: string): string[][] {
-  const src = text.replace(/^﻿/, '');
+  const src = text.replace(/^\uFEFF/, '');
   const rows: string[][] = [];
   let row: string[] = [];
   let cur = '';
