@@ -52,3 +52,22 @@ Render 後台刪除 `group-buying-erp-demo` 網站與 `erp-demo-db` 資料庫即
 ## 其他部署選項
 
 任何能跑 Node 22＋PostgreSQL 16 的地方都可以（Fly.io、Railway、自己的主機、Vercel＋Neon 等）。設定的環境變數與 `render.yaml` 相同：`APP_ENV=production`、`ALLOW_DEMO_IN_PRODUCTION=yes`、`DATABASE_URL`、`SESSION_SECRET`（至少 32 字元的隨機值）、`ADMIN_EMAIL`、`ADMIN_INITIAL_PASSWORD`、`DEMO_PASSWORD`；啟動指令 `npm run bootstrap:demo && npm start`。
+
+## 一邊開放示範、一邊繼續開發（Mac）
+
+原則：**示範與開發各用一份程式、一個資料庫、一個埠**，開發時不會動到同事正在看的畫面。
+
+| | 示範（給同事） | 開發 |
+|---|---|---|
+| 資料夾 | `~/gbo-demo`（`git worktree` 或另一份 clone，固定在某個 commit／tag） | `~/group-buying-operations` |
+| 資料庫 | `erp_demo` | `erp_dev` |
+| 指令 | `npm run build && npm start`（埠 3000，通道指向 3000） | `npm run dev -- -p 3001` |
+| 資料 | 可被同事隨意改，壞了就 reset | 開發用，隨時可 reset |
+
+建立示範那一份（只需一次）：
+
+```bash
+cd ~/group-buying-operations && git worktree add ~/gbo-demo feat/erp-mvp-phase1
+```
+
+示範資料夾要有自己的 `.env.local`（複製開發版後，把 `DATABASE_URL` 改成 `erp_demo`），並先建庫、跑 `npm ci`、`npm run db:reset`、`db:seed`、`db:seed:demo`。要更新示範版本時，在示範資料夾 `git pull` 後重新 `npm run build` 再重啟。
