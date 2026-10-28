@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "團購 ERP — Phase 1 MVP（模組化單體：Next.js + TypeScript + PostgreSQL）",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -19,7 +21,8 @@
     "worker:once": "tsx scripts/worker.ts --once",
     "worker": "tsx scripts/worker.ts",
     "e2e": "tsx scripts/e2e-smoke.ts",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "docs:gen": "tsx scripts/gen-docs.ts"
   },
   "dependencies": {
     "next": "^15.5.0",

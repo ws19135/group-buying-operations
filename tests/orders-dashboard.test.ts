@@ -249,3 +249,18 @@ describe('DEMO 標示', () => {
     expect(a.dataQuality.statusLabel).toContain('不是真實');
   });
 });
+
+describe('敏感欄位不經 Dashboard 外洩', () => {
+  it('沒有 campaign.sensitive.read 的營運小編：Dashboard 不含檔期目標與達成率', async () => {
+    const v = await mkVendor(w);
+    const mine = await mkCampaign(w, v.id, { sampleReadyDate: dayOffset(-40), openDate: dayOffset(-3), closeDate: dayOffset(7) }, w.editor);
+    await query(`UPDATE campaigns SET target_revenue=77777, status='RUNNING' WHERE id=$1`, [mine.id]);
+    await importOrders(w.editor, { sourceSystem: 'ED_SHOP', csv: csv([`ED1,${mine.id},${today} 09:00,PAID,1,800,,,,,`]) });
+    const d = await getAdminDashboard(w.editor);
+    expect(d.sales?.gmv.value).toBe(800);
+    expect(d.targets).toBeNull();
+    expect(JSON.stringify(d)).not.toContain('77777');
+    const m = await getAdminDashboard(w.manager);
+    expect(JSON.stringify(m)).toContain('77777');
+  });
+});

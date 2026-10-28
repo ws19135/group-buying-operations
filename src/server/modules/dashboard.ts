@@ -77,6 +77,7 @@ export async function getAdminDashboard(actor: Actor, periodYm?: string | null) 
   const dq = await dataQuality(db, actor.orgId, sc.sql, sc.params);
   const hasOrders = dq.status !== 'NO_DATA';
   const showSales = can(actor, 'order.read');
+  const showTargets = showSales && can(actor, 'campaign.sensitive.read');   // 檔期目標屬內部敏感資料
 
   const pipeline = (await db.query(`SELECT c.status, count(*)::int AS n FROM campaigns c WHERE (${sc.sql}) GROUP BY c.status`, sc.params)).rows;
   const upcoming = (await db.query(
@@ -106,7 +107,7 @@ export async function getAdminDashboard(actor: Actor, periodYm?: string | null) 
       gmv: k('gmv', hasOrders ? totals.gmv : null), refund: k('refund', hasOrders ? totals.refund : null), net: k('net', hasOrders ? totals.net : null),
       orders: k('orders', hasOrders ? totals.orders : null), aov: k('aov', hasOrders ? totals.aov : null), refundRate: k('refundRate', hasOrders ? totals.refundRate : null),
     };
-    const tgt = (await db.query(
+    const tgt = !showTargets ? [] : (await db.query(
       `SELECT c.id, c.title, c.target_revenue,
          coalesce((SELECT sum(o.gross_amount - o.refund_amount) FROM orders o WHERE o.campaign_id=c.id AND o.status = ANY($${n + 3}::text[])),0)::bigint AS net_all
        FROM campaigns c WHERE (${sc.sql}) AND c.target_revenue IS NOT NULL AND c.target_revenue > 0 AND c.status <> 'CANCELLED'
@@ -172,7 +173,7 @@ export async function getAdminDashboard(actor: Actor, periodYm?: string | null) 
     dataQuality: dq,
     kpiDefinitions: KPI_DEFS,
     sales: showSales ? sales : null,
-    targets: showSales ? { total: targetTotal, attainment: k('attainment', attainmentVal), byCampaign } : null,
+    targets: showTargets ? { total: targetTotal, attainment: k('attainment', attainmentVal), byCampaign } : null,
     unattributedNet: unattributed,
     pipeline: camelize(pipeline),
     upcoming: camelize(upcoming),

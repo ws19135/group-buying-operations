@@ -93,7 +93,7 @@ export async function createVendor(actor: Actor, raw: z.input<typeof vendorCreat
   requirePerm(actor, 'vendor.write');
   const input = vendorCreateSchema.parse(raw);
   return withTx(async (tx) => {
-    const { result, replayed } = await idempotent(tx, actor, 'vendor.create', idemKey, async () => ({ id: await insertVendor(tx, actor, input) }));
+    const { result, replayed } = await idempotent(tx, actor, 'vendor.create', idemKey, async () => ({ id: await insertVendor(tx, actor, input) }), input);
     return { ...result, replayed };
   });
 }

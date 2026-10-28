@@ -73,7 +73,7 @@ export async function createProduct(actor: Actor, raw: z.input<typeof productCre
       for (const s of input.skus ?? []) skuIds.push(await insertSku(tx, actor, id, s));
       await audit(tx, actor, { action: 'product.create', entityType: 'product', entityId: id, after: { name: input.name, vendorId: input.vendorId, skuCount: skuIds.length } });
       return { id, skuIds };
-    });
+    }, input);
     return { ...result, replayed };
   });
 }

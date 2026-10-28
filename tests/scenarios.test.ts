@@ -176,6 +176,16 @@ describe('重複表單送出', () => {
     expect((await query(`SELECT count(*)::int AS n FROM tasks WHERE campaign_id=$1`, [c1.data.id]))[0].n).toBe(15);
   });
 
+  it('同一個 Idempotency-Key 搭配不同內容 → 422，不會默默回傳舊結果', async () => {
+    const c = await Client.forActor(w.manager);
+    const key = `mis-${Date.now()}`;
+    expect((await c.call('POST', '/hosts', { displayName: '內容A' }, { 'idempotency-key': key })).status).toBe(201);
+    const r = await c.call('POST', '/hosts', { displayName: '內容B' }, { 'idempotency-key': key });
+    expect(r.status).toBe(422);
+    expect(r.error?.message).toContain('內容不同');
+    expect((await query(`SELECT count(*)::int AS n FROM hosts WHERE organization_id=$1 AND display_name IN ('內容A','內容B')`, [w.orgId]))[0].n).toBe(1);
+  });
+
   it('沒有 key 的重複送出：以自然鍵擋下並回報既有 ID（廠商、團主、社群、商品、檔期）', async () => {
     const c = await Client.forActor(w.manager);
     const v = await c.call('POST', '/vendors', { name: '重複測試廠商', taxId: '12345678' });

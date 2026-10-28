@@ -167,3 +167,16 @@ describe('資料範圍 SQL', () => {
     for (const r of ['SYSTEM_ADMIN', 'OPS_MANAGER', 'OPS_EDITOR', 'FINANCE'] as const) expect(campaignScope(mkActor('ORG-1', 'U', r), 1).sql).toContain('organization_id');
   });
 });
+
+describe('自動化預設冪等鍵的粒度', () => {
+  it('進件／事件／通知以分鐘；狀態推進以小時；每日類以台北日期（同粒度內相同、跨粒度不同）', async () => {
+    const { defaultKey } = await import('@/server/modules/automation');
+    const t1 = new Date('2026-11-02T03:00:10Z'), t2 = new Date('2026-11-02T03:00:50Z'), t3 = new Date('2026-11-02T03:01:05Z'), t4 = new Date('2026-11-02T04:05:00Z');
+    expect(defaultKey('vendor_intake', t1)).toBe(defaultKey('vendor_intake', t2));
+    expect(defaultKey('vendor_intake', t1)).not.toBe(defaultKey('vendor_intake', t3));   // 新進件不用等到明天
+    expect(defaultKey('campaign_status_progress', t1)).toBe(defaultKey('campaign_status_progress', t3));
+    expect(defaultKey('campaign_status_progress', t1)).not.toBe(defaultKey('campaign_status_progress', t4));
+    expect(defaultKey('daily_summary', t1)).toBe(defaultKey('daily_summary', t4));
+    expect(defaultKey('daily_summary', new Date('2026-11-02T15:59:00Z'))).not.toBe(defaultKey('daily_summary', new Date('2026-11-02T16:01:00Z'))); // 台北已跨日
+  });
+});

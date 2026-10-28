@@ -46,7 +46,7 @@ export async function createHost(actor: Actor, raw: z.input<typeof hostCreateSch
           input.cooperationTerms ?? null, input.internalNote ?? null, actor.userId]);
       await audit(tx, actor, { action: 'host.create', entityType: 'host', entityId: id, after: { displayName: input.displayName } });
       return { id };
-    });
+    }, input);
     return { ...result, replayed };
   });
 }
@@ -186,7 +186,7 @@ export async function createCommunity(actor: Actor, raw: z.input<typeof communit
       for (const hid of hostIds) await linkHostCommunityTx(tx, actor, hid, id, 'OWNER');
       await audit(tx, actor, { action: 'community.create', entityType: 'community', entityId: id, after: { name: input.name, platform: input.platform } });
       return { id };
-    });
+    }, { input, hostIds });
     return { ...result, replayed };
   });
 }

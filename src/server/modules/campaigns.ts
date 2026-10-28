@@ -102,7 +102,7 @@ export async function createCampaign(actor: Actor, raw: z.input<typeof campaignC
         after: { title: input.title, vendorId: input.vendorId, openDate: input.openDate ?? null, closeDate: input.closeDate ?? null, tasks: gen.created } });
       await emitEvent(tx, actor, 'campaign.created', 'campaign', id, { vendorId: input.vendorId }, `campaign.created:${id}`);
       return { id, tasksCreated: gen.created };
-    });
+    }, input);
     const conflicts = await detectConflicts(tx, actor.orgId, result.id);
     return { ...result, replayed, conflicts };
   });

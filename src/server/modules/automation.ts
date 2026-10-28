@@ -68,10 +68,12 @@ export async function listRuns(actor: Actor, q: URLSearchParams) {
   return camelize(await query(`SELECT * FROM automation_runs WHERE ${where.join(' AND ')} ORDER BY started_at DESC LIMIT 200`, params));
 }
 
-function defaultKey(job: JobKey, now: Date): string {
+export function defaultKey(job: JobKey, now: Date): string {
   const d = todayTaipei(now);
-  if (job === 'daily_summary' || job === 'task_reminders' || job === 'overdue_detection' || job === 'prelaunch_check' || job === 'campaign_status_progress' || job === 'vendor_intake') return `${job}:${d}`;
-  return `${job}:${now.toISOString().slice(0, 16)}`; // 分鐘為單位
+  // 頻率只決定「預設冪等鍵的粒度」；每個工作本身也都有業務去重，所以重複觸發不會產生重複資料
+  if (job === 'daily_summary' || job === 'task_reminders' || job === 'overdue_detection' || job === 'prelaunch_check') return `${job}:${d}`;
+  if (job === 'campaign_status_progress') return `${job}:${now.toISOString().slice(0, 13)}`;   // 每小時
+  return `${job}:${now.toISOString().slice(0, 16)}`;                                             // 每分鐘（事件、進件、通知）
 }
 
 /**
