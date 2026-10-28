@@ -71,11 +71,12 @@ export function toErrorResponse(e: unknown, requestId: string): Response {
   return json(500, { error: { code: 'INTERNAL', message: '系統發生錯誤，請稍後再試；若持續發生請提供追蹤碼給管理者', requestId } });
 }
 
-function sameOrigin(req: Request): boolean {
+/** 寫入請求的 Origin 必須等於這個請求自己的 Host（或反向代理帶來的 X-Forwarded-Host）；兩者任一相符即可，攻擊者無法控制瀏覽器送出的這兩個標頭 */
+export function sameOrigin(req: Request): boolean {
   const origin = req.headers.get('origin');
   if (!origin) return true; // 非瀏覽器客戶端（腳本／測試）不會帶 Origin
-  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host');
-  try { return new URL(origin).host === host; } catch { return false; }
+  const hosts = [req.headers.get('host'), ...(req.headers.get('x-forwarded-host') ?? '').split(',')].map((h) => (h ?? '').trim()).filter(Boolean);
+  try { return hosts.includes(new URL(origin).host); } catch { return false; }
 }
 
 export function setRoutes(defs: RouteDef[]) { compile(defs); }

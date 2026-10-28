@@ -180,3 +180,18 @@ describe('自動化預設冪等鍵的粒度', () => {
     expect(defaultKey('daily_summary', new Date('2026-11-02T15:59:00Z'))).not.toBe(defaultKey('daily_summary', new Date('2026-11-02T16:01:00Z'))); // 台北已跨日
   });
 });
+
+describe('CSRF：Origin 比對', () => {
+  it('Origin 等於 Host 或 X-Forwarded-Host（反向代理／通道）才放行；其他來源拒絕；無 Origin（腳本）放行', async () => {
+    const { sameOrigin } = await import('@/server/api/router');
+    const r = (h: Record<string, string>) => new Request('http://x/api', { method: 'POST', headers: h });
+    expect(sameOrigin(r({ origin: 'https://a.example', host: 'a.example' }))).toBe(true);
+    expect(sameOrigin(r({ origin: 'https://a.example', host: 'localhost:3000', 'x-forwarded-host': 'a.example' }))).toBe(true);
+    expect(sameOrigin(r({ origin: 'https://a.example', host: 'a.example', 'x-forwarded-host': 'proxy.internal' }))).toBe(true);
+    expect(sameOrigin(r({ origin: 'https://a.example', host: 'localhost:3000', 'x-forwarded-host': 'b.example, a.example' }))).toBe(true);
+    expect(sameOrigin(r({ origin: 'https://evil.example', host: 'a.example' }))).toBe(false);
+    expect(sameOrigin(r({ origin: 'https://evil.example', host: 'a.example', 'x-forwarded-host': 'b.example' }))).toBe(false);
+    expect(sameOrigin(r({ origin: 'not a url', host: 'a.example' }))).toBe(false);
+    expect(sameOrigin(r({ host: 'a.example' }))).toBe(true);
+  });
+});
