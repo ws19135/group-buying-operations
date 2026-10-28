@@ -5,7 +5,15 @@ import { Banner, Badge, Card, EmptyState, KpiCard, PageHeader, StatusBadge, Tabl
 import { CAMPAIGN_STATUS, SEVERITY, ownerRoleLabel, PLATFORM } from '@/ui/labels';
 import { fmtDateTime, money, num, pct } from '@/ui/format';
 import { STATUS_LABEL, type CampaignStatus } from '@/server/workflow/state';
-import { as, type AdminDash } from '@/ui/types';
+import { as, type AdminDash, type CampaignHostRef } from '@/ui/types';
+
+/** 檔期的參與團主：點名字進團主頁；未回覆的標示出來 */
+function HostNames({ hosts }: { hosts: CampaignHostRef[] }) {
+  if (!hosts.length) return <span className="muted">尚未邀請團主</span>;
+  return <>{hosts.map((h, i) => (
+    <span key={h.hostId}>{i ? '、' : ''}<Link href={`/hosts/${h.hostId}`}>{h.name}</Link>{h.status === 'CONFIRMED' ? '' : <span className="small muted">（{h.status === 'INVITED' ? '待回覆' : h.status === 'NO_RESPONSE' ? '未回覆' : h.status}）</span>}</span>
+  ))}</>;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -63,9 +71,9 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
         </Card>
         <Card title="未來 30 天開團／結團" testid="upcoming" flush>
           {d.upcoming.length === 0 ? <EmptyState title="未來 30 天沒有開團或結團" /> : (
-            <Table head={['日期', '事件', '檔期', '狀態']}>
-              {(d.upcoming as { id: string; title: string; status: string; event: string; eventDate: string }[]).map((u) => (
-                <tr key={`${u.id}${u.event}`} data-testid={`upcoming-${u.id}`}><td className="nowrap">{u.eventDate}</td><td>{u.event === 'OPEN' ? '開團' : '結團'}</td><td><Link href={`/campaigns/${u.id}`}>{u.title}</Link></td><td><StatusBadge map={CAMPAIGN_STATUS} value={u.status} /></td></tr>
+            <Table head={['日期', '事件', '檔期', '團主', '廠商', '狀態']}>
+              {d.upcoming.map((u) => (
+                <tr key={`${u.id}${u.event}`} data-testid={`upcoming-${u.id}`}><td className="nowrap">{u.eventDate}</td><td className="nowrap">{u.event === 'OPEN' ? '開團' : '結團'}</td><td><Link href={`/campaigns/${u.id}`}>{u.title}</Link></td><td data-testid={`upcoming-hosts-${u.id}`}><HostNames hosts={u.hosts} /></td><td><Link href={`/vendors/${u.vendorId}`}>{u.vendorName}</Link></td><td><StatusBadge map={CAMPAIGN_STATUS} value={u.status} /></td></tr>
               ))}
             </Table>
           )}
@@ -74,29 +82,38 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
 
       <Card title="逾期任務" testid="overdue-list" flush>
         {d.overdueTasks.length === 0 ? <EmptyState title="目前沒有逾期任務 🎉" /> : (
-          <Table head={['任務', '檔期', '負責角色', '負責人', '預定完成', '逾期']}>
-            {(d.overdueTasks as { id: string; name: string; campaignId: string; campaignTitle: string; ownerRole: string; assigneeName: string | null; plannedEnd: string; daysLate: number }[]).map((t) => (
-              <tr key={t.id} data-testid={`overdue-${t.id}`}><td><Link href={`/campaigns/${t.campaignId}?tab=tasks`}>{t.name}</Link></td><td>{t.campaignTitle}</td><td>{ownerRoleLabel(t.ownerRole)}</td><td>{t.assigneeName ?? <span className="muted">未指派</span>}</td><td>{t.plannedEnd}</td><td><Badge tone="danger">{t.daysLate} 天</Badge></td></tr>
+          <Table head={['任務', '檔期', '團主', '廠商', '卡在誰', '負責人', '預定完成', '逾期']}>
+            {d.overdueTasks.map((t) => (
+              <tr key={t.id} data-testid={`overdue-${t.id}`}><td><Link href={`/campaigns/${t.campaignId}?tab=tasks`}>{t.name}</Link></td><td>{t.campaignTitle}</td><td data-testid={`overdue-hosts-${t.id}`}><HostNames hosts={t.hosts} /></td><td><Link href={`/vendors/${t.vendorId}`}>{t.vendorName}</Link></td><td>{ownerRoleLabel(t.ownerRole)}</td><td>{t.assigneeName ?? <span className="muted">未指派</span>}</td><td>{t.plannedEnd}</td><td><Badge tone="danger">{t.daysLate} 天</Badge></td></tr>
             ))}
           </Table>
         )}
       </Card>
 
-      <div className="grid cols-2">
+      <Card title="廠商合作進度（逐檔）" testid="vendor-progress" flush>
+        {d.vendorCampaigns.length === 0 ? <EmptyState title="目前沒有進行中的廠商檔期" /> : (
+          <Table head={['廠商', '檔期', '狀態', '團主', '完成度', '下一個任務', '逾期']}>
+            {d.vendorCampaigns.map((v) => (
+              <tr key={v.campaignId} data-testid={`vendorprog-${v.campaignId}`}>
+                <td><Link href={`/vendors/${v.vendorId}`}>{v.vendorName}</Link></td>
+                <td><Link href={`/campaigns/${v.campaignId}`}>{v.title}</Link></td>
+                <td><StatusBadge map={CAMPAIGN_STATUS} value={v.status} /></td>
+                <td><HostNames hosts={v.hosts} /></td>
+                <td className="nowrap">{v.tasksDone}/{v.tasksTotal}（{v.tasksTotal ? Math.round((v.tasksDone / v.tasksTotal) * 100) : 0}%）</td>
+                <td>{v.nextTaskName ? <>{v.nextTaskName}<span className="small muted">&emsp;{v.nextTaskOwnerRole ? ownerRoleLabel(v.nextTaskOwnerRole) : ''}&emsp;{v.nextTaskDue ?? '未定'}</span></> : <span className="muted">全部完成</span>}</td>
+                <td>{v.overdue ? <Badge tone="danger">{v.overdue}{v.vendorOverdue ? `（廠商 ${v.vendorOverdue}）` : ''}</Badge> : '—'}</td>
+              </tr>
+            ))}
+          </Table>
+        )}
+      </Card>
+
+      <div>
         <Card title="團主績效（本期，依歸因）" testid="host-performance" flush>
           {!s ? <EmptyState title="無檢視權限" /> : d.hostPerformance.length === 0 ? <EmptyState title="本期沒有歸因到團主的訂單" hint={dq.status === 'NO_DATA' ? '待串接訂單資料' : undefined} /> : (
             <Table head={['團主', '檔數', '訂單', '有效淨銷售額']}>
               {(d.hostPerformance as { hostId: string; name: string; campaigns: number; net: number; orders: number }[]).map((h) => (
                 <tr key={h.hostId} data-testid={`hostperf-${h.hostId}`}><td><Link href={`/hosts/${h.hostId}`}>{h.name}</Link></td><td>{h.campaigns}</td><td>{h.orders}</td><td className="num">{money(h.net)}</td></tr>
-              ))}
-            </Table>
-          )}
-        </Card>
-        <Card title="廠商合作進度" testid="vendor-progress" flush>
-          {d.vendors.length === 0 ? <EmptyState title="目前沒有進行中的廠商檔期" /> : (
-            <Table head={['廠商', '檔期', '任務完成度', '廠商逾期']}>
-              {(d.vendors as { vendorId: string; name: string; campaigns: number; tasksTotal: number; tasksDone: number; vendorOverdue: number }[]).map((v) => (
-                <tr key={v.vendorId}><td><Link href={`/vendors/${v.vendorId}`}>{v.name}</Link></td><td>{v.campaigns}</td><td>{v.tasksDone}/{v.tasksTotal}</td><td>{v.vendorOverdue ? <Badge tone="danger">{v.vendorOverdue}</Badge> : '—'}</td></tr>
               ))}
             </Table>
           )}
