@@ -1,0 +1,89 @@
+{
+  "sid": "SET-20261028-0001",
+  "results": [
+    {
+      "name": "開立試算後導向結算頁",
+      "pass": true,
+      "extra": "SET-20261028-0001"
+    },
+    {
+      "name": "結算頁顯示口徑待確認提示",
+      "pass": true
+    },
+    {
+      "name": "DEMO 資料有標示",
+      "pass": true
+    },
+    {
+      "name": "列出團主項目",
+      "pass": true,
+      "extra": "[DEMO] 小雅媽咪OWN-0001・SIT-000001NT$ 62,56512%CMR-0001 v1NT$ 7,508——NT$ 7,508覆寫覆寫 [ | [DEMO] 阿凱生活OWN-0002・SIT-000002NT$ 24,06710%CMR-0002 v1NT$ 2,407——NT$ 2,407覆寫覆寫 ["
+    },
+    {
+      "name": "新增調整項後最終佣金改變",
+      "pass": true,
+      "extra": "NT$ 7,508 → NT$ 7,478"
+    },
+    {
+      "name": "調整項紀錄出現",
+      "pass": true
+    },
+    {
+      "name": "確認後狀態為已確認",
+      "pass": true
+    },
+    {
+      "name": "確認後不再有覆寫／調整／確認按鈕",
+      "pass": true
+    },
+    {
+      "name": "新增入帳紀錄",
+      "pass": true,
+      "extra": "PAY-000001"
+    },
+    {
+      "name": "核對後顯示已核對",
+      "pass": true
+    },
+    {
+      "name": "發票標記已開立",
+      "pass": true,
+      "extra": "INV-000001"
+    },
+    {
+      "name": "新增費用",
+      "pass": true
+    },
+    {
+      "name": "總覽出現該檔期與已入帳 12,345",
+      "pass": true,
+      "extra": "各檔期檔期淨銷售額試算佣金已入帳已付款費用已開立發票未核對結算[DEMO] 夏日防曬噴霧團購進行中NT$ 86,632NT$ 9,915NT$ 12,345NT$ 0NT$ 888NT$ 0—SET-20261028-0001 已確認[DE"
+    },
+    {
+      "name": "團主看得到我的結算",
+      "pass": true
+    },
+    {
+      "name": "團主進 /finance 看到無權限訊息",
+      "pass": true
+    },
+    {
+      "name": "團主導覽沒有財務結算",
+      "pass": true
+    },
+    {
+      "name": "廠商進 /finance 被擋",
+      "pass": true
+    },
+    {
+      "name": "營運主管可看結算但沒有確認／作廢按鈕",
+      "pass": true
+    },
+    {
+      "name": "頁面無 JS 錯誤",
+      "pass": true,
+      "extra": ""
+    }
+  ],
+  "errors": []
+}

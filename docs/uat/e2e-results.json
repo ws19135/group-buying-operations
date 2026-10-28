@@ -1,0 +1,244 @@
+{
+  "ranAt": "2026-10-28T14:29:51.077Z",
+  "base": "http://127.0.0.1:3100",
+  "total": 49,
+  "passed": 49,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "健康檢查含資料庫連線",
+      "ok": true,
+      "detail": "{\"ok\":true,\"db\":\"up\",\"latencyMs\":1,\"env\":\"development\",\"time\":\"2026-10-28T14:29:21.761Z\"}"
+    },
+    {
+      "name": "未登入造訪 /dashboard 會被導到登入頁",
+      "ok": true,
+      "detail": "http://127.0.0.1:3100/login"
+    },
+    {
+      "name": "錯誤密碼顯示錯誤訊息，不洩漏帳號是否存在",
+      "ok": true
+    },
+    {
+      "name": "未登入呼叫 API 回 401",
+      "ok": true,
+      "detail": "HTTP 401"
+    },
+    {
+      "name": "管理者 Dashboard（/dashboard）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "Dashboard 顯示 DEMO 橫幅與資料品質區塊",
+      "ok": true
+    },
+    {
+      "name": "Dashboard 有 KPI 區塊與口徑",
+      "ok": true
+    },
+    {
+      "name": "檔期列表（/campaigns）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "排程日曆（/calendar）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "任務（/tasks）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "核准（/approvals）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "廠商列表（/vendors）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "團主列表（/hosts）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "社群列表（/communities）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "商品列表（/products）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "訂單匯入（/imports）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "例外（/exceptions）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "自動化（/automation）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "自動化頁面明示預設停用／僅測試 Adapter／不對真人發送",
+      "ok": true
+    },
+    {
+      "name": "稽核（/audit）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "通知（/notifications）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "新增檔期（/campaigns/new）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "新增廠商（/vendors/new）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "新增團主（/hosts/new）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "新增社群（/communities/new）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "新增商品（/products/new）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "檔期列表找得到 DEMO 檔期",
+      "ok": true
+    },
+    {
+      "name": "檔期詳情顯示狀態與廠商",
+      "ok": true
+    },
+    {
+      "name": "任務分頁依八階段分組",
+      "ok": true
+    },
+    {
+      "name": "日期調整先預覽影響（逐任務前後值），尚未套用",
+      "ok": true,
+      "detail": "15 列"
+    },
+    {
+      "name": "預覽後才出現「確認」按鈕",
+      "ok": true
+    },
+    {
+      "name": "預覽沒有改動資料（結團日不變）",
+      "ok": true,
+      "detail": "closeDate=2026-11-04"
+    },
+    {
+      "name": "團主 Dashboard（/dashboard/host）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "團主 Dashboard 有我的檔期與預估佣金（標預估）",
+      "ok": true
+    },
+    {
+      "name": "團主不可看管理者 Dashboard（/dashboard）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "團主不可看廠商列表（/vendors）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "團主不可看使用者管理（/users）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "團主只看到自己的檔期（/campaigns）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "團主檔期列表非空",
+      "ok": true
+    },
+    {
+      "name": "廠商檔期列表（/campaigns）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "廠商不可看團主（/hosts）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "廠商不可看訂單匯入（/imports）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "手機版 /dashboard（/dashboard）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "手機版 /dashboard 無水平溢出",
+      "ok": true,
+      "detail": "溢出 0px"
+    },
+    {
+      "name": "手機版 /campaigns（/campaigns）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "手機版 /campaigns 無水平溢出",
+      "ok": true,
+      "detail": "溢出 0px"
+    },
+    {
+      "name": "手機版 /tasks（/tasks）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "手機版 /tasks 無水平溢出",
+      "ok": true,
+      "detail": "溢出 0px"
+    },
+    {
+      "name": "登出後 session 失效",
+      "ok": true,
+      "detail": "HTTP 401"
+    }
+  ]
+}

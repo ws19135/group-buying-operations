@@ -1,0 +1,241 @@
+{
+  "ranAt": "2026-10-28T13:26:24.242Z",
+  "total": 52,
+  "passed": 52,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "健康檢查含資料庫連線",
+      "ok": true
+    },
+    {
+      "name": "售後總覽與案件列表（/aftersales）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "總覽卡片：處理中／逾期／高優先／待核准／待完成",
+      "ok": true
+    },
+    {
+      "name": "逾期案件數 ≥ 1（DEMO 含一件逾期客訴）",
+      "ok": true,
+      "detail": "逾期=1"
+    },
+    {
+      "name": "列表預設只顯示處理中案件，且有資料",
+      "ok": true,
+      "detail": "4 列"
+    },
+    {
+      "name": "切換為「全部」狀態（含已結案／已取消）（/aftersales?status=ALL）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "「全部」會多出已結案與已取消的案件",
+      "ok": true
+    },
+    {
+      "name": "只看逾期（/aftersales?overdue=1）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "搜尋萬用字元不會誤配全部（/aftersales?q=%25）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "案件詳情：狀態、關聯訂單、處理紀錄、退款申請",
+      "ok": true
+    },
+    {
+      "name": "有未完成退款時顯示提示橫幅",
+      "ok": true
+    },
+    {
+      "name": "退款申請佇列（/aftersales/refunds）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "核准後出現在「已核准」（/aftersales/refunds?status=APPROVED）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "主管看不到「標記完成」（只有財務／管理者能完成）",
+      "ok": true
+    },
+    {
+      "name": "手機尺寸可開啟售後列表（/aftersales）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "手機尺寸頁面沒有橫向捲動",
+      "ok": true
+    },
+    {
+      "name": "財務可看售後列表（/aftersales）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "財務沒有「新增案件」按鈕",
+      "ok": true
+    },
+    {
+      "name": "財務退款佇列（已核准）（/aftersales/refunds?status=APPROVED）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "財務看不到「核准／退回」按鈕",
+      "ok": true
+    },
+    {
+      "name": "完成退款對話框：寫回訂單核取方塊預設未勾選",
+      "ok": true
+    },
+    {
+      "name": "完成後出現在「已完成」（/aftersales/refunds?status=COMPLETED）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "預設完成時沒有寫回訂單",
+      "ok": true
+    },
+    {
+      "name": "新增案件表單（/aftersales/new）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "描述含手機號碼 → 被擋下並提示",
+      "ok": true
+    },
+    {
+      "name": "建案成功並導向案件詳情",
+      "ok": true,
+      "detail": "http://127.0.0.1:3113/aftersales/CAS-000008"
+    },
+    {
+      "name": "新案件為「新案件」狀態",
+      "ok": true
+    },
+    {
+      "name": "按「開始處理」→ 狀態變為處理中",
+      "ok": true
+    },
+    {
+      "name": "新增對外可見備註 → 紀錄出現並標示「對外可見」",
+      "ok": true
+    },
+    {
+      "name": "取消案件未填原因 → 前端擋下",
+      "ok": true
+    },
+    {
+      "name": "無訂單的案件可申請退款，出現在退款區塊並為「待核准」",
+      "ok": true
+    },
+    {
+      "name": "有訂單的案件：退款金額超過可退餘額 → 被擋下並說明餘額",
+      "ok": true,
+      "detail": "退款金額超過可退餘額（訂單金額 720、已退 0、其他申請中 0，剩餘 720）\n✕"
+    },
+    {
+      "name": "團主側欄有「售後」",
+      "ok": true
+    },
+    {
+      "name": "團主：售後列表（/aftersales）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "團主列表沒有負責人、退款欄位、新增按鈕",
+      "ok": true
+    },
+    {
+      "name": "團主看不到待核准／待完成退款卡片",
+      "ok": true
+    },
+    {
+      "name": "團主看得到對外備註，看不到內部備註與內部處理資訊",
+      "ok": true
+    },
+    {
+      "name": "團主案件詳情：沒有內部備註、描述、買家代號、退款區塊",
+      "ok": true,
+      "detail": "🛒 團購 ERP 營運 總覽 檔期 排程日曆 任務 售後 履約出貨 主檔 團主 社群 商品 財務 我的結算 🔔 [DEMO] 小雅媽咪 團主 登出 [DEM"
+    },
+    {
+      "name": "團主沒有任何狀態變更按鈕",
+      "ok": true
+    },
+    {
+      "name": "團主不能開退款佇列（顯示權限不足）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "團主直接打 API 建案 → 403",
+      "ok": true,
+      "detail": "HTTP 403"
+    },
+    {
+      "name": "廠商側欄有「售後」",
+      "ok": true
+    },
+    {
+      "name": "廠商：售後列表（/aftersales）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "廠商列表沒有負責人、退款欄位、新增按鈕",
+      "ok": true
+    },
+    {
+      "name": "廠商看不到待核准／待完成退款卡片",
+      "ok": true
+    },
+    {
+      "name": "廠商看得到對外備註，看不到內部備註與內部處理資訊",
+      "ok": true
+    },
+    {
+      "name": "廠商案件詳情：沒有內部備註、描述、買家代號、退款區塊",
+      "ok": true,
+      "detail": "🛒 團購 ERP 營運 檔期 排程日曆 任務 售後 履約出貨 主檔 廠商 商品 🔔 [DEMO] 晴空保養窗口 廠商 登出 [DEMO] 收到商品外盒破損 "
+    },
+    {
+      "name": "廠商沒有任何狀態變更按鈕",
+      "ok": true
+    },
+    {
+      "name": "廠商不能開退款佇列（顯示權限不足）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "廠商直接打 API 建案 → 403",
+      "ok": true,
+      "detail": "HTTP 403"
+    },
+    {
+      "name": "未登入造訪 /aftersales 會被導到登入頁",
+      "ok": true,
+      "detail": "http://127.0.0.1:3113/login"
+    },
+    {
+      "name": "未登入呼叫售後 API → 401",
+      "ok": true,
+      "detail": "HTTP 401"
+    }
+  ]
+}

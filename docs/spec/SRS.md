@@ -1,0 +1,965 @@
+# 軟體需求規格（SRS）
+
+> **文件狀態**：草稿，待 Owner 審閱。本文件是對**已實作系統**的逆向整理（先有程式，再回頭寫需求），每一條功能需求都已回頭對照程式與自動化測試。它回答「系統現在要求什麼、做到哪」，不是事前設計。
+> **基準**：分支 `feat/erp-spec-and-hardening`，起點 commit `3be9a94`（migrations 001–011、14 個測試檔 245 項測試）。撰寫期間工作目錄中另有其他進行中的修改（例如 `012_security_hardening.sql`），**不在本文件範圍**。
+> **金額口徑**：佣金、KPI、結算的公式一律照現有實作如實描述，並標示 **「口徑待 Owner 確認」**；本文件沒有新增任何公式。
+> **機密**：本文件不含 Sheet ID、帳號、密碼、金鑰或真實廠商／訂單資料；示範資料全部是虛構（名稱帶 `[DEMO]`）。
+
+## 如何閱讀
+
+| 標記 | 意義 |
+|---|---|
+| IMPLEMENTED | 已實作，且有對應自動化測試 |
+| PARTIAL | 已實作一部分；或已實作但缺自動化測試；或需求與程式有落差（原因寫在該列） |
+| NOT_STARTED | 未實作 |
+| BLOCKED | 需要外部資源或 Owner 授權才能做（憑證、平台、解凍） |
+| 驗（最後一欄） | ✅ 我讀過該測試的內容，斷言涵蓋驗收條件｜📄 只核對測試標題與被測程式存在（測試全數重跑通過）｜❌ 已實作但沒有自動化測試｜— 未實作，無可驗證項目 |
+| 優先 | MUST（沒有就不能用）／SHOULD（應該要有）／COULD（有更好） |
+
+測試引用格式：`檔名 ›「測試標題」`，檔案在 `tests/`（`unit/misc` 即 `tests/unit/misc.test.ts`）。測試重跑方式與結果見第 11 節。
+
+---
+
+## 1 目的與範圍
+
+### 1.1 目的
+定義「團購營運 ERP」（本儲存庫 `group-buying-operations`）的需求：讓營運團隊用同一筆檔期資料驅動排程、任務、核准、訂單與業績、履約、售後與結算，管理者看全局、團主與廠商只看自己的範圍，異常主動浮出（藍圖 §1.1）。
+
+### 1.2 範圍
+
+**範圍內（已實作，僅在本機與隔離環境驗證）**：認證與 RBAC、廠商／團主／社群／商品主檔、檔期與 15 步流程排程、日期變更影響預覽、14 狀態機與 G1–G5 關卡、訂單 CSV 匯入、管理者與團主 Dashboard、預估佣金、8 個自動化工作與通知佇列（測試 Adapter）、廠商進件、例外管理、履約與出貨與庫存紀錄、退款／客訴／售後、結算試算與確認、入帳／發票／費用紀錄、稽核。
+
+**範圍外**：見第 8 節（電商 API、真實 LINE／Email、廠商入口、歷史資料遷移、SSO／MFA、Production 部署等）。
+
+**非目標**（藍圖 §1.5）：不切換 LIVE、不部署正式服務、不搬動正式資料；不假設所有團購使用同一收款／發票／出貨／分潤模式；不把廠商回填視為會計已確認；不把退款或撥款做成無人審核的全自動動作；不把招財兔既有內部帳務規則擴張成共通規則。
+
+### 1.3 名詞定義
+
+| 名詞 | 定義 |
+|---|---|
+| 檔期（Campaign） | 一次團購活動；系統的核心識別單位（`CMP-YYYYMM-NNNN`）。商品名稱不是唯一鍵 |
+| 團主（Host） | 在社群中開團的合作夥伴；可有多個社群 |
+| 社群（Community） | 團主經營的平台群組（LINE／FACEBOOK／INSTAGRAM／THREADS／YOUTUBE／OTHER） |
+| 曝光安排（Placement） | 某團主在某社群、某日、以某形式的曝光計畫 |
+| 關卡（Gate，G1–G5） | 需系統檢查加人工核准才能通過的節點：G1 選品、G2 開團、G3 結單、G4 結算、G5 結案 |
+| BLOCK／WARN | 關卡檢查項的等級：BLOCK 未通過就不能申請／核准；WARN 只提醒 |
+| 任務（Task） | 依流程模板為檔期產生的工作項目；`kind` 為 TASK／GATE／MILESTONE |
+| 鎖定 | 人工調整單一任務日期後，重排不覆寫該任務 |
+| 預估佣金 | 歸因有效淨銷售額 × 生效費率，四捨五入到整數元；**不是正式結算**（口徑待 Owner 確認） |
+| 結算試算 | 以預估佣金口徑為每位團主算出的草稿結算；可覆寫（需原因）與加調整項；確認後鎖定 |
+| 歸因（Attribution） | 把訂單分攤到一位或多位團主（`share_percent`） |
+| DEMO 資料 | 由種子程式寫入、`data_origin=DEMO` 的虛構資料；Dashboard 會明確標示 |
+| 軟刪除 | 以狀態或 `deleted_at` 表示已刪除，資料列保留；資料庫觸發器禁止實體 DELETE |
+| 冪等 | 重複送出相同請求不會產生重複資料（`Idempotency-Key`、自然鍵、唯一索引） |
+| ADR | 架構決策紀錄（`docs/ARCHITECTURE_DECISIONS.md`），全部為 PROPOSED，待 Owner 確認 |
+
+### 1.4 參考文件
+
+`docs/ERP_MASTER_BLUEPRINT.md`（藍圖，BP）、`docs/REQUIREMENTS_TRACEABILITY_MATRIX.md`（RTM）、`docs/ARCHITECTURE_DECISIONS.md`（ADR-001～019）、`docs/WORKFLOW_MAPPING.md`、`docs/DASHBOARD_SPEC.md`、`docs/AUTOMATION.md`、`docs/FEATURE_STATUS_MATRIX.md`、`docs/phase2/{FULFILLMENT,AFTERSALES,FINANCE}.md`、`docs/KNOWN_ISSUES.md`、`docs/generated/*`（資料字典、ERD、端點清單）、`docs/TEST_REPORT.md`。
+
+### 1.5 需求的權威順序
+規格有歧義時依序參考：Owner 的明確指示 → 藍圖 → ADR（PROPOSED，待確認）→ 程式現況。本文件與程式不一致時，**以程式為準**，並把落差列在第 11.3 節，由 Owner 決定改程式還是改規格。
+
+---
+
+## 2 利害關係人與角色
+
+### 2.1 利害關係人
+
+| 利害關係人 | 關注點 | 在系統中的對應 |
+|---|---|---|
+| Owner（Winnie） | 決策者：口徑、範圍、授權、上線 | `SYSTEM_ADMIN`；第 9 節待決策清單的決定者 |
+| 營運主管 | 資源配置、跨團監控、例外升級、核准 | `OPS_MANAGER` |
+| 營運 PM／小編 | 廠商、商品、檔期、任務、素材、異常追蹤 | `OPS_EDITOR`（藍圖的「營運 PM」＝任務的「營運小編」，ADR-005） |
+| 團主 | 看自己的檔期、業績、下一步、預估佣金 | `HOST`（資料範圍＝被邀請且未婉拒的檔期） |
+| 廠商 | 看自己的商品與檔期、完成自己的任務 | `VENDOR`（目前唯讀；回填入口未解凍） |
+| 財務 | 成本、佣金規則、入帳、費用、結算 | `FINANCE` |
+| 客服／履約 | 訂單、出貨、退換貨、客訴 | 未建立獨立角色（藍圖 §2.2 有，尚未實作）；履約與售後功能由營運角色與財務使用 |
+| 稽核／唯讀 | 查看歷史與 Log | 未建立獨立角色；稽核讀取依角色過濾（FR-RBAC-07） |
+| 開發／維運 | 部署、備份、監控 | 尚未有維運責任人（待決策 #7） |
+
+### 2.2 角色與權限（程式現況，43 項權限）
+
+一人一個角色（ADR-005）。下表由 `src/server/lib/permissions.ts` 的 `ROLE_PERMISSIONS` 直接匯出。「能不能做這類動作」由權限決定；「能碰哪些資料列」另由資料範圍決定（FR-RBAC-02～06）。
+
+| 權限 | 系統管理者 | 營運主管 | 營運小編 | 團主 | 廠商 | 財務 |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| `aftersales.read` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `aftersales.write` | ✅ | ✅ | ✅ | — | — | — |
+| `approval.read` | ✅ | ✅ | ✅ | — | — | ✅ |
+| `approval.request` | ✅ | ✅ | ✅ | — | — | — |
+| `audit.read` | ✅ | ✅ | — | — | — | ✅ |
+| `automation.manage` | ✅ | ✅ | — | — | — | — |
+| `automation.run` | ✅ | ✅ | — | — | — | — |
+| `campaign.read` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `campaign.sensitive.read` | ✅ | ✅ | — | — | — | ✅ |
+| `campaign.transition` | ✅ | ✅ | ✅ | — | — | — |
+| `campaign.write` | ✅ | ✅ | ✅ | — | — | — |
+| `commission.read` | ✅ | ✅ | — | ✅ | — | ✅ |
+| `commission.write` | ✅ | — | — | — | — | ✅ |
+| `community.read` | ✅ | ✅ | ✅ | ✅ | — | ✅ |
+| `community.write` | ✅ | ✅ | ✅ | — | — | — |
+| `dashboard.admin` | ✅ | ✅ | ✅ | — | — | ✅ |
+| `dashboard.host` | ✅ | ✅ | — | ✅ | — | — |
+| `exception.manage` | ✅ | ✅ | ✅ | — | — | — |
+| `exception.read` | ✅ | ✅ | ✅ | — | — | ✅ |
+| `finance.read` | ✅ | ✅ | — | — | — | ✅ |
+| `finance.write` | ✅ | — | — | — | — | ✅ |
+| `fulfillment.read` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `fulfillment.write` | ✅ | ✅ | ✅ | — | — | — |
+| `host.read` | ✅ | ✅ | ✅ | — | — | ✅ |
+| `host.self` | ✅ | — | — | ✅ | — | — |
+| `host.write` | ✅ | ✅ | ✅ | — | — | — |
+| `intake.write` | ✅ | ✅ | ✅ | — | — | — |
+| `order.import` | ✅ | ✅ | ✅ | — | — | — |
+| `order.read` | ✅ | ✅ | ✅ | — | — | ✅ |
+| `product.cost.read` | ✅ | ✅ | — | — | — | ✅ |
+| `product.read` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `product.review` | ✅ | ✅ | — | — | — | — |
+| `product.write` | ✅ | ✅ | ✅ | — | — | — |
+| `refund.approve` | ✅ | ✅ | — | — | — | — |
+| `refund.complete` | ✅ | — | — | — | — | ✅ |
+| `settlement.confirm` | ✅ | — | — | — | — | ✅ |
+| `task.complete` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `task.read` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `task.write` | ✅ | ✅ | ✅ | — | — | — |
+| `user.manage` | ✅ | — | — | — | — | — |
+| `vendor.read` | ✅ | ✅ | ✅ | — | — | ✅ |
+| `vendor.self` | ✅ | — | — | — | ✅ | — |
+| `vendor.write` | ✅ | ✅ | ✅ | — | — | — |
+| **權限數** | 43 | 36 | 26 | 10 | 7 | 22 |
+
+關卡核准者（`GATE_APPROVER_ROLES`）：
+
+| 關卡 | 可核准的角色 |
+|---|---|
+| G1 | 系統管理者、營運主管 |
+| G2 | 系統管理者、營運主管 |
+| G3 | 系統管理者、營運主管、財務 |
+| G4 | 系統管理者、財務 |
+| G5 | 系統管理者、營運主管 |
+
+**資料範圍摘要**：管理者／營運主管／財務＝整個組織；營運小編＝自己負責或被指派任務的檔期；團主＝自己被邀請（未婉拒）的檔期，且只看自己的團主資料、自己的目標與 HOST 角色任務；廠商＝自己廠商的商品與檔期與 VENDOR 角色任務；外部角色對範圍外資料一律 404（不洩漏存在與否）。
+
+**與藍圖 §2.4 權限矩陣的差異**：藍圖「廠商可更新供貨／出貨（指定欄位）」「團主申請／有限欄位編輯檔期」尚未實作（FR-RBAC-10、FR-CMP-11）；藍圖「客服」「稽核唯讀」角色未建立（FR-RBAC-09）。
+
+---
+
+## 3 營運情境與使用案例
+
+每個使用案例列出：行為者、前置條件、主要流程、替代流程、事後條件，以及對應的功能需求（FR）。
+
+
+### UC-01 登入並依角色看到各自範圍
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 所有使用者 |
+| 前置條件 | 帳號 ACTIVE；外部角色已綁定團主或廠商 |
+| 主要流程 | 1. 輸入 Email 與密碼登入<br>2. 系統建立 12 小時 session（HttpOnly cookie）<br>3. 介面依權限顯示導覽；所有資料由後端依角色與資料範圍過濾 |
+| 替代／例外流程 | • 密碼錯誤：訊息與「帳號不存在」相同；連續 5 次失敗鎖 15 分鐘<br>• 帳號被停用：既有 session 立即失效<br>• session 過期：回 401，需重新登入<br>• 登入頻率過高：429 |
+| 事後條件 | 使用者僅能存取其角色與範圍內的資料 |
+| 對應 FR | FR-AUTH-01～09、FR-RBAC-01～08 |
+
+### UC-02 建立廠商與商品主檔
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運小編／營運主管 |
+| 前置條件 | 具 `vendor.write`、`product.write` |
+| 主要流程 | 1. 建立廠商（名稱、公司全名、統編…）；系統以正規化名稱／統編偵測重複<br>2. 新增聯絡人<br>3. 建立商品與規格（SKU），附素材連結<br>4. 送審；審核者核准或退回（退回需原因） |
+| 替代／例外流程 | • 重複廠商：回報既有 ID，不新增<br>• 廠商資料不齊：列為「待補資料」<br>• 封存廠商：有未結案檔期時被拒；封存為軟刪除（需原因） |
+| 事後條件 | 商品 APPROVED 後才能通過 G2 |
+| 對應 FR | FR-MD-01～14 |
+
+### UC-03 廠商進件（表單轉成草稿檔期）
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 內部登入者代送；自動化 worker |
+| 前置條件 | `intake.write`；自動化工作 `vendor_intake` 已啟用（預設停用） |
+| 主要流程 | 1. 送出進件（`externalSubmissionId` 去重）<br>2. worker 配對既有廠商／建立新廠商與商品<br>3. 建立草稿檔期與 15 個任務並通知<br>4. 人員接手後續 |
+| 替代／例外流程 | • 黑名單廠商或分潤％無法判斷：標 NEEDS_REVIEW，不自動處理<br>• 同廠商再次進件：配對既有廠商，不重複建立<br>• 欄位缺漏或格式錯誤：直接拒絕，不寫入 |
+| 事後條件 | 進件的分潤％只寫在備註，不寫佣金規則；系統沒有公開表單 |
+| 對應 FR | FR-AUT-08、FR-AUT-01 |
+
+### UC-04 建立檔期並自動排程
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運小編 |
+| 前置條件 | 廠商 ACTIVE 且非暫停／黑名單；商品屬於該廠商 |
+| 主要流程 | 1. 建立檔期：廠商、商品／規格、日期、負責人、目標<br>2. 系統以流程模板 v1 產生 15 個任務並排出日期（缺錨點日期的任務留空並說明）<br>3. 邀請團主、安排社群曝光<br>4. 系統顯示檔期衝突提醒 |
+| 替代／例外流程 | • 同商品日期重疊：高風險衝突（仍可建立，G2 會擋）<br>• 重複送出：回報既有檔期或回傳同一筆（Idempotency-Key） |
+| 事後條件 | 檔期為 DRAFT；任務產生且不重複 |
+| 對應 FR | FR-CMP-01～09、FR-WF-01～04 |
+
+### UC-05 選品核准（G1）
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運小編申請；營運主管／管理者核准 |
+| 前置條件 | 檔期 EVALUATING；至少一位團主已確認；前置任務（寄樣、試用、回饋）已完成 |
+| 主要流程 | 1. 小編申請 G1；系統先跑檢查（BLOCK 必須通過）<br>2. 檔期進入 PENDING_G1，核准者收到通知<br>3. 核准者核准 → PREPARING，G1 任務完成 |
+| 替代／例外流程 | • 檢查未通過：申請被擋並列出原因<br>• 退回（需原因）：回 EVALUATING 並保留原因<br>• 組織啟用「申請人≠核准人」時自己不能核准自己 |
+| 事後條件 | 每步有稽核（前後值） |
+| 對應 FR | FR-GATE-01～04、FR-GATE-06、FR-GATE-09 |
+
+### UC-06 籌備與開團核准（G2）
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運小編申請；營運主管／管理者核准 |
+| 前置條件 | 檔期 PREPARING；日期、商品審核與價格、團主確認、曝光安排齊備 |
+| 主要流程 | 1. 申請 G2；檢查日期、商品皆通過審核且有價格、已排曝光、衝突<br>2. 核准 → SCHEDULED |
+| 替代／例外流程 | • 高風險衝突：核准者填寫風險確認原因後才能放行（原因進稽核）<br>• 中度衝突：僅提醒 |
+| 事後條件 | 檔期 SCHEDULED；開團日到達後可進入 RUNNING |
+| 對應 FR | FR-GATE-02、FR-GATE-05、FR-CMP-04 |
+
+### UC-07 日期變更：先看影響再確認
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運小編／營運主管 |
+| 前置條件 | 檔期未取消／結案 |
+| 主要流程 | 1. 修改日期（試用品可寄出日、開團日、結團日、Live Talk、是否回收）或流程天數<br>2. 系統預覽每個任務的前後日期、被鎖定未動者、衝突，不寫入資料<br>3. 確認時帶預覽代碼；套用後寫稽核並發出事件通知負責人 |
+| 替代／例外流程 | • 預覽後有人改動任務：代碼失效，需重新預覽<br>• 已排程以後：必須填原因且限主管；進行中不可改開團日；核准後改日期留例外<br>• 手動鎖定單一任務日期：重排不覆寫 |
+| 事後條件 | 任務日期與預覽一致；稽核有前後值 |
+| 對應 FR | FR-WF-05～08 |
+
+### UC-08 開團與銷售進行中
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運小編；自動化 |
+| 前置條件 | 檔期 SCHEDULED |
+| 主要流程 | 1. 到開團日由 worker 推進 RUNNING（系統操作、稽核 SYSTEM），或人工推進<br>2. 銷售中執行任務（開團、話題、催單）<br>3. 過結團日由 worker 推進 PENDING_CLOSE_CHECK 並通知申請 G3 |
+| 替代／例外流程 | • 人工提前開團：未到開團日被擋；營運主管填原因可強制<br>• 任務逾期：自動化開例外並通知 |
+| 事後條件 | 狀態推進不重複 |
+| 對應 FR | FR-GATE-07、FR-AUT-04、FR-AUT-05 |
+
+### UC-09 匯入訂單並查看業績
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運主管／營運小編（`order.import`） |
+| 前置條件 | 檔期已建立；CSV 已去除個資 |
+| 主要流程 | 1. 上傳 CSV；系統檢查檔案層級錯誤<br>2. 逐列驗證；同訂單品項合併；建立歸因<br>3. 錯誤列進待處理佇列，其餘照常匯入<br>4. 管理者與團主 Dashboard 以同一口徑顯示 KPI |
+| 替代／例外流程 | • 同一檔案再匯入：被擋<br>• 跨檔重疊：相同略過、退款變動更新並稽核、品項被改進錯誤佇列<br>• 取消的檔期：整批 FAILED<br>• 尚無訂單：Dashboard 顯示「待串接」，KPI 為「—」 |
+| 事後條件 | 訂單可追溯到匯入批次；DEMO 資料明確標示 |
+| 對應 FR | FR-ORD-01～09、FR-DSH-01～09 |
+
+### UC-10 結單確認（G3）
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運小編申請；營運主管／管理者／財務核准 |
+| 前置條件 | 檔期 PENDING_CLOSE_CHECK；已過結團日 |
+| 主要流程 | 1. 申請 G3（檔期維持原狀態）<br>2. 系統檢查：已過結團日（BLOCK）、訂單存在與新鮮度（WARN）<br>3. 核准 → FULFILLING |
+| 替代／例外流程 | • 沒有訂單：僅提醒資料是否延遲 |
+| 事後條件 | 檔期進入履約 |
+| 對應 FR | FR-GATE-02、FR-GATE-03、FR-GATE-09 |
+
+### UC-11 履約出貨與簽收
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運主管／營運小編 |
+| 前置條件 | 檔期 SCHEDULED 以後（寄樣不受限） |
+| 主要流程 | 1. 建立出貨批次與出貨單（物流商、追蹤碼、預計日）<br>2. 包裝 → 出貨 → 送達，批次狀態自動彙總<br>3. 人工登錄簽收<br>4. 庫存異動以 append-only 紀錄；更正用反向異動 |
+| 替代／例外流程 | • 出貨異常（需原因）：批次標異常、通知負責人一次<br>• 取消批次：連動取消未送達出貨單<br>• 重複追蹤碼：被擋 |
+| 事後條件 | 履約資料在檔期取消／暫緩／結案後唯讀 |
+| 對應 FR | FR-FUL-01～10 |
+
+### UC-12 售後案件與退款
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運小編／主管；財務 |
+| 前置條件 | 案件關聯檔期（訂單選填） |
+| 主要流程 | 1. 建立案件（不得含個資）<br>2. 處理中 → 申請退款（金額不得超過可退餘額）<br>3. 主管核准或退回（退回需原因）<br>4. 財務完成退款；可明確選擇寫回訂單（預設不寫回）<br>5. 案件標記已解決 → 結案 |
+| 替代／例外流程 | • 退款待處理時案件不能標記已解決或取消<br>• 併發申請只成功一筆<br>• 寫回時餘額漂移：整筆回滾，退款維持「已核准」 |
+| 事後條件 | 案件處理紀錄不可改；團主／廠商只看得到自己範圍的摘要 |
+| 對應 FR | FR-AFT-01～12 |
+
+### UC-13 結算試算、確認（G4）
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 財務／管理者 |
+| 前置條件 | 檔期已開賣（RUNNING 以後） |
+| 主要流程 | 1. 開立結算試算：每位團主的歸因淨銷售與試算佣金<br>2. 必要時覆寫（需原因）或加調整項（需原因、只增不改）<br>3. 確認（財務／管理者）：檢查試算未過期、每位團主有可用金額；寫入規則版本快照<br>4. 確認後鎖定；另行走 G4 核准（不自動連動） |
+| 替代／例外流程 | • 試算後有新訂單：確認被擋，需重新試算<br>• 要修正已確認結算：作廢（需原因）後重開 |
+| 事後條件 | 結算確認後在資料庫層鎖定；全程標示「試算，口徑待 Owner 確認」 |
+| 對應 FR | FR-FIN-01～11、FR-GATE-08、FR-COM-01～03 |
+
+### UC-14 復盤與結案（G5）
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運主管／管理者 |
+| 前置條件 | 檔期 SETTLED |
+| 主要流程 | 1. 申請 G5；系統檢查無未結高風險例外、無未完成任務<br>2. 核准 → CLOSED |
+| 替代／例外流程 | • 未通過：維持 SETTLED |
+| 事後條件 | 結案後不可再變更或取消 |
+| 對應 FR | FR-GATE-02、FR-CMP-06 |
+
+### UC-15 團主自助查看
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 團主 |
+| 前置條件 | 團主帳號已綁定團主 |
+| 主要流程 | 1. 查看自己的檔期、行事曆、待辦、業績、預估佣金（標「預估」）<br>2. 回覆邀請（確認／婉拒，婉拒需原因）<br>3. 查看自己已確認的結算摘要（`/settlements/mine`） |
+| 替代／例外流程 | • 讀他人的檔期：404<br>• 指定他人 `hostId`：被拒 |
+| 事後條件 | 團主看不到成本、他團主、內部備註、檔期目標（僅自己的目標） |
+| 對應 FR | FR-RBAC-02、FR-RBAC-03、FR-DSH-05、FR-CMP-05、FR-FIN-08 |
+
+### UC-16 自動化與例外處理
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 管理者／營運主管；worker |
+| 前置條件 | `AUTOMATION_ENABLED=on` 且個別工作被啟用（預設全部停用） |
+| 主要流程 | 1. worker 依工作週期執行（事件、進件、提醒、逾期偵測、開團前檢查、狀態推進、每日摘要、通知派送）<br>2. 例外產生（去重）並通知負責人<br>3. 人員認領或結案例外（需說明） |
+| 替代／例外流程 | • 工作失敗：留錯誤紀錄，重試最多 3 次<br>• 通知 Adapter 失敗：不影響主流程，3 次後標 DEAD 並開例外 |
+| 事後條件 | 通知只進佇列與測試 Adapter，不對真人發送 |
+| 對應 FR | FR-AUT-01～11 |
+
+### UC-17 取消與暫緩
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運主管／管理者 |
+| 前置條件 | 檔期尚未進入履約（取消）；非終態（暫緩） |
+| 主要流程 | 1. 取消：任務、待核准、曝光安排一併取消，保留原狀態與原因<br>2. 暫緩：期間不可變更任務；恢復回到原狀態 |
+| 替代／例外流程 | • 進入履約後不可取消<br>• 已取消不可恢復 |
+| 事後條件 | 取消後新訂單被拒 |
+| 對應 FR | FR-CMP-06、FR-ORD-06 |
+
+### UC-18 稽核查詢
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 管理者／營運主管／財務 |
+| 前置條件 | `audit.read` |
+| 主要流程 | 1. 依實體或檔期查詢誰在何時改了什麼（前後值、原因、來源、request id） |
+| 替代／例外流程 | • 財務只看到財務相關實體；團主、廠商無權 |
+| 事後條件 | 稽核紀錄只增不改 |
+| 對應 FR | FR-AUD-01～04、FR-RBAC-07 |
+
+---
+
+## 4 功能需求
+
+**統計**（程式現況，基準 `3be9a94`）：共 **142 條**功能需求；IMPLEMENTED 106、PARTIAL 16、NOT_STARTED 13、BLOCKED 7。使用案例 18 個。
+
+| 模組 | FR 數 | IMPLEMENTED | PARTIAL | NOT_STARTED | BLOCKED |
+|---|--:|--:|--:|--:|--:|
+| AUTH 認證與帳號 | 10 | 8 | 1 | 1 | 0 |
+| RBAC 角色、權限與資料範圍 | 10 | 8 | 0 | 1 | 1 |
+| MD 主檔：廠商、團主、社群、商品 | 14 | 10 | 2 | 2 | 0 |
+| CMP 團購檔期 | 11 | 8 | 2 | 1 | 0 |
+| WF 工作流程與排程引擎 | 11 | 9 | 1 | 1 | 0 |
+| GATE 檔期狀態機與核准關卡（G1–G5） | 9 | 6 | 3 | 0 | 0 |
+| ORD 訂單匯入 | 11 | 7 | 2 | 1 | 1 |
+| DSH Dashboard 與 KPI | 12 | 9 | 1 | 1 | 1 |
+| COM 佣金規則與預估佣金 | 3 | 2 | 0 | 0 | 1 |
+| AUT 自動化、通知與例外 | 11 | 8 | 2 | 0 | 1 |
+| FUL 履約與出貨（Phase 2） | 10 | 9 | 0 | 1 | 0 |
+| AFT 退款、客訴與售後案件（Phase 2） | 12 | 10 | 0 | 1 | 1 |
+| FIN 財務：結算試算、入帳、發票、費用（Phase 2） | 11 | 9 | 0 | 1 | 1 |
+| AUD 稽核與資料保護 | 5 | 3 | 1 | 1 | 0 |
+| UI 使用者介面 | 2 | 0 | 1 | 1 | 0 |
+| **合計** | **142** | **106** | **16** | **13** | **7** |
+
+> 狀態判定：只要有一條驗收條件沒有自動化測試保護，或實作與需求有落差，就標 PARTIAL，並在該列說明；不為了好看而標 IMPLEMENTED。
+
+### 4.1 AUTH 認證與帳號
+
+模組：`auth.ts`、`api/routes.ts`、`api/router.ts`。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-AUTH-01 | 以 Email＋密碼登入／登出；錯誤帳密不洩漏帳號是否存在 | MUST | Given 有效帳號 When 以正確密碼登入 Then 設定 HttpOnly＋SameSite=Lax 的 session cookie，`/auth/me` 回角色；When 登出 Then 同一 cookie 之後回 401；錯誤密碼與不存在帳號回相同訊息的 401 | rbac ›「登入：錯誤帳密訊息一致不洩漏帳號是否存在…」 | IMPLEMENTED | ADR-006 | ✅ |
+| FR-AUTH-02 | 連續登入失敗鎖定帳號（5 次、15 分鐘） | MUST | Given 同一帳號連續 5 次密碼錯誤 When 第 6 次輸入正確密碼 Then 仍被拒（429） | rbac ›「連續登入失敗會暫時鎖定帳號」（驗證鎖定效果；15 分鐘解鎖時間未被斷言） | IMPLEMENTED | ADR-006 | ✅ |
+| FR-AUTH-03 | 停用帳號後既有 session 立即失效，且無法重新登入 | MUST | Given 使用者已登入 When 管理者將其停用 Then 其 session 立即回 401 且重新登入被拒 | rbac ›「停用帳號後既有 session 立即失效」 | IMPLEMENTED | ADR-006 | ✅ |
+| FR-AUTH-04 | Session 12 小時到期失效 | MUST | Given session 已過期 When 呼叫任一受保護 API Then 回 401 | rbac ›「過期的 session 失效」（以直接改 `expires_at` 模擬；12 小時常數 `SESSION_TTL_HOURS` 未被測試斷言） | IMPLEMENTED | ADR-006 | ✅ |
+| FR-AUTH-05 | 寫入類請求的 CSRF 與格式防護：Origin 必須等於 Host（或 X-Forwarded-Host）；僅接受 JSON | MUST | Given 已登入 When 跨來源 Origin 送出寫入 Then 403；When 內容為 form 表單 Then 415；When JSON 格式錯誤 Then 400；Origin 等於 Host 或 X-Forwarded-Host（通道／反向代理）時放行；無 Origin（腳本）放行 | rbac ›「跨來源（Origin 與 Host 不同）的寫入被拒…」；unit/misc ›「CSRF：Origin 比對」 | IMPLEMENTED | ADR-006 | ✅ |
+| FR-AUTH-06 | 使用者管理：只有系統管理者可新增／停用；團主、廠商帳號必須綁定存在於同組織的團主／廠商 | MUST | Given 營運主管 When 新增使用者 Then 被拒；Given 管理者 When 新增 HOST 帳號但未綁定團主 Then 驗證失敗 | rbac ›「只有管理者能管理使用者；營運主管不行；新增團主帳號必須綁定團主」；database ›「團主帳號必須綁定團主、廠商帳號必須綁定廠商…」 | IMPLEMENTED | ADR-005 | 📄 |
+| FR-AUTH-07 | 密碼強度（至少 10 字元且含英文字母與數字）；密碼以 scrypt 雜湊、每次加鹽 | MUST | Given 弱密碼 When 建立使用者 Then 驗證失敗；Given 同一密碼雜湊兩次 Then 雜湊值不同且皆可驗證 | unit/misc ›「密碼」（雜湊可驗證…、強度規則） | IMPLEMENTED | ADR-006 | 📄 |
+| FR-AUTH-08 | 登入限流：每 IP 30 次／分鐘、每帳號 10 次／分鐘 | SHOULD | Given 同 IP 於視窗內超過上限 When 再次登入 Then 回 429，視窗過後恢復 | unit/misc ›「限流」（只測限流函式；`/auth/login` 路由是否套用該限制沒有被斷言。測試輔助程式會在每次請求前重設限流） | PARTIAL | ADR-006 | 📄 |
+| FR-AUTH-09 | 未登入存取任何受保護 API 一律 401；`GET /api/health` 公開且不含業務資料 | MUST | Given 未登入 When 呼叫受保護端點 Then 401；When 呼叫 health Then 200 且僅含連線狀態 | rbac ›「未登入存取任何受保護 API 一律 401；健康檢查公開且不洩漏資料」 | IMPLEMENTED | ADR-006 | 📄 |
+| FR-AUTH-10 | SSO／OAuth、管理者 MFA、密碼重設、首次登入強制改密碼 | SHOULD | （未實作）藍圖 §8.3 要求管理者啟用 MFA；登入方式屬待決策 #7 | — | NOT_STARTED | ADR-006；KNOWN_ISSUES K1 | — |
+
+### 4.2 RBAC 角色、權限與資料範圍
+
+模組：`lib/permissions.ts`、`lib/scope.ts`，各模組 `requirePerm`。權限共 43 項，6 個角色。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-RBAC-01 | 六個角色與權限矩陣固定，不得被默默放寬 | MUST | Given 權限矩陣 Then 團主／廠商沒有任何寫入、成本、佣金設定、稽核、使用者管理權限；成本只給 SYSTEM_ADMIN／OPS_MANAGER／FINANCE；佣金規則只有 SYSTEM_ADMIN／FINANCE 可寫；使用者管理只有 SYSTEM_ADMIN | unit/misc ›「權限矩陣（不可被默默放寬）」5 項 | IMPLEMENTED | ADR-005 | ✅ |
+| FR-RBAC-02 | 資料範圍由後端強制：團主只看自己被邀請（未婉拒）的檔期；廠商只看自己的商品與檔期；範圍外一律 404 | MUST | Given 團主甲與乙 When 甲讀乙的檔期 Then 404（與不存在無法區分）；列表只含自己的檔期 | rbac ›「團主甲只看得到自己參與的檔期；讀乙的檔期得到 404」；rbac ›「廠商 B 看不到廠商 A 的商品」；unit/misc ›「資料範圍 SQL」 | IMPLEMENTED | ADR-003, ADR-005 | ✅ |
+| FR-RBAC-03 | 欄位投影：團主看不到成本、其他團主、檔期目標（僅自己的目標）、內部備註、審核紀錄、衝突、例外 | MUST | Given 團主讀共用檔期 Then 回應不含他團主 ID／名稱、`targetRevenue`、`internalNote`、`approvals`、`conflicts`、`workflowParams`，且任務只含 HOST 角色任務 | rbac ›「團主看不到內部欄位、其他團主、檔期目標、內部備註、審核紀錄、衝突、例外」 | IMPLEMENTED | ADR-005 | ✅ |
+| FR-RBAC-04 | 營運小編無成本讀寫權限；營運主管、財務可讀成本 | MUST | Given 營運小編 When 讀取／寫入商品成本 Then 看不到／被拒；營運主管與財務可 | rbac ›「營運小編看不到成本，也不能寫入成本；營運主管／財務可以」 | IMPLEMENTED | ADR-005 | 📄 |
+| FR-RBAC-05 | 營運小編只看得到自己負責或被指派任務的檔期 | MUST | Given 兩位小編各自負責不同檔期 When 小編 A 列出檔期 Then 不含小編 B 的檔期 | rbac ›「營運小編只看得到自己負責的檔期；其他小編的看不到」 | IMPLEMENTED | ADR-005 | 📄 |
+| FR-RBAC-06 | 跨組織隔離：另一組織的管理者看不到本組織任何資料 | MUST | Given 兩個組織 When 組織 B 的管理者查詢 Then 看不到組織 A 的資料 | rbac ›「跨組織隔離：另一個組織的管理者看不到這個組織的任何資料」 | IMPLEMENTED | ADR-003 | 📄 |
+| FR-RBAC-07 | 稽核讀取範圍：財務只看到財務相關實體；營運主管看全部；團主、廠商無權 | MUST | Given 財務與營運主管 When 讀取稽核 Then 財務的結果僅含財務實體 | rbac ›「財務的稽核只看到財務相關實體；營運主管看全部」 | IMPLEMENTED | ADR-005 | 📄 |
+| FR-RBAC-08 | 團主只能操作自己角色的任務、只能回覆自己的邀請，不能寫入主檔或檔期、不能核准 | MUST | Given 團主 When 嘗試寫入主檔／完成營運任務／核准 Then 被拒 | rbac ›「團主不能寫入主檔或檔期、不能核准…」；rbac ›「團主只能操作自己角色的任務…」 | IMPLEMENTED | ADR-005 | 📄 |
+| FR-RBAC-09 | 客服／履約、稽核唯讀角色；匯出個資需額外權限 | SHOULD | （未實作）藍圖 §2.2 有此二角色；匯出功能本身也未做 | — | NOT_STARTED | ADR-005；RTM §A | — |
+| FR-RBAC-10 | 廠商可在指定欄位回填供貨、出貨、請款資料（廠商入口） | SHOULD | （未實作，Owner 未解凍）廠商目前只能唯讀並完成自己角色的任務；回填由內部人員代登 | — | BLOCKED | KNOWN_ISSUES K7 | — |
+
+### 4.3 MD 主檔：廠商、團主、社群、商品
+
+模組：`vendors.ts`、`hosts.ts`、`products.ts`、`conflicts.ts`（部分）。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-MD-01 | 廠商 CRUD：欄位驗證（統編、Email、日期、金額、百分比）、狀態（PROSPECT／CONTACTED／ACTIVE／PAUSED／BLACKLISTED） | MUST | Given 非法統編／Email When 建立廠商 Then 422 並指出欄位 | scenarios ›「API 層行為」›「資料驗證：統編、Email、日期、金額、百分比」 | IMPLEMENTED | ADR-002 | 📄 |
+| FR-MD-02 | 廠商聯絡人新增與封存 | SHOULD | Given 廠商 When 新增／封存聯絡人 Then 聯絡人列表更新並寫稽核 | （只有建立廠商時帶非法 Email 的驗證測試；`POST /vendors/:id/contacts`、`/vendor-contacts/:id/archive` 沒有自動化測試） | PARTIAL | RTM §C | ❌ |
+| FR-MD-03 | 廠商資料待補提示：ACTIVE 廠商缺公司全名／統編／類別／主要聯絡人時列出，可用 `missing=1` 篩選 | SHOULD | Given ACTIVE 廠商缺統編 When 讀取詳情 Then `missingFields` 含缺項且 `anomalies` 提示；列表 `missing=1` 包含該廠商 | scenarios ›「廠商資料待補提示…」 | IMPLEMENTED | RTM §C | ✅ |
+| FR-MD-04 | 重複偵測：廠商（正規化名稱／統編）、團主、社群、商品、檔期以自然鍵擋下重複並回報既有 ID | MUST | Given 已有同名廠商 When 再次建立 Then 回報既有 ID，不新增；並發同名建立只成功 1 筆（資料庫唯一約束） | scenarios ›「重複表單送出」›「沒有 key 的重複送出：以自然鍵擋下…」「並發：無 key 同時建立同名廠商…」；database ›「唯一約束…」；unit/misc ›「名稱正規化」 | IMPLEMENTED | ADR-015 | 📄 |
+| FR-MD-05 | 封存即軟刪除：有未結案檔期的廠商／團主不可封存；封存後資料列仍在、需原因並寫稽核；可用同名重新建立 | MUST | Given 廠商有進行中的檔期 When 封存 Then 被拒；檔期取消後封存成功，`deleted_at` 有值、稽核含原因 | scenarios ›「有未結案檔期的廠商／團主不能封存；結案後可封存；封存是軟刪除」 | IMPLEMENTED | ADR-007 | ✅ |
+| FR-MD-06 | 暫停／黑名單廠商不能建立新檔期 | MUST | Given 廠商狀態 PAUSED When 建立檔期 Then 被拒 | scenarios ›「暫停／黑名單廠商不能建立新檔期」 | IMPLEMENTED | RTM §C | 📄 |
+| FR-MD-07 | 團主 CRUD；可承接（AVAILABLE）與不可承接（BLOCKED）區間（含端點） | MUST | Given 團主有不可承接區間 When 檔期與之重疊 Then 提出高風險衝突；僅可承接區間不報 | scenarios ›「日期衝突」›「團主「不可承接」區間與檔期重疊 → 高風險…」 | IMPLEMENTED | RTM §C | 📄 |
+| FR-MD-08 | 社群（LINE／FACEBOOK／INSTAGRAM／THREADS／YOUTUBE／OTHER）與團主多對多關聯（角色 OWNER／ADMIN／MEMBER）；解除關聯前須先處理未完成的曝光安排 | MUST | Given 社群有未完成曝光 When 解除關聯 Then 被拒 | scenarios ›「一檔多團主 / 同團主多社群」›「解除團主與社群關聯前，必須先處理未完成的曝光安排」；›「更新時可清空欄位／取消指派／團主社群角色」 | IMPLEMENTED | RTM §C | 📄 |
+| FR-MD-09 | 團主「合作條件」結構化欄位 | COULD | （現況為文字欄位，無結構化條件；FEATURE_STATUS #6 限制） | — | PARTIAL | FEATURE_STATUS #6 | — |
+| FR-MD-10 | 商品與規格（SKU）：一檔多 SKU；同商品內規格編號唯一；商品須屬於檔期的廠商 | MUST | Given 同商品兩個相同規格編號 Then 被擋；商品不屬於檔期廠商 Then 被拒 | scenarios ›「一檔多 SKU」›「同商品多規格各自一列…」「商品必須屬於檔期的廠商」；database ›「唯一約束：…同商品同規格編號…」 | IMPLEMENTED | RTM §C | 📄 |
+| FR-MD-11 | 商品審核流程 DRAFT→PENDING_REVIEW→APPROVED／REJECTED：沒有規格不能送審、退回需原因、只有審核者能核准 | MUST | Given 無規格商品 When 送審 Then 被拒；退回未填原因 Then 被拒 | scenarios ›「商品審核流程：沒有規格不能送審；退回需原因；只有審核者能核准；非法轉移被擋」；rbac ›「廠商不能核准商品、不能改價格」 | IMPLEMENTED | RTM §C | 📄 |
+| FR-MD-12 | 連結欄位（官網、社群網址、商品連結、素材、任務證據、進件連結）只接受 http(s) | MUST | Given `javascript:` 連結 When 儲存 Then 驗證失敗 | scenarios ›「連結欄位只接受 http(s)…」 | IMPLEMENTED | KNOWN_ISSUES（開發紀錄） | 📄 |
+| FR-MD-13 | 素材檔案上傳與版本管理 | COULD | （未實作；現況只存連結） | — | NOT_STARTED | KNOWN_ISSUES K18 | — |
+| FR-MD-14 | 合作協議（agreements）管理 | COULD | （僅資料表，無 API／介面） | database ›「所有核心資料表都已建立…」（只驗證表存在） | NOT_STARTED | KNOWN_ISSUES K17 | — |
+
+### 4.4 CMP 團購檔期
+
+模組：`campaigns.ts`、`conflicts.ts`、`tasks.ts`。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-CMP-01 | 建立／編輯檔期：必填驗證、ID 規則（`CMP-YYYYMM-NNNN`）由資料庫計數器產生、並發建立 ID 不重複 | MUST | Given 缺必填欄位 When 建立 Then 阻擋；並發建立 Then ID 唯一且序號連續 | campaign-basic ›「建立檔期會依模板產生 15 個任務…」；database ›「ID 唯一且依規則產生」；scenarios ›「並發建立檔期：ID 不重複、序號連續遞增」 | IMPLEMENTED | ADR-014 | 📄 |
+| FR-CMP-02 | 一檔多商品多 SKU、多團主（PRIMARY／CO）、團主多社群 | MUST | Given 三位團主各有多個社群 Then 每位團主只看到自己的曝光安排 | scenarios ›「一檔多團主 / 同團主多社群」›「三位團主、各自多個社群…」 | IMPLEMENTED | RTM §C | 📄 |
+| FR-CMP-03 | 曝光安排：必須是該團主自己的社群；團主婉拒後不能再排；狀態 PLANNED／DONE／MISSED／CANCELLED | MUST | Given 團主已婉拒 When 新增曝光安排 Then 被拒 | scenarios ›（同上）；lifecycle ›「團主回覆」›「團主只能回覆自己的邀請…」 | IMPLEMENTED | RTM §C | ✅ |
+| FR-CMP-04 | 檔期衝突提醒：同商品日期重疊（高）、同社群同期（高）、團主不可承接（高）、團主同時多檔（中，上限固定 2）；日期缺漏不判斷；已取消檔期不算 | MUST | Given 兩檔同商品日期重疊 Then 後建檔期的 `conflicts` 含 SAME_PRODUCT_OVERLAP／HIGH；不重疊或對方已取消 Then 無衝突 | scenarios ›「同一商品重複開團」›「允許再次開團…但日期重疊時提出高風險衝突」；›「一檔多團主…」›「同團主同時進行多檔 → 中度提醒；同社群同期 → 高風險」；›「日期衝突」›「缺少日期的草稿檔期不做衝突判斷」 | IMPLEMENTED | RTM §E | ✅ |
+| FR-CMP-05 | 團主回覆邀請（確認／婉拒，婉拒需原因）；婉拒後該團主看不到該檔期 | MUST | Given 團主婉拒未填原因 Then 被拒；婉拒後讀取檔期 Then 找不到 | lifecycle ›「團主回覆」›「團主只能回覆自己的邀請；婉拒需原因；團主婉拒後看不到該檔期」 | IMPLEMENTED | ADR-005 | ✅ |
+| FR-CMP-06 | 取消／暫緩／恢復：取消時任務、待核准、曝光安排一併取消並保留原狀態與原因；已取消不可恢復；暫緩可恢復到原狀態且暫緩期間不可變更任務；進入履約後不可取消 | MUST | Given 檔期已取消 When 恢復 Then 被拒；Given FULFILLING 以後 When 取消 Then 「不可取消」 | lifecycle ›「取消與暫緩」2 項；unit/misc ›「檔期狀態機」›「進入履約之後不可取消」；lifecycle ›「完整生命週期」（結案後不可取消） | IMPLEMENTED | ADR-008 | 📄 |
+| FR-CMP-07 | 重複送出防護：`Idempotency-Key` 重送回同一筆；同 key 不同內容回 422；並發 8 個同請求只建 1 筆 | MUST | Given 相同 key When 重送建立（廠商／檔期／團主／商品）Then 回同一筆；key 相同內容不同 Then 422 | scenarios ›「重複表單送出」6 項 | IMPLEMENTED | ADR-015 | 📄 |
+| FR-CMP-08 | API 通用行為：統一錯誤格式（422 含欄位訊息、404、405、500 不外洩）、4 MB 請求上限（413）、樂觀鎖（409＋目前版本） | MUST | Given 過期 `version` When 更新 Then 409 並提示目前版本；Given 超大內容 Then 413 | scenarios ›「API 層行為」3 項 | IMPLEMENTED | ADR-002 | 📄 |
+| FR-CMP-09 | 檔期／廠商／團主列表的搜尋、篩選、分頁（上限 200 筆／頁）與排程日曆 | SHOULD | Given 篩選條件 When 列表 Then 只回符合者 | 僅 `vendors?missing=1`、`campaigns?limit=200` 有斷言；其餘篩選與日曆頁只由 E2E 煙霧測試覆蓋（`scripts/e2e-smoke.ts`，不在 `npm test`） | PARTIAL | RTM §C | ❌ |
+| FR-CMP-10 | 檔期異動紀錄：內部角色可讀該檔期的稽核；團主、廠商不可 | SHOULD | Given 內部角色 When 讀取 `/campaigns/:id/audit` Then 取得該檔期稽核；團主 403 | rbac ›「團主不能讀其他團主資料、全部廠商、商品成本、訂單、佣金設定、稽核、使用者、自動化」（只斷言團主讀 `/campaigns/:id/audit` 為 403；內部角色讀取沒有 API 層斷言） | PARTIAL | ADR-007 | 📄 |
+| FR-CMP-11 | 團主申請／提案檔期（有限欄位） | COULD | （未實作；藍圖 §2.4 標示為待決策） | — | NOT_STARTED | BP §2.4 | — |
+
+### 4.5 WF 工作流程與排程引擎
+
+模組：`workflow/schedule.ts`、`workflow/templates.ts`、`workflow/template-default.ts`、`tasks.ts`。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-WF-01 | 預設模板 `GROUPBUY_STANDARD` v1：15 個任務、8 個階段；建立檔期自動產生任務（選擇性任務為 SKIPPED） | MUST | Given 預設模板 Then 通過驗證（無循環、相依存在）、15 步、涵蓋 8 階段；建立檔期後有 15 個任務 | unit/schedule ›「預設流程模板」›「通過驗證：無循環、相依存在、15 步、涵蓋八個階段」；campaign-basic ›「建立檔期會依模板產生 15 個任務」 | IMPLEMENTED | ADR-004 | ✅ |
+| FR-WF-02 | 排程規則：結束日＝開始日＋天數−1；下一步＝前一步結束日＋1；以開團／結團日為錨點的步驟（開團前檢查、開團、話題、催單、結單、結算、請款） | MUST | Given 試用品可寄出日 2026-11-01 Then 寄樣 11/01–11/07、試用 11/08–11/21、回饋 11/22–11/24、G1 11/25、圖文 11/26–12/02 | unit/schedule ›「SOP 日期鏈…」「以開團／結團日為錨點的步驟…」 | IMPLEMENTED | ADR-009 | ✅ |
+| FR-WF-03 | 缺錨點日期時不亂排：任務日期為空並標示原因；圖文來不及於開團前檢查前完成時標 `schedule_issue` | MUST | Given 無試用品可寄出日 Then 任務日期為空並說明原因 | unit/schedule ›「缺少錨點日期時不亂排…」「排程衝突檢查…」 | IMPLEMENTED | ADR-009 | 📄 |
+| FR-WF-04 | 選擇性任務：Live Talk、試用品回收條件不成立時 SKIPPED；條件成立（經預覽確認）後變 TODO；相依被略過的步驟「穿透」到更前面的步驟 | MUST | Given 設定 Live Talk 日期 When 預覽並確認 Then LIVE_TALK 出現；移除後略過 | unit/schedule ›「選擇性步驟…」「相依到被略過的步驟時「穿透」…」；reschedule ›「條件任務：加入 Live Talk 日期與回收需求後任務自動出現；移除後略過」 | IMPLEMENTED | ADR-009 | 📄 |
+| FR-WF-05 | 日期變更先預覽再確認：預覽無副作用；套用需帶預覽代碼，預覽後有人改動則代碼失效；稽核留前後值 | MUST | Given 預覽後任務被他人修改 When 以舊代碼套用 Then 被拒要求重新預覽；預覽前後資料完全相同 | reschedule ›「日期變更：先預覽，確認才套用」2 項（含「套用後：只更新未鎖定、未完成的任務…稽核留有前後值」） | IMPLEMENTED | ADR-009 | ✅ |
+| FR-WF-06 | 已排程以後的檔期改日期：必須填原因且限營運主管／管理者；進行中不可改開團日；核准後改日期留下例外供追蹤；已取消／已結案不可調整 | MUST | Given 已排程檔期 When 小編不填原因套用 Then 被拒；主管填原因可套用並產生 SCHEDULE_CHANGED_AFTER_APPROVAL 例外；進行中改開團日 Then 被拒 | reschedule ›「已排程／進行中的檔期：不得未經核准就改日期」2 項 | IMPLEMENTED | ADR-009 | ✅ |
+| FR-WF-07 | 人工調整單一任務日期＝鎖定（需原因）；重排不覆寫鎖定任務與已完成任務 | MUST | Given 任務被鎖定 When 預覽重排 Then 該任務標 `blocked_by_lock` 並維持原日期，下游以鎖定日期為準 | unit/schedule ›「日期變更影響預覽」›「被人工鎖定的任務…」「已完成的任務不會被改動…」；reschedule ›「套用後：只更新未鎖定、未完成的任務…」 | IMPLEMENTED | ADR-009 | 📄 |
+| FR-WF-08 | 模板版本化：發佈新版不影響既有檔期（保存建立當下的版本與參數快照）；既有檔期採用新天數需逐檔預覽確認；非法參數被擋 | MUST | Given 發佈 trial_days=30 的 v2 Then 舊檔期日期不變、新檔期用 30 天；舊檔期預覽並確認後才套用 | reschedule ›「修改預設天數不會默默覆寫既有檔期」（呼叫服務函式 `publishTemplateVersion`） | PARTIAL | ADR-009 | ✅ |
+| FR-WF-09 | 任務：狀態（TODO／IN_PROGRESS／BLOCKED／WAITING_APPROVAL／DONE／SKIPPED／CANCELLED）、相依檢查（營運主管可填原因強制）、關卡任務不可直接改狀態、阻擋／略過／重開需原因、指派與取消指派、證據備註 | MUST | Given 前置任務未完成 When 完成後面的任務 Then 被拒「前置任務尚未完成」；暫緩期間不可變更任務 | lifecycle ›「完整生命週期」（相依順序、G 任務）；lifecycle ›「暫緩可恢復…暫緩期間不可變更任務」；rbac ›「團主只能操作自己角色的任務…」；scenarios ›「可取消任務指派」 | IMPLEMENTED | ADR-009 | ✅ |
+| FR-WF-10 | 逾期判斷：未完成且 `planned_end` 早於台北今日 | MUST | Given 任務逾期 Then 列為逾期並於自動化建立例外（逾期 1 天＝中、3 天以上＝高） | automation ›「逾期偵測、試用回饋催辦、團主未回覆」2 項 | IMPLEMENTED | ADR-012 | 📄 |
+| FR-WF-11 | 模板發佈介面（API／畫面）與流程步驟編輯器 | SHOULD | （現況：只能呼叫服務函式發佈新版；`src/` 與 `scripts/` 中沒有任何呼叫端，使用者無法操作。步驟編輯器未做） | — | NOT_STARTED | KNOWN_ISSUES K10 | — |
+
+### 4.6 GATE 檔期狀態機與核准關卡（G1–G5）
+
+模組：`workflow/state.ts`、`gates.ts`。14 種狀態：DRAFT、EVALUATING、PENDING_G1、PREPARING、PENDING_G2、SCHEDULED、RUNNING、PENDING_CLOSE_CHECK、FULFILLING、PENDING_SETTLEMENT、SETTLED、CLOSED、CANCELLED、ON_HOLD。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-GATE-01 | 狀態機：每個狀態有定義、終態無轉出；跳步被拒；GATE 類轉移不可用「變更狀態」繞過；倒退需原因 | MUST | Given DRAFT When 直接轉 RUNNING Then 被拒；PENDING_G2 手動轉 SCHEDULED Then 被拒；倒退不填原因 Then 被拒 | unit/misc ›「檔期狀態機」4 項；lifecycle ›「狀態機防呆」›「不能用「變更狀態」繞過關卡；倒退要原因；跳步被拒」 | IMPLEMENTED | ADR-008 | 📄 |
+| FR-GATE-02 | G1–G5 每個關卡：先通過系統檢查（BLOCK 必須通過、WARN 只提醒）才能申請；人工核准時重新檢查；G1／G2 申請時先進入「待核准」狀態，G3–G5 維持原狀態直到決定 | MUST | Given G1 缺團主確認與前置任務 Then 申請被擋並列出原因；全部通過後 G1→PREPARING、G2→SCHEDULED、G3→FULFILLING、G4→SETTLED、G5→CLOSED，每步有稽核前後值 | lifecycle ›「完整生命週期：草稿 → 結案（含 G1–G5）」 | IMPLEMENTED | ADR-008 | ✅ |
+| FR-GATE-03 | 核准者角色：G1／G2／G5＝管理者、營運主管；G3＝＋財務；G4＝管理者、財務；營運小編不能核准 | MUST | Given 小編核准 G1 Then 「不能決定」；主管核准 G4 Then 被拒；財務核准 G4 Then 成功 | lifecycle ›「完整生命週期…」；unit/misc ›「每個角色都有定義且關卡核准者皆為有效角色」 | IMPLEMENTED | ADR-008 | ✅ |
+| FR-GATE-04 | 核准被退回：回到上一狀態、保留原因；退回需填原因 | MUST | Given 申請 G1 When 主管退回未填原因 Then 被拒；填原因 Then 檔期回 EVALUATING 且原因保留 | lifecycle ›「狀態機防呆」›「核准被退回：回到上一個狀態並保留原因；退回需填原因」 | IMPLEMENTED | ADR-008 | 📄 |
+| FR-GATE-05 | G2 的「高風險衝突」可由核准者填寫風險確認原因後放行（原因進核准紀錄與稽核） | MUST | Given 高風險衝突 When 核准未填風險確認 Then 被拒；填寫後核准成功且 `decision_note` 含原因 | scenarios ›「同一商品重複開團」›「G2 會因高風險衝突擋下；…風險確認原因後才可核准」 | IMPLEMENTED | ADR-008 | ✅ |
+| FR-GATE-06 | 組織設定「申請人≠核准人」（`approval.require_distinct_actor`） | SHOULD | Given 設定開啟 When 申請人自己核准 Then 被拒「不得為同一人」；換人核准成功 | lifecycle ›「組織設定要求申請人≠核准人時，自己不能核准自己的申請」（以 SQL 直接寫入 `system_settings`） | PARTIAL | ADR-008 | ✅ |
+| FR-GATE-07 | 手動推進限制：未到開團日不可轉 RUNNING、未過結團日不可轉待結單；營運主管可填原因強制，小編不能 | MUST | Given SCHEDULED 且未到開團日 When 小編轉 RUNNING Then 「尚未到開團日」；小編 force 仍被拒；主管填原因 force 成功 | lifecycle ›「完整生命週期…」（手動開團段落） | IMPLEMENTED | ADR-008 | ✅ |
+| FR-GATE-08 | G4（結算確認）檢查：請款任務（INVOICE_REQUEST）已完成為 BLOCK；另有一條提示「結算試算（Phase 2 尚未實作）」 | MUST | Given 請款作業未完成 When 申請 G4 Then 被擋；完成後可申請且只有財務／管理者能核准 | lifecycle ›「完整生命週期…」（G4 段落，只斷言請款檢查與核准者角色）。注意：那條提示在程式中恆為 WARN（`ok: false`），但結算模組已實作，文字已過時；結算確認也不會自動連動 G4（見第 11 節落差 G-01、G-02） | PARTIAL | ADR-008, ADR-013 | ✅ |
+| FR-GATE-09 | 關卡其他檢查：G1（廠商可合作、商品與規格啟用、至少一位團主確認）、G2（日期、開團日不早於今天、商品皆通過審核且有價格、已排曝光、衝突）、G3（已過結團日；訂單存在與新鮮度為 WARN）、G5（無未結高風險例外、無未完成任務） | MUST | Given 各關卡條件 Then 系統檢查以 BLOCK／WARN 呈現（`GET /campaigns/:id/gates/:gate`） | lifecycle ›「完整生命週期…」涵蓋 G1／G2／G3／G4 的部分檢查項；G5 的兩項檢查與 G1 的 `vendor_ok`／`has_products` 沒有被個別斷言 | PARTIAL | ADR-008 | 📄 |
+
+### 4.7 ORD 訂單匯入
+
+模組：`orders.ts`、`lib/csv.ts`。唯一的訂單進入路徑是 CSV。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-ORD-01 | CSV 匯入：每列一個品項，同 `source_order_id` 合併為一張訂單；金額由品項加總；建立品項與團主歸因；批次可追溯（來源、檔名、資料截至時間） | MUST | Given 含 7 張訂單的 CSV When 匯入 Then 6 張入庫（含狀態 PAID／PARTIAL_REFUND／REFUNDED／CANCELLED／PENDING），O1 金額為 3100 且有 2 個品項 | orders-dashboard ›「訂單 CSV 匯入」›「成功匯入：訂單、品項、歸因都建立；金額由品項加總；批次可追溯」 | IMPLEMENTED | ADR-011 | ✅ |
+| FR-ORD-02 | 同一份檔案（內容 sha256）不能匯入兩次 | MUST | Given 已匯入某檔 When 再匯入同內容 Then 「已匯入過」，訂單不重複 | orders-dashboard ›「同一份檔案不能匯入兩次（內容 checksum）」 | IMPLEMENTED | ADR-011 | ✅ |
+| FR-ORD-03 | 跨檔去重：(來源, 來源訂單編號) 相同且內容相同略過；退款／狀態變動則更新並寫稽核（前後值）；品項被改動進錯誤佇列（ITEMS_CHANGED） | MUST | Given 與既有訂單重疊的新檔 Then 新增 1、更新 1、略過 1、錯誤 1；O3 退款由 500 更新為 900 且稽核 `order.update_from_import` 有前後值 | orders-dashboard ›「不同檔案含重疊訂單：內容相同略過、退款有變動則更新（留稽核）、品項被改則進錯誤佇列」 | IMPLEMENTED | ADR-011 | ✅ |
+| FR-ORD-04 | 錯誤列進入待處理佇列（UNKNOWN_CAMPAIGN、BAD_ORDERED_AT、BAD_STATUS、BAD_QUANTITY、BAD_PRICE、UNKNOWN_SKU、BAD_REFUND、HOST_NOT_IN_CAMPAIGN、FUTURE_ORDER、MISSING_ORDER_ID），不阻擋其餘正確列 | MUST | Given 12 列中 11 列有誤 When 匯入 Then 狀態 PARTIAL、1 筆入庫、11 筆錯誤依列號有對應代碼 | orders-dashboard ›「錯誤列進入待處理佇列而不是消失；正確的列照常匯入」 | IMPLEMENTED | ADR-011 | ✅ |
+| FR-ORD-05 | 檔案層級驗證：缺必要欄位、未知欄位、僅標題列、空檔都被拒 | MUST | Given 缺欄位／多餘欄位／空檔 When 匯入 Then 拒絕並說明 | orders-dashboard ›「檔案層級的錯誤：缺必要欄位、未知欄位、空檔、非 CSV」 | IMPLEMENTED | ADR-011 | ✅ |
+| FR-ORD-06 | 已取消的檔期不接受新訂單（批次 FAILED／CAMPAIGN_CANCELLED）；使用者不能匯入 DEMO 來源資料 | MUST | Given 已取消檔期 When 匯入 Then FAILED；使用者帶 `origin: DEMO` Then 422 | orders-dashboard ›「取消的檔期不接受新訂單；DEMO 資料不能由使用者匯入」 | IMPLEMENTED | ADR-011 | ✅ |
+| FR-ORD-07 | 匯入權限：團主、廠商不能匯入；匯入僅限 `order.import` | MUST | Given 團主 When 匯入 Then 「沒有權限」 | orders-dashboard ›「團主與廠商不能匯入訂單」 | IMPLEMENTED | ADR-005 | ✅ |
+| FR-ORD-08 | 匯入錯誤的處理流程（標記已處理／忽略） | SHOULD | Given 錯誤列 When 標記處理 Then 狀態 RESOLVED／IGNORED 並記錄處理人 | `POST /import-errors/:id/resolve` 沒有自動化測試 | PARTIAL | RTM §H | ❌ |
+| FR-ORD-09 | 訂單去識別化：只存 `buyer_ref` 代號，不存姓名／電話／地址 | MUST | Given 匯入檔 Then 系統無姓名／電話／地址欄位；是否真的去識別化由人工在匯入前確保 | （資料表沒有個資欄位；`import` 不驗證代號內容 — KNOWN_ISSUES K15） | PARTIAL | ADR-011 | 📄 |
+| FR-ORD-10 | 電商平台 API／Webhook 訂單同步 | MUST | （缺平台與憑證） | — | BLOCKED | ADR-011；待決策 #3 | — |
+| FR-ORD-11 | 訂單明細頁；結單快照 | SHOULD | （未實作） | — | NOT_STARTED | KNOWN_ISSUES K14、K20 | — |
+
+### 4.8 DSH Dashboard 與 KPI
+
+模組：`dashboard.ts`、`lib/kpi.ts`（口徑單一來源）。KPI 口徑見 DASHBOARD_SPEC，**口徑待 Owner 確認**（ADR-010）。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-DSH-01 | 管理者 Dashboard KPI：GMV、退款、淨銷售、有效訂單、AOV、退款率；口徑＝計入 PAID／PARTIAL_REFUND／REFUNDED，PENDING、CANCELLED 不計 | MUST | Given 已知訂單 Then KPI 等於以口徑手算的結果 | orders-dashboard ›「Dashboard 口徑與一致性」›「管理者 KPI 等於以口徑定義手算的結果…」；unit/kpi ›「KPI 口徑」8 項 | IMPLEMENTED | ADR-010 | 📄 |
+| FR-DSH-02 | 目標達成率＝累計淨銷售÷目標；目標為空或 0 顯示「—」；未歸因金額明列 | MUST | Given 檔期無目標 Then 達成率為 null（不是 0%） | orders-dashboard ›「目標達成率＝累計淨銷售 ÷ 目標；未歸因金額被明確列出」；unit/kpi ›「達成率…」 | IMPLEMENTED | ADR-010 | 📄 |
+| FR-DSH-03 | 尚無訂單時顯示「待串接」：資料品質 NO_DATA，所有業績 KPI 為 null，不產生假業績 | MUST | Given 無訂單 When 開管理者與團主 Dashboard Then 狀態 NO_DATA、狀態標籤含「待串接」、GMV／淨銷售／達成率／預估佣金皆為 null | orders-dashboard ›「尚無訂單：待串接狀態，不顯示任何假業績」 | IMPLEMENTED | ADR-010 | ✅ |
+| FR-DSH-04 | 管理端與團主端同口徑：同一位團主的淨銷售在兩邊一致 | MUST | Given 同一團主 Then 管理端團主績效與團主 Dashboard 淨銷售相等 | orders-dashboard ›「管理端與團主端同口徑…」 | IMPLEMENTED | ADR-010 | 📄 |
+| FR-DSH-05 | 團主 Dashboard：我的檔期（含我的目標）、行事曆、待辦、業績、預估佣金（標示「預估」與規則）、試用與素材狀態、結算進度；團主只看到自己 | MUST | Given 團主乙 Then 回應不含團主一的名稱／ID；指定他人 `hostId` 被拒；內部人員可用團主視角預覽且內容相同 | orders-dashboard ›「團主看到的資料不含其他團主的業績」；rbac ›「團主 Dashboard：只能看自己；指定別人的 hostId 被拒；內部人員可用團主視角預覽」 | IMPLEMENTED | ADR-005, ADR-010 | ✅ |
+| FR-DSH-06 | 資料品質警告：未處理匯入錯誤、最近資料超過 3 天未更新、匯入 PARTIAL／FAILED、含 DEMO、佣金費率未設定 | MUST | Given 有匯入錯誤 Then 兩邊都有警告；資料截至 5 天前 Then 警告「3 天未更新」 | orders-dashboard ›「資料品質：有未處理的匯入錯誤時，兩邊都有警告」「資料延遲：最近一次資料截至超過 3 天會警告」 | IMPLEMENTED | ADR-010 | ✅ |
+| FR-DSH-07 | DEMO 資料明確標示（DEMO／MIXED 顯示橫幅） | MUST | Given DEMO 來源訂單 Then 狀態 DEMO 且標籤含「不是真實」 | orders-dashboard ›「DEMO 標示」 | IMPLEMENTED | ADR-011 | ✅ |
+| FR-DSH-08 | 敏感欄位不經 Dashboard 外洩：無 `campaign.sensitive.read` 的角色看不到檔期目標與達成率 | MUST | Given 小編負責有目標的檔期 Then Dashboard 有 GMV 但 `targets` 為 null 且回應不含目標數字 | orders-dashboard ›「敏感欄位不經 Dashboard 外洩」 | IMPLEMENTED | ADR-005 | ✅ |
+| FR-DSH-09 | 月份切換（台北日曆月）、非法月份被拒；小編只看到自己負責檔期的業績；無 `order.read` 的角色無業績區塊 | MUST | Given 其他月份無訂單 Then 有效訂單 0 且仍帶口徑；`2020-13` 被拒 | orders-dashboard ›「月份切換…」「營運小編只看到自己負責檔期的業績…」 | IMPLEMENTED | ADR-010 | ✅ |
+| FR-DSH-10 | KPI 可追溯：每個 KPI 隨回應帶來源與公式 | SHOULD | Given Dashboard 回應 Then 含 `kpiDefinitions`（程式已回傳於 `dashboard.ts`） | 沒有測試斷言 `kpiDefinitions` 或 KPI 的 `source`／`formula` 欄位 | PARTIAL | ADR-010 | ❌ |
+| FR-DSH-11 | 趨勢圖、預測、每日快取／結單快照 | COULD | （未實作；Dashboard 為即時查詢） | — | NOT_STARTED | KNOWN_ISSUES K20 | — |
+| FR-DSH-12 | 與一檔歷史結案數字的手工對帳 | MUST | （無真實歷史資料） | — | BLOCKED | KNOWN_ISSUES T4 | — |
+
+### 4.9 COM 佣金規則與預估佣金
+
+模組：`commission.ts`、`lib/commission-calc.ts`。**金額口徑待 Owner 確認**；不套用招財兔分潤公式（ADR-013）。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-COM-01 | 佣金規則版本化：檔期專屬規則優先於團主預設；修改＝新增一版並封存舊版；只有 SYSTEM_ADMIN／FINANCE 可寫；團主只讀自己的 | MUST | Given 非財務角色 When 建立規則 Then 403；財務輸入費率 101 Then 422；團主列出規則只看到自己的 | scenarios ›「API 層行為」›「資料驗證…」（含 `/commission-rules` 403／422）；rbac ›「佣金規則：只有財務／管理者可寫；團主只讀到自己的」 | IMPLEMENTED | ADR-013 | 📄 |
+| FR-COM-02 | 預估佣金＝歸因有效淨銷售×費率，四捨五入到整數元；沒有適用費率不猜並提示（顯示「尚未設定」） | MUST | Given 有費率 Then 預估值＝round(淨銷售×費率)；無費率 Then null 並提示 | orders-dashboard ›「預估佣金：有費率才估、四捨五入、標示為預估；沒有費率不猜並提示」；unit/kpi ›「預估佣金…」 | IMPLEMENTED | ADR-013 | 📄 |
+| FR-COM-03 | 階梯費率、含稅／未稅差異、扣項（運費、平台費、退款扣回時點）、分潤比例與順序 | MUST | （口徑未定義，Owner 決策） | — | BLOCKED | ADR-013；待決策 #5 | — |
+
+### 4.10 AUT 自動化、通知與例外
+
+模組：`automation.ts`、`notifications.ts`、`intake.ts`、`scripts/worker.ts`。8 個工作預設全部停用。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-AUT-01 | 安全欄杆：新組織 8 個工作預設停用；停用時執行回 SKIPPED 且無副作用；啟用／停用需管理者或營運主管並寫稽核 | MUST | Given 新組織 When 執行任一工作 Then SKIPPED(disabled)；小編啟用 Then 沒有權限 | automation ›「自動化安全欄杆：預設停用、可停用、有紀錄」2 項 | IMPLEMENTED | ADR-012 | 📄 |
+| FR-AUT-02 | 冪等與重試：(工作, 冪等鍵) 唯一；失敗留錯誤紀錄，再次執行重試同一筆，最多 3 次；鍵粒度（分鐘／小時／日）固定 | MUST | Given 工作失敗 When 修好後再執行 Then 重試同一筆（attempts+1，上限 3） | automation ›「失敗可查、可重試」›「Job 失敗時留下錯誤紀錄；修好後再執行會重試同一筆（最多 3 次）」；unit/misc ›「自動化預設冪等鍵的粒度」 | IMPLEMENTED | ADR-012 | 📄 |
+| FR-AUT-03 | 事件處理：建立檔期後確保任務齊全並通知負責人（重複處理不重複）；核准申請通知「有權限決定的人」（不含小編） | MUST | Given 同一事件處理兩次 Then 任務與通知不重複 | automation ›「事件處理：建立檔期後產生任務與通知，不重複」2 項 | IMPLEMENTED | ADR-012 | 📄 |
+| FR-AUT-04 | 逾期偵測與催辦：任務逾期建立例外（去重）；試用回饋逾期＝團主未回覆（團主標 NO_RESPONSE、通知團主與負責人）；修正後例外自動結案 | MUST | Given 試用回饋逾期 Then 例外升級為高風險、通知、團主標未回覆；補齊後自動結案 | automation ›「逾期偵測、試用回饋催辦、團主未回覆」2 項 | IMPLEMENTED | ADR-012 | 📄 |
+| FR-AUT-05 | 開團前檢查（開團前 3 天內重跑 G2 檢查，不通過開高風險例外並通知；不自動核准／開團）與狀態推進（已排程→進行中；過結團日→待結單確認；系統操作稽核 `actor_type=SYSTEM`） | MUST | Given 三檔：開團日已過／結團日已過／未到開團日 Then 分別變 RUNNING／PENDING_CLOSE_CHECK／維持 SCHEDULED，稽核為 SYSTEM／WORKER，再跑不重複推進 | automation ›「開團前檢查與狀態推進」2 項 | IMPLEMENTED | ADR-012 | ✅ |
+| FR-AUT-06 | 每日營運摘要：每天一份（`daily_summaries`）並對管理者／營運主管排入 EMAIL 通知；重複執行冪等 | SHOULD | Given 同一天執行兩次 Then 只有一份摘要、一組通知 | automation ›「每日摘要：冪等」 | IMPLEMENTED | ADR-012 | 📄 |
+| FR-AUT-07 | 通知佇列與 Adapter：IN_APP 直接送達；EMAIL／LINE 只經測試 Adapter（不對真人發送）；Adapter 失敗不影響主流程，重試後標 DEAD 並建立例外 | MUST | Given 外部通知服務不可用 Then 主流程不受影響，通知 3 次後 DEAD 並產生 NOTIFICATION_DEAD 例外 | automation ›「失敗可查、可重試」›「外部通知服務不可用…」「通知佇列：站內通知直接送達；EMAIL 只經測試 Adapter」 | IMPLEMENTED | ADR-012 | 📄 |
+| FR-AUT-08 | 廠商進件：以 `externalSubmissionId` 去重；正規化名稱／統編配對既有廠商；建立廠商、商品、草稿檔期與任務；黑名單廠商或分潤％無法判斷 → NEEDS_REVIEW；欄位驗證；不寫佣金規則 | MUST | Given 同一份表單送兩次 Then 一筆進件；同廠商再次進件 Then 配對既有廠商；黑名單 Then 待人工確認 | automation ›「新廠商資料進件」4 項（服務層呼叫；介面只有 API，沒有進件頁面） | IMPLEMENTED | ADR-012 | 📄 |
+| FR-AUT-09 | 例外管理：類型（TASK_OVERDUE、HOST_NO_RESPONSE、PRELAUNCH_CHECK_FAILED、SCHEDULE_CHANGED_AFTER_APPROVAL、NOTIFICATION_DEAD）、嚴重度、`dedupe_key` 去重、自動結案；人工認領／結案（需說明、寫稽核） | MUST | Given 例外 When 人工 ACKNOWLEDGED／RESOLVED Then 狀態更新並稽核 | 自動開立、去重、自動結案有測試（automation）；`POST /exceptions/:id/status` 的人工認領／結案沒有自動化測試 | PARTIAL | ADR-012 | ❌ |
+| FR-AUT-10 | 站內通知列表與標示已讀 | SHOULD | Given 使用者有通知 When 開通知頁並標示已讀 Then 狀態變 READ | 通知的建立與派送有測試；`GET /notifications`、`/notifications/all`、`POST /notifications/:id/read` 沒有自動化測試 | PARTIAL | ADR-012 | ❌ |
+| FR-AUT-11 | 真實 LINE／Email 發送、電商 API、Google Workspace／Sheets／日曆同步 | MUST | （缺憑證與 Owner 授權；`NOTIFY_ADAPTER` 設成其他值會拋 BLOCKED） | — | BLOCKED | ADR-012, ADR-019 | — |
+
+### 4.11 FUL 履約與出貨（Phase 2）
+
+模組：`fulfillment.ts`；詳見 `docs/phase2/FULFILLMENT.md`。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-FUL-01 | 出貨批次（SAMPLE／ORDER）與出貨單：PENDING→PACKED→SHIPPED→DELIVERED；異常（需原因）可回到後續狀態；DELIVERED、CANCELLED 為終點；批次狀態由出貨單彙總 | MUST | Given 出貨單包裝→出貨→送達 Then 批次狀態跟著彙總；不可跳過出貨直接簽收；出貨前須有物流商；日期不可是未來、送達不可早於出貨 | fulfillment ›「純函式：批次彙總與提醒」；›「出貨批次與出貨單：完整流程」›「建立批次與出貨單…」「狀態只能依轉移表走…」「PACKED → SHIPPED → DELIVERED…」 | IMPLEMENTED | FEATURE_STATUS #28 | 📄 |
+| FR-FUL-02 | 訂單出貨批次最早從 SCHEDULED 起建立；寄樣批次不受限；檔期取消／暫緩／結案後履約資料唯讀 | MUST | Given 草稿檔期 When 建立訂單出貨批次 Then 被擋；寄樣批次可建立 | fulfillment ›「訂單出貨批次在「草稿」檔期建立會被擋；寄樣批次可以」「檔期取消／暫緩／結案後履約資料唯讀」 | IMPLEMENTED | FEATURE_STATUS #28 | 📄 |
+| FR-FUL-03 | 同物流商＋追蹤碼（不分大小寫）在未取消的出貨單上不可重複；規格須屬於該檔期 | SHOULD | Given 相同物流商與追蹤碼 When 新增第二張出貨單 Then 被拒 | fulfillment ›「規格必須屬於該檔期；相同物流商＋追蹤碼不可重複（大小寫不分）」 | IMPLEMENTED | FEATURE_STATUS #28 | 📄 |
+| FR-FUL-04 | 出貨異常：必填原因、批次變 EXCEPTION、通知負責人且只通知一次 | SHOULD | Given 出貨單標異常 Then 批次為 EXCEPTION 並排入一則通知；處理後可繼續 | fulfillment ›「異常：必填原因、批次變異常、通知負責人且只通知一次；處理後可繼續」 | IMPLEMENTED | FEATURE_STATUS #28 | 📄 |
+| FR-FUL-05 | 簽收確認：只能對已送達的出貨單；重送不覆蓋（冪等）；全部送達後批次為 DELIVERED | MUST | Given 未送達 When 簽收 Then 被拒；已簽收再送 Then 不覆蓋 | fulfillment ›「簽收確認：未送達不能簽；簽收後重送不覆蓋；全部送達後批次為 DELIVERED」 | IMPLEMENTED | FEATURE_STATUS #28 | 📄 |
+| FR-FUL-06 | 取消批次：需原因、連動取消未送達的出貨單、已有送達者不可整批取消、取消後唯讀；樂觀鎖與清空欄位 | SHOULD | Given 批次內已有送達出貨單 When 整批取消 Then 被拒 | fulfillment ›「取消批次…」「編輯批次／出貨單：樂觀鎖版本衝突；空字串清空欄位；已出貨不可改數量」 | IMPLEMENTED | FEATURE_STATUS #28 | 📄 |
+| FR-FUL-07 | 庫存異動 append-only：期初庫存只能設一次、庫存不可為負；更正＝新增反向異動（同一筆只能更正一次、更正紀錄不可再更正）；資料庫層禁止改寫與刪除 | MUST | Given 庫存異動 When 直接 UPDATE／DELETE Then 資料庫拒絕；更正使餘額為負 Then 被擋 | fulfillment ›「庫存異動（append-only）」5 項 | IMPLEMENTED | FEATURE_STATUS #28 | 📄 |
+| FR-FUL-08 | 履約提醒（只提醒不擋關卡）：履約中沒有批次、異常、逾期未出貨、結算中仍有未送達、未簽收 | SHOULD | Given 結算中仍有未送達出貨單 Then 出現 WARN 但不阻擋任何動作 | fulfillment ›「結算中仍有未送達出貨單會出現 WARN，但不阻擋任何動作」；›「純函式…fulfillmentWarnings」 | IMPLEMENTED | FEATURE_STATUS #28 | 📄 |
+| FR-FUL-09 | 履約權限與範圍：營運主管／負責的小編可讀寫；財務唯讀；團主、廠商只讀自己範圍且看不到內部備註與庫存（403）；範圍外 404；寫入有稽核 | MUST | Given 非負責的小編 Then 404；團主讀批次 Then 無內部備註；團主讀庫存 Then 403 | fulfillment ›「API：權限、資料範圍與重複送出」（未登入／主管與小編／財務／團主／廠商 5 項）；›「每個寫入都有稽核紀錄（含前後值）；資料不能實體刪除」 | IMPLEMENTED | FEATURE_STATUS #28 | 📄 |
+| FR-FUL-10 | 庫存隨出貨自動扣除、預留／安全庫存、物流商 API／追蹤查詢、出貨單匯入、團主／廠商自行簽收 | SHOULD | （刻意未做或需解凍廠商入口） | — | NOT_STARTED | FULFILLMENT.md 限制 3–5；KNOWN_ISSUES P2-4 | — |
+
+### 4.12 AFT 退款、客訴與售後案件（Phase 2）
+
+模組：`aftersales.ts`；詳見 `docs/phase2/AFTERSALES.md`。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-AFT-01 | 建立售後案件（REFUND／COMPLAINT／EXCHANGE／OTHER）：關聯檔期（必填）與訂單（選填）；個資防呆（含手機號碼／Email 被擋）；冪等；處理紀錄與稽核 | MUST | Given 描述含手機號碼 When 建案 Then 被拒；同 key 不同內容 Then 422；成功後讀回欄位、處理紀錄與稽核 | aftersales ›「建立案件」3 項 | IMPLEMENTED | FEATURE_STATUS #29 | 📄 |
+| FR-AFT-02 | 案件狀態機 OPEN→IN_PROGRESS⇄WAITING_VENDOR→RESOLVED→CLOSED；取消與重新開啟需原因；終態不可離開；RESOLVED 需處理結果；樂觀鎖 | MUST | Given 非法轉移 Then 412；帶舊版本號 Then 409 | aftersales ›「案件狀態機」3 項 | IMPLEMENTED | FEATURE_STATUS #29 | 📄 |
+| FR-AFT-03 | 團主／廠商只看得到自己範圍的案件摘要與「對外可見」備註；看不到描述、買家代號、訂單、負責人、內部備註、退款；範圍外 404 | MUST | Given 團主 Then 回應鍵集合僅含摘要欄位且不含「內部」字樣；別的團主／廠商 Then 404；內部角色看到完整欄位 | aftersales ›「權限與資料範圍」›「團主／廠商：只看得到自己範圍的案件摘要…」 | IMPLEMENTED | FEATURE_STATUS #29 | ✅ |
+| FR-AFT-04 | 權限：小編可處理不可核准；主管可核准不可完成；財務可讀並完成不可核准；團主、廠商只讀；財務／團主／廠商不能建案（403） | MUST | Given 財務建案 Then 403；小編處理非負責檔期 Then 404 | aftersales ›「權限矩陣（定義）」；›「權限與資料範圍」2 項 | IMPLEMENTED | FEATURE_STATUS #29 | 📄 |
+| FR-AFT-05 | 退款申請金額不得超過可退餘額（訂單金額−已退−其他申請中）；併發申請只成功一筆；訂單狀態須為 PAID／PARTIAL_REFUND；案件須處理中 | MUST | Given 兩個併發申請合計超過餘額 Then 只有一筆成功；剛好等於餘額可以；PENDING 訂單 Then 拒絕 | aftersales ›「退款申請：金額邊界」3 項 | IMPLEMENTED | FEATURE_STATUS #29 | 📄 |
+| FR-AFT-06 | 退款核准／退回：僅主管與管理者；退回必填原因；已決定不能再決定；申請者收到通知；範圍外 404 | MUST | Given 小編核准 Then 403；退回未填原因 Then 被拒 | aftersales ›「退款核准」3 項 | IMPLEMENTED | FEATURE_STATUS #29 | 📄 |
+| FR-AFT-07 | 完成退款：僅財務／管理者；預設不寫回訂單（`writeback` 必須明確為 `true`）；寫回時同交易內鎖訂單、重驗餘額、更新 `refund_amount` 與訂單狀態並寫稽核，失敗整筆回滾；併發完成只成功一次 | MUST | Given writeback=true Then 訂單 PAID→PARTIAL_REFUND→REFUNDED 且稽核有前後值；餘額漂移 Then 回滾，退款維持「已核准」；字串 "true" Then 422 | aftersales ›「完成退款與寫回訂單」7 項；›「API 串接」›「writeback 一定要明確傳 true 才會寫回」 | IMPLEMENTED | FEATURE_STATUS #29 | 📄 |
+| FR-AFT-08 | 案件與退款連動限制：尚有待核准／待完成退款時，案件不能標記已解決或取消 | SHOULD | Given 有待核准退款 When 標記已解決 Then 被拒；退款完成後可以 | aftersales ›「案件與退款的連動限制」 | IMPLEMENTED | FEATURE_STATUS #29 | 📄 |
+| FR-AFT-09 | 案件與退款不可實體刪除；處理紀錄 `case_events` 不可 UPDATE／DELETE | MUST | Given 直接 DELETE／UPDATE Then 資料庫拒絕 | aftersales ›「不可實體刪除／處理紀錄不可改」 | IMPLEMENTED | ADR-007 | 📄 |
+| FR-AFT-10 | 列表篩選（狀態／類型／優先級／檔期／負責人／逾期／搜尋）與總覽統計（與資料庫直接計算一致；外部角色無退款金額） | SHOULD | Given 各篩選條件 Then 結果受範圍限制；總覽數字與 SQL 直接計算一致 | aftersales ›「列表與總覽」3 項 | IMPLEMENTED | FEATURE_STATUS #29 | 📄 |
+| FR-AFT-11 | 逾期案件接入例外自動化；案件附件上傳；SLA 計時；客戶端查詢入口；售後卡片嵌入 Dashboard | COULD | （未實作；客戶入口涉及對外存取需 Owner 解凍） | — | NOT_STARTED | AFTERSALES.md 限制；KNOWN_ISSUES P2-5 | — |
+| FR-AFT-12 | 真實金流退款 | MUST | （不處理；「完成」僅代表人工確認已退款） | — | BLOCKED | AFTERSALES.md | — |
+
+### 4.13 FIN 財務：結算試算、入帳、發票、費用（Phase 2）
+
+模組：`settlements.ts`、`finance.ts`；詳見 `docs/phase2/FINANCE.md`。**所有金額都是「試算」或「紀錄」，口徑待 Owner 確認，非正式付款依據。**
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-FIN-01 | 結算試算只重用既有預估佣金口徑（歸因淨銷售×生效費率，四捨五入）；無適用費率有銷售時為 null（不猜）、淨銷售 0 時為 0；只有已開賣（RUNNING 以後）的檔期可試算；同檔期不能同時有兩份草稿 | MUST | Given 檔期有訂單 Then 試算值與團主 Dashboard 預估佣金完全一致；無規則 Then null；作廢後可重開 | finance ›「結算試算：重用既有預估佣金口徑」3 項 | IMPLEMENTED | ADR-013 | 📄 |
+| FR-FIN-02 | 人工調整只有兩種且系統不自動產生：覆寫（必填原因、不可為負、可清除）與調整項（金額非 0 可正負、原因必填、只增不改不刪）；最終佣金＝(覆寫 ?? 自動試算)＋調整合計；重新試算保留覆寫與調整 | MUST | Given 調整項金額 0 或無原因 Then 被拒；直接 UPDATE／DELETE 調整項 Then 資料庫拒絕 | finance ›「覆寫與調整項」3 項 | IMPLEMENTED | ADR-013 | 📄 |
+| FR-FIN-03 | 結算確認（DRAFT→CONFIRMED）僅 FINANCE／SYSTEM_ADMIN；確認時寫入規則版本快照與資料基準；有團主沒有可用金額時不能確認；確認後鎖定（服務層與資料庫層皆擋），只能作廢後重開；作廢需權限與原因 | MUST | Given 主管／小編／團主／廠商 When 確認 Then 沒有權限；確認後覆寫／調整／重算／再確認皆被拒，直接改資料庫也被觸發器擋下；作廢後可重開新結算 | finance ›「確認與鎖定」4 項 | IMPLEMENTED | ADR-013 | ✅ |
+| FR-FIN-04 | 試算過期偵測：確認前以最新訂單／規則重算，與草稿逐項比對，不同則 412 要求重新試算 | MUST | Given 試算後匯入新訂單 When 確認 Then 被擋；重新試算後可確認 | finance ›「確認與鎖定」›「試算後訂單有變動：確認被擋，重新試算後才能確認」 | IMPLEMENTED | ADR-013 | ✅ |
+| FR-FIN-05 | 入帳／付款紀錄：金額正整數、方向 IN／OUT、對象類型；核對需先關聯檔期或結算項目，核對後鎖定，取消核對需原因，已核對不可作廢；不放真實銀行帳號 | MUST | Given 未關聯 When 核對 Then 被拒；已核對 When 作廢 Then 被拒 | finance ›「入帳確認紀錄」4 項 | IMPLEMENTED | FEATURE_STATUS #31 | 📄 |
+| FR-FIN-06 | 發票紀錄：DRAFT→ISSUED→VOID；開立後不可改；同號碼只能有一張未作廢；作廢需原因；不串電子發票 | SHOULD | Given 已開立發票 When 修改 Then 被拒；作廢後號碼可重用 | finance ›「發票紀錄」 | IMPLEMENTED | FEATURE_STATUS #31 | 📄 |
+| FR-FIN-07 | 費用紀錄（SHIPPING／MARKETING／SAMPLE／PLATFORM_FEE／OTHER）：建立、修改、作廢；彙總到財務總覽但不影響試算佣金；作廢的入帳／費用不計入 | SHOULD | Given 新增費用 Then 總覽費用增加、試算佣金不變 | finance ›「費用紀錄與財務總覽」2 項 | IMPLEMENTED | FEATURE_STATUS #31 | 📄 |
+| FR-FIN-08 | 財務權限與範圍：OPS_MANAGER 唯讀；小編、團主、廠商完全不能用財務 API（403）；團主只能用 `GET /settlements/mine`，只看到自己且已確認的結算項（不含他人、原因、調整細節、草稿） | MUST | Given 團主 Then 其他財務端點 403；`/settlements/mine` 只回自己已確認的項 | finance ›「權限與資料範圍（API）」4 項 | IMPLEMENTED | FEATURE_STATUS #32 | 📄 |
+| FR-FIN-09 | 財務寫入皆有稽核（含檔期、操作者、原因、前後值）；建立類端點支援 Idempotency-Key | MUST | Given 每個財務寫入動作 Then `audit_logs` 有對應紀錄 | finance ›「稽核」；›「相同 Idempotency-Key 重送不會重複建立結算」「重複送出（同 Idempotency-Key）只建立一筆」 | IMPLEMENTED | ADR-007 | 📄 |
+| FR-FIN-10 | 結算確認連動檔期 G4／狀態；結算批次（跨檔期）、付款單、扣款抵銷；階梯與扣項公式；結算匯出（CSV／PDF）；雙人覆核；通知團主 | SHOULD | （口徑待 Owner 定義；確認不會自動推進 G4） | — | NOT_STARTED | FINANCE.md §8；KNOWN_ISSUES P2-1、P2-2 | — |
+| FR-FIN-11 | 銀行對帳單匯入與自動比對、電子發票服務、金流 | SHOULD | （缺外部服務與授權） | — | BLOCKED | KNOWN_ISSUES P2-6 | — |
+
+### 4.14 AUD 稽核與資料保護
+
+模組：`lib/audit.ts`、`audit-read.ts`、`migrations/001`。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-AUD-01 | 稽核紀錄 append-only（資料庫觸發器禁止 UPDATE／DELETE），含操作者、角色、來源（WEB／API／WORKER／SEED／IMPORT／TEST）、request id、前後值、原因；密碼雜湊一律遮蔽、只記錄有變動的欄位 | MUST | Given 嘗試修改或刪除稽核列 Then 資料庫拒絕 | database ›「稽核紀錄不可修改、不可刪除」；unit/misc ›「稽核工具」 | IMPLEMENTED | ADR-007 | 📄 |
+| FR-AUD-02 | 所有業務資料表禁止實體 DELETE（觸發器），一律軟刪除；API 沒有 DELETE 方法 | MUST | Given 任一業務表 When DELETE Then `restrict_violation`；`DELETE` 方法 Then 405 | database ›「所有業務資料表都禁止 DELETE」「…涵蓋全部業務表（沒有漏網）」；scenarios ›「API 層行為」（405） | IMPLEMENTED | ADR-007 | 📄 |
+| FR-AUD-03 | 重要操作可從稽核還原：狀態路徑與日期變更的前後值 | MUST | Given 檔期走完 G1–G5 Then 稽核 `campaign.status` 的 after 路徑依序為 11 個狀態 | lifecycle ›「完整生命週期」（稽核段落）；reschedule ›「套用後：…稽核留有前後值」 | IMPLEMENTED | ADR-007 | ✅ |
+| FR-AUD-04 | 每一個寫入動作（全系統）都有稽核紀錄 | MUST | 各模組各有稽核斷言（財務、履約、售後、檔期、訂單更新）；沒有「全部寫入端點皆寫稽核」的通用測試 | finance ›「稽核」；fulfillment ›「每個寫入都有稽核紀錄」 | PARTIAL | ADR-007 | 📄 |
+| FR-AUD-05 | 備份排程與還原演練、靜態加密、Row-Level Security、稽核匯出 | MUST | （未實作） | — | NOT_STARTED | KNOWN_ISSUES K2、K5 | — |
+
+### 4.15 UI 使用者介面
+
+模組：`src/app/**`、`src/ui/**`。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-UI-01 | 繁體中文管理介面（淺色、桌面為主、手機基本可用）；伺服器元件直接呼叫服務層，後端永遠重新授權；導覽依權限顯示 | MUST | Given 各角色登入 Then 看到對應導覽；前端隱藏只是體驗 | `scripts/e2e-smoke.ts`（Playwright，49 項；不在 `npm test` 也不在 CI，結果記錄於 `docs/uat/e2e-results.json`） | PARTIAL | ADR-017 | ❌ |
+| FR-UI-02 | 無障礙（a11y）審查、多語系 | COULD | （未做；僅繁體中文） | — | NOT_STARTED | KNOWN_ISSUES K22 | — |
+
+---
+
+## 5 非功能需求
+
+「驗證」欄：**已測**＝有自動化測試斷言；**未測**＝已實作但沒有自動化測試；**未做**＝尚未實作。藍圖 §8.4 的初版目標是方向性描述，沒有量化數字，因此效能與可用性沒有可驗收的門檻值。
+
+| ID | 類別 | 需求 | 現況 | 驗證 |
+|---|---|---|---|---|
+| NFR-SEC-01 | 安全 | 密碼以 scrypt 雜湊、每次加鹽，強度至少 10 字元且含英數 | 已實作 | 已測（unit/misc） |
+| NFR-SEC-02 | 安全 | Session token 只在資料庫存 sha256，cookie `HttpOnly`、`SameSite=Lax`；production 加 `Secure` | 已實作（`auth.ts`、`routes.ts`） | HttpOnly／SameSite 已測（rbac）；sha256 雜湊與 `Secure` 未測 |
+| NFR-SEC-03 | 安全 | 寫入類請求檢查 Origin 與 Content-Type；請求上限 4 MB | 已實作 | 已測（rbac、unit/misc、scenarios） |
+| NFR-SEC-04 | 安全 | 後端強制資料範圍；外部角色範圍外一律 404；欄位投影 | 已實作 | 已測（rbac、各模組測試） |
+| NFR-SEC-05 | 安全 | 輸入驗證（zod）；URL 欄位只接受 http(s)；列表查詢參數化 | 已實作 | 已測（scenarios：驗證、http(s)）；參數化未獨立測 |
+| NFR-SEC-06 | 安全 | 登入鎖定（5 次／15 分鐘）與限流（IP 30／分、帳號 10／分，單機記憶體） | 已實作 | 鎖定已測；限流函式已測，路由套用未測；多實例不共用（KNOWN_ISSUES K3） |
+| NFR-SEC-07 | 安全 | SSO／OAuth、管理者 MFA、密碼重設、靜態加密、Row-Level Security | **未做** | 未做（BP §8.3；KNOWN_ISSUES K1、K2） |
+| NFR-SEC-08 | 安全 | 相依套件弱點：zod 3.x（high，需升 zod 4）、next 15 經 postcss | 已知，以 4 MB 請求上限與 `.max()` 降低風險 | 未解決（KNOWN_ISSUES T3） |
+| NFR-SEC-09 | 安全 | 機密不進 repo；`.env.example` 為佔位字；production 必須設定 ≥32 字元 `SESSION_SECRET` | ✅ 整合時已修正：`SESSION_SECRET` 從未被任何簽章使用，已連同無呼叫端的 `sessionSecret()` 一併移除（KNOWN_ISSUES K4；落差 G-09） | 未測 |
+| NFR-AUD-01 | 稽核 | 稽核 append-only、記錄操作者／角色／來源／request id／前後值／原因 | 已實作 | 已測（database、unit/misc） |
+| NFR-AUD-02 | 稽核 | 所有業務表禁止實體 DELETE；API 無 DELETE | 已實作 | 已測（database、scenarios） |
+| NFR-AUD-03 | 稽核 | 每個寫入動作都有稽核 | 各模組已實作 | 各模組有斷言；全系統通用測試不存在（FR-AUD-04） |
+| NFR-REL-01 | 一致性 | 財務與狀態轉移採交易；併發安全（鎖列、唯一索引、advisory lock） | 已實作 | 已測（併發建立、併發退款、併發完成退款、匯入鎖） |
+| NFR-REL-02 | 可靠度 | 冪等：`Idempotency-Key`＋請求雜湊、自然鍵、自動化 (工作, 鍵) 唯一、匯入 checksum | 已實作 | 已測 |
+| NFR-REL-03 | 可靠度 | 自動化失敗可查、可重試（上限 3 次）；通知失敗不影響主流程 | 已實作 | 已測（automation） |
+| NFR-REL-04 | 可靠度 | 備份排程、還原演練、RPO／RTO、事故回報流程 | **未做** | 未做（KNOWN_ISSUES K2；BP §8.3） |
+| NFR-OBS-01 | 可觀測性 | 每個回應帶 requestId 並寫入稽核；`GET /api/health` 含資料庫連線檢查 | 已實作 | health 公開性已測；連線檢查由 E2E 覆蓋；`requestId` 欄位未獨立斷言 |
+| NFR-OBS-02 | 可觀測性 | 監控、告警（失敗佇列、同步延遲、錯誤率） | **未做**；僅有 `automation_runs` 與 DEAD 通知 | 未做（KNOWN_ISSUES K5） |
+| NFR-PERF-01 | 效能 | 列表分頁上限 200 筆／頁；匯入上限 2 MB／20,000 列 | 已實作 | 上限常數未被測試斷言；**沒有負載或壓力測試**（KNOWN_ISSUES T3） |
+| NFR-PERF-02 | 效能 | Dashboard 為即時查詢（無快取、無快照）；財務總覽逐檔期計算（最多 100 檔期） | 已實作 | 資料量大時需優化（KNOWN_ISSUES K20）；無效能測試 |
+| NFR-DATA-01 | 資料保存 | 資料保存期限、封存與清理政策 | **未定義**；`idempotency_keys`、`sessions` 不會自動清理（KNOWN_ISSUES K6） | 未做 |
+| NFR-DATA-02 | 資料保護 | 訂單與售後只存去識別化 `buyer_ref`，不存買家姓名／電話／地址；售後文字欄位盡力擋手機號碼與 Email | 已實作（盡力而為，非完整個資偵測） | 售後已測；訂單匯入不驗證代號內容（KNOWN_ISSUES K15） |
+| NFR-COMP-01 | 相容性 | 日期以台北日曆日、`YYYY-MM-DD` 字串處理；時間戳 `timestamptz`；組織時區 `Asia/Taipei` | 已實作 | 已測（unit/misc 日期工具） |
+| NFR-COMP-02 | 相容性 | 瀏覽器：現代桌面瀏覽器；手機基本可用 | E2E 僅在 Chromium 驗證 | 未做跨瀏覽器（KNOWN_ISSUES T2） |
+| NFR-COMP-03 | 相容性 | 與 Google Sheets／Apps Script 的過渡：目前只提供 CSV 匯入 | 相容層為 PROPOSED | 未做 |
+| NFR-USE-01 | 可用性（易用） | 繁體中文介面；錯誤訊息為繁中並可直接顯示；無障礙審查 | 繁中已做；a11y 未做 | E2E 覆蓋主要流程；a11y 未做（KNOWN_ISSUES K22） |
+| NFR-MNT-01 | 可維護性 | 手寫 SQL migration（checksum，已套用檔被改會被偵測）、模組化單體、單一路由表、口徑單一來源（`kpi.ts`、`commission-calc.ts`） | 已實作 | 已測（database：冪等、checksum） |
+| NFR-MNT-02 | 可維護性 | 測試策略：真實 PostgreSQL、一檔一組織、純函式單元測試；typecheck／lint／build 納入 CI | 已實作（CI 不含 E2E） | 已測 |
+
+---
+
+## 6 資料需求與資料品質規則
+
+### 6.1 資料實體（53 張表，由 migrations 001–011 建立）
+
+| 領域 | 資料表 | migration |
+|---|---|---|
+| 基礎 | `organizations`、`roles`、`users`、`user_scopes`、`sessions`、`id_counters`、`audit_logs`、`idempotency_keys`、`system_settings`、`events` | 001 |
+| 主檔 | `vendors`、`vendor_contacts`、`hosts`、`host_availability`、`communities`、`host_communities`、`products`、`product_assets`、`skus`、`agreements`（僅 Schema） | 002 |
+| 檔期 | `campaigns`、`campaign_products`、`campaign_hosts`、`campaign_placements`、`approvals`、`exceptions` | 003 |
+| 流程 | `workflow_templates`、`workflow_template_steps`、`tasks`、`task_dependencies` | 004 |
+| 訂單與佣金 | `import_batches`、`import_errors`、`orders`、`order_items`、`attributions`、`commission_rules`、`settlements`、`settlement_items` | 005 |
+| 自動化 | `automation_settings`、`automation_runs`、`notifications`、`vendor_intake_submissions`、`daily_summaries` | 006 |
+| 履約 | `fulfillment_batches`、`shipments`、`inventory_movements` | 009 |
+| 售後 | `service_cases`、`case_events`、`refund_requests` | 010 |
+| 財務 | `settlement_adjustments`、`payments`、`invoices`、`expenses` | 011 |
+
+（007 角色種子、008 冪等雜湊欄位無新表。）欄位級定義見 `docs/generated/DATA_DICTIONARY.md`；業務欄位定義（藍圖 §3.5 要求的五個核心字典）仍是 PROPOSED。
+
+### 6.2 識別碼
+業務 ID 即主鍵，由資料庫計數器原子遞增產生，不依名稱或列號（ADR-014）：`VEN`、`OWN`（團主）、`GRP`（社群）、`PRD`、`SKU`、`CMP-YYYYMM-NNNN`、`TSK-YYYYMMDD-NNNN`、`ORD`、`IMP-YYYYMMDD-NNNN`、`CMR`、`APR`、`EXC`、`FBT`、`SHP`、`CAS`、`RFD`、`SET-YYYYMMDD-NNNN`、`SIT`、`ADJ`、`PAY`、`EXP` 等。**注意**：發票使用 `INV-`；庫存異動於整合時改用 `STK-`（012 之前建立的紀錄沿用 `INV-`，見落差 G-06）。
+
+### 6.3 資料品質規則
+
+| 規則 | 說明 | 對應 FR |
+|---|---|---|
+| DQ-01 唯一性 | 同組織同名（正規化）廠商、同商品同規格編號、同檔期同團主、同來源同訂單編號、同物流商同追蹤碼（未取消）、同發票號碼（未作廢）皆唯一 | FR-MD-04、FR-ORD-03、FR-FUL-03、FR-FIN-06 |
+| DQ-02 金額與數量 | 金額為 TWD 整數；不得為負；退款不得大於訂單金額；數量為正整數 | FR-ORD-04、FR-AFT-05 |
+| DQ-03 日期 | 開團日不晚於結團日；Live Talk 在區間內；送達日不早於出貨日；出貨日不是未來 | FR-CMP-01、FR-FUL-01 |
+| DQ-04 資料來源標示 | 訂單 `data_origin` 為 IMPORT／DEMO／MANUAL；DEMO 只能由種子寫入，Dashboard 明確標示 | FR-DSH-07、FR-ORD-06 |
+| DQ-05 不猜測 | 缺錨點日期不排程、無費率不估佣金、無目標不顯示達成率、無訂單不顯示業績（顯示「—」而非 0） | FR-WF-03、FR-COM-02、FR-DSH-02、FR-DSH-03 |
+| DQ-06 資料新鮮度 | 最近一次匯入資料截至超過 3 天、有未處理匯入錯誤時，Dashboard 警告 | FR-DSH-06 |
+| DQ-07 去識別化 | 買家只存 `buyer_ref`；案件文字擋手機號碼與 Email | FR-ORD-09、FR-AFT-01 |
+| DQ-08 完整性 | ACTIVE 廠商缺公司全名／統編／類別／主要聯絡人時列為待補 | FR-MD-03 |
+| DQ-09 可追溯 | 訂單可追到匯入批次；KPI 帶來源與公式；結算確認保存規則版本快照與資料基準 | FR-ORD-01、FR-DSH-10、FR-FIN-03 |
+| DQ-10 不可變 | 稽核、庫存異動、案件處理紀錄、結算調整項、已確認結算只增不改（資料庫層強制） | FR-AUD-01、FR-FUL-07、FR-AFT-09、FR-FIN-02、FR-FIN-03 |
+
+---
+
+## 7 限制與假設
+
+### 7.1 假設
+1. 所有現有畫面與數字只在本機與隔離環境驗證，沒有部署、沒有真實資料、沒有真實通知（CLAUDE.md 鐵律 1）。
+2. 組織時區固定 `Asia/Taipei`；「今天」一律以台北日曆日。
+3. 一人一個角色；一個團主／廠商帳號可綁定多位團主／廠商，Dashboard 預設顯示第一位（可用 `hostId` 切換）。
+4. 訂單進入系統的唯一路徑是 CSV；「即時」＝最近一次匯入的資料截至時間，不宣稱秒級即時（DASHBOARD_SPEC §1）。
+5. 小團隊可能一人兼任申請與核准，因此「申請人≠核准人」預設關閉。
+
+### 7.2 限制
+1. HOST／VENDOR 任務是「一檔一個」，不是「每位團主一個」；一檔多團主時任一位團主帳號都能完成共用的團主任務（KNOWN_ISSUES K8）。
+2. 手動鎖定單一任務日期後，下游任務不會立即連動，需再走一次影響預覽（K9）。
+3. 團主同時進行檔期的衝突上限固定為 2（K11）。
+4. 預估佣金＝單一費率 × 歸因淨銷售；不含階梯、扣項、含稅／未稅差異（K13）。
+5. 目標達成率以「與本期重疊的檔期」累計淨銷售計算，跨月檔期可能與直覺不同，期間定義待 Owner 確認（K16）。
+6. 搜尋使用 `ILIKE`（無全文檢索）；列表最多 200 筆／頁（K19）。
+7. 履約：庫存不隨出貨自動扣除；沒有訂單層級出貨對應；`DELIVERED` 後不可退回（FULFILLMENT.md）。
+8. 售後：退款寫回訂單後，重新匯入較舊的 CSV 會覆蓋 `refund_amount`（KNOWN_ISSUES P2-3）。
+9. 結算：以「檔期」為單位；試算以目前訂單為基準（不分期間）；一筆入帳最多關聯一個檔期與一個結算項目（FINANCE.md §8）。
+
+---
+
+## 8 範圍外與 BLOCKED 項目
+
+| 項目 | 狀態 | 原因／解除條件 |
+|---|---|---|
+| 電商訂單 API／Webhook | BLOCKED | 尚未決定平台，沒有憑證（待決策 #3） |
+| 真實 LINE／Email 發送 | BLOCKED | 沒有憑證，且需 Owner 授權；`NOTIFY_ADAPTER` 設成其他值會拋 BLOCKED |
+| Google Sheets／Apps Script 相容層、Google 日曆同步 | PROPOSED／BLOCKED | 需 Google 授權；目前以 CSV 與應用內行事曆替代（ADR-019） |
+| 廠商入口（對外回填、專屬連結） | BLOCKED | 涉及對外存取，Owner 尚未解凍（CLAUDE.md 鐵律 3；KNOWN_ISSUES K7） |
+| 歷史資料遷移、與 Sheets 雙軌對帳、與一檔歷史結案數字對帳 | BLOCKED | 沒有真實資料；待決策 #5、#6 |
+| SSO／MFA、密碼重設 | NOT_STARTED | 登入方式待決策 #7 |
+| 備份還原演練、監控告警、RLS、靜態加密、Production 部署 | NOT_STARTED | 需 Owner 授權與維運責任人 |
+| 真實金流、銀行對賬單匯入、電子發票 | BLOCKED | 缺外部服務；金流模式待決策 #4 |
+| 階梯費率、扣項、分潤比例與順序等結算公式 | BLOCKED | 金額公式屬 Owner 決策（待決策 #5） |
+| 客服／履約、稽核唯讀角色；匯出個資 | NOT_STARTED | 藍圖有、任務未列 |
+| 合作協議（agreements）、素材檔案上傳 | NOT_STARTED | 僅 Schema／連結 |
+| 工作流程步驟編輯器、模板發佈介面 | NOT_STARTED | 現況只能呼叫服務函式（FR-WF-11） |
+
+---
+
+## 9 待 Owner 決策清單
+
+以下每項列出選項與影響；**本文件不替 Owner 決定**。「目前實作」是程式現況（多為 ADR 的 PROPOSED 預設），若 Owner 選了不同的選項，影響範圍如右欄。
+
+| # | 決策 | 選項 | 目前實作 | 影響範圍 |
+|---|---|---|---|---|
+| D-01 | 首個試點群組與角色名單（BP §9.4 #1） | A) 指定 1～2 位團主、1 位廠商試跑　B) 全面導入 | 尚未指定；使用 DEMO 資料 | 決定要不要建真實帳號；手工對帳的案例選擇 |
+| D-02 | 團主可見範圍（BP §9.4 #2；ADR-005） | A) 只看自己的目標、業績、預估佣金（不含成本與淨利）　B) 另可看毛利／成本　C) 可看同群組其他團主排名 | A | 欄位投影與 Dashboard；`FR-RBAC-03`、`FR-DSH-05` 與對應測試 |
+| D-03 | 訂單來源與同步頻率（待決策 #3；ADR-011） | A) 維持 CSV 定期匯入　B) 指定電商平台 API／Webhook　C) 兩者並存 | A（僅 CSV） | `FR-ORD-10` 解除 BLOCKED；需憑證與去重鍵設計 |
+| D-04 | 金流模式與發票／退款責任（待決策 #4） | A) 平台代收、公司結算給廠商與團主　B) 廠商自收、公司只收佣　C) 混合 | 未實作；財務模組僅做紀錄 | 入帳、發票、退款流程與 `FR-FIN-*`、`FR-AFT-*` 的權限分工 |
+| D-05 | KPI 口徑（ADR-010） | 計入狀態（是否含 PENDING／全額退款）、期間（下單時間 vs 付款時間）、跨月檔期的達成率計法 | 計入 PAID／PARTIAL_REFUND／REFUNDED；以下單時間台北日曆月；與本期重疊檔期累計 | `FR-DSH-01～09`、`kpi.ts`、對應單元測試 |
+| D-06 | 團主佣金基礎與結算口徑（ADR-013；FINANCE.md §8） | 基礎：淨銷售／含稅／扣費用後；四捨五入規則；是否有階梯、運費與平台費扣項、退款扣回時點；分潤比例與順序；是否需雙人覆核 | 單一費率 × 歸因淨銷售，四捨五入到整數元；其餘靠覆寫與調整項 | `FR-COM-*`、`FR-FIN-*`；**碰金額公式，需 Owner 明確定義後才能實作** |
+| D-07 | 結算確認是否自動推進 G4／檔期狀態 | A) 維持人工（現況）　B) 結算確認後自動可申請 G4　C) 結算確認即視同 G4 | A | `FR-GATE-08`、`FR-FIN-10`；需改 `gates.ts` |
+| D-08 | 團主可否看到草稿試算 | A) 只看已確認（現況）　B) 也看草稿 | A | `FR-FIN-08` |
+| D-09 | 退款核准者可否為申請者本人 | A) 不限制（現況）　B) 一律不可　C) 金額超過門檻才限制 | A（組織設定 `approval.require_distinct_actor` 只管關卡核准，不管退款） | `FR-AFT-06`、`FR-GATE-06` |
+| D-10 | 售後：是否保留「等待廠商」狀態；是否保留獨立的 `refund.complete` 權限（財務完成、主管不能完成） | 保留／移除 | 兩者皆保留 | `FR-AFT-02`、`FR-AFT-04` |
+| D-11 | 與 Google Sheets／Apps Script 的過渡期主從（待決策 #6；ADR-019） | A) 新系統為主　B) Sheets 為主、新系統只讀對照　C) 分階段接管 | 不連線、不遷移 | 雙軌對帳範圍與 `FR-` 的 BLOCKED 項 |
+| D-12 | 技術棧、登入方式、部署環境、備份與資安責任人（待決策 #7） | 登入：A) 帳密＋MFA　B) SSO（Google Workspace 等）；部署：自管／雲端 | Email＋密碼；本機與 DEMO | `FR-AUTH-10`、`NFR-SEC-07`、`NFR-REL-04`；上線前必須處理（KNOWN_ISSUES K1、K2） |
+| D-13 | 「八階段」生命週期定義（ADR-004） | 接受現行 8 階段／15 任務，或提供正式定義 | 現行定義（PROPOSED） | 流程模板資料；成本低（模板是資料） |
+| D-14 | 何時解凍廠商入口，及其授權方式（BP §2.4：帳號登入 vs 一次性安全連結） | 解凍／不解凍；帳號登入／安全連結 | 未解凍；廠商只讀 | `FR-RBAC-10`、`FR-FUL-10`、`FR-AFT-11` |
+| D-15 | 團主可否自行建立／申請檔期（BP §2.4） | 可／不可／僅申請 | 不可（只能回覆邀請） | `FR-CMP-11` |
+| D-16 | 組織設定（如「申請人≠核准人」）與流程模板發佈要不要有管理介面 | 要／不要 | 無介面，只能改資料庫或呼叫服務函式 | `FR-GATE-06`、`FR-WF-08`、`FR-WF-11` |
+| D-17 | 資料保存期限與清理政策（NFR-DATA-01） | 各類資料的保存年限、是否定期清理暫存表 | 未定義 | 稽核與訂單的長期容量、`idempotency_keys` 清理 |
+
+---
+
+## 10 追溯矩陣（FR → 實作模組 → 測試檔 → 狀態）
+
+模組路徑省略 `src/server/` 前綴。測試檔欄位只列「對應測試」欄位中引用到的檔案（細項見第 4 節）；`E2E` 指 `scripts/e2e-smoke.ts`，不在 `npm test`。
+
+| FR | 實作模組 | 測試檔 | 狀態 | 驗 |
+|---|---|---|---|---|
+| FR-AUTH-01 | auth.ts, routes.ts | rbac | IMPLEMENTED | ✅ |
+| FR-AUTH-02 | auth.ts | rbac | IMPLEMENTED | ✅ |
+| FR-AUTH-03 | auth.ts | rbac | IMPLEMENTED | ✅ |
+| FR-AUTH-04 | auth.ts, lib/config.ts | rbac | IMPLEMENTED | ✅ |
+| FR-AUTH-05 | api/router.ts | unit/misc、rbac | IMPLEMENTED | ✅ |
+| FR-AUTH-06 | auth.ts, lib/permissions.ts | rbac、database | IMPLEMENTED | 📄 |
+| FR-AUTH-07 | lib/password.ts | unit/misc | IMPLEMENTED | 📄 |
+| FR-AUTH-08 | lib/rate-limit.ts, routes.ts | unit/misc | PARTIAL | 📄 |
+| FR-AUTH-09 | api/router.ts, routes.ts | rbac | IMPLEMENTED | 📄 |
+| FR-AUTH-10 | — | — | NOT_STARTED | — |
+| FR-RBAC-01 | lib/permissions.ts | unit/misc | IMPLEMENTED | ✅ |
+| FR-RBAC-02 | lib/scope.ts | unit/misc、rbac | IMPLEMENTED | ✅ |
+| FR-RBAC-03 | campaigns.ts, lib/scope.ts | rbac | IMPLEMENTED | ✅ |
+| FR-RBAC-04 | products.ts | rbac | IMPLEMENTED | 📄 |
+| FR-RBAC-05 | lib/scope.ts | rbac | IMPLEMENTED | 📄 |
+| FR-RBAC-06 | lib/scope.ts, 全部模組 | rbac | IMPLEMENTED | 📄 |
+| FR-RBAC-07 | audit-read.ts | rbac | IMPLEMENTED | 📄 |
+| FR-RBAC-08 | tasks.ts, campaigns.ts, gates.ts | rbac | IMPLEMENTED | 📄 |
+| FR-RBAC-09 | — | — | NOT_STARTED | — |
+| FR-RBAC-10 | — | — | BLOCKED | — |
+| FR-MD-01 | vendors.ts | scenarios | IMPLEMENTED | 📄 |
+| FR-MD-02 | vendors.ts | — | PARTIAL | ❌ |
+| FR-MD-03 | vendors.ts | scenarios | IMPLEMENTED | ✅ |
+| FR-MD-04 | lib/text.ts, 各主檔模組 | unit/misc、scenarios、database | IMPLEMENTED | 📄 |
+| FR-MD-05 | vendors.ts, hosts.ts | scenarios | IMPLEMENTED | ✅ |
+| FR-MD-06 | campaigns.ts | scenarios | IMPLEMENTED | 📄 |
+| FR-MD-07 | hosts.ts, conflicts.ts | scenarios | IMPLEMENTED | 📄 |
+| FR-MD-08 | hosts.ts | scenarios | IMPLEMENTED | 📄 |
+| FR-MD-09 | hosts.ts | — | PARTIAL | — |
+| FR-MD-10 | products.ts | scenarios、database | IMPLEMENTED | 📄 |
+| FR-MD-11 | products.ts | rbac、scenarios | IMPLEMENTED | 📄 |
+| FR-MD-12 | lib/text.ts | scenarios | IMPLEMENTED | 📄 |
+| FR-MD-13 | — | — | NOT_STARTED | — |
+| FR-MD-14 | migrations/002 | database | NOT_STARTED | — |
+| FR-CMP-01 | campaigns.ts, lib/ids.ts | scenarios、database、campaign-basic | IMPLEMENTED | 📄 |
+| FR-CMP-02 | campaigns.ts | scenarios | IMPLEMENTED | 📄 |
+| FR-CMP-03 | campaigns.ts | lifecycle、scenarios | IMPLEMENTED | ✅ |
+| FR-CMP-04 | conflicts.ts | scenarios | IMPLEMENTED | ✅ |
+| FR-CMP-05 | campaigns.ts | lifecycle | IMPLEMENTED | ✅ |
+| FR-CMP-06 | campaigns.ts, workflow/state.ts | unit/misc、lifecycle | IMPLEMENTED | 📄 |
+| FR-CMP-07 | lib/idempotency.ts, api/router.ts | scenarios | IMPLEMENTED | 📄 |
+| FR-CMP-08 | api/router.ts, lib/repo.ts | scenarios | IMPLEMENTED | 📄 |
+| FR-CMP-09 | campaigns.ts, vendors.ts, hosts.ts | E2E | PARTIAL | ❌ |
+| FR-CMP-10 | audit-read.ts | rbac | PARTIAL | 📄 |
+| FR-CMP-11 | — | — | NOT_STARTED | — |
+| FR-WF-01 | workflow/template-default.ts, tasks.ts | unit/schedule、campaign-basic | IMPLEMENTED | ✅ |
+| FR-WF-02 | workflow/schedule.ts | unit/schedule | IMPLEMENTED | ✅ |
+| FR-WF-03 | workflow/schedule.ts | unit/schedule | IMPLEMENTED | 📄 |
+| FR-WF-04 | workflow/schedule.ts, campaigns.ts | unit/schedule、reschedule | IMPLEMENTED | 📄 |
+| FR-WF-05 | campaigns.ts, workflow/schedule.ts | reschedule | IMPLEMENTED | ✅ |
+| FR-WF-06 | campaigns.ts | reschedule | IMPLEMENTED | ✅ |
+| FR-WF-07 | workflow/schedule.ts, tasks.ts | unit/schedule、reschedule | IMPLEMENTED | 📄 |
+| FR-WF-08 | workflow/templates.ts | reschedule | PARTIAL | ✅ |
+| FR-WF-09 | tasks.ts | rbac、lifecycle、scenarios | IMPLEMENTED | ✅ |
+| FR-WF-10 | tasks.ts, automation.ts | automation | IMPLEMENTED | 📄 |
+| FR-WF-11 | workflow/templates.ts | — | NOT_STARTED | — |
+| FR-GATE-01 | workflow/state.ts, gates.ts | unit/misc、lifecycle | IMPLEMENTED | 📄 |
+| FR-GATE-02 | gates.ts | lifecycle | IMPLEMENTED | ✅ |
+| FR-GATE-03 | lib/permissions.ts, gates.ts | unit/misc、lifecycle | IMPLEMENTED | ✅ |
+| FR-GATE-04 | gates.ts | lifecycle | IMPLEMENTED | 📄 |
+| FR-GATE-05 | gates.ts | scenarios | IMPLEMENTED | ✅ |
+| FR-GATE-06 | gates.ts | lifecycle | PARTIAL | ✅ |
+| FR-GATE-07 | campaigns.ts | lifecycle | IMPLEMENTED | ✅ |
+| FR-GATE-08 | gates.ts | lifecycle | PARTIAL | ✅ |
+| FR-GATE-09 | gates.ts | lifecycle | PARTIAL | 📄 |
+| FR-ORD-01 | orders.ts | orders-dashboard | IMPLEMENTED | ✅ |
+| FR-ORD-02 | orders.ts | orders-dashboard | IMPLEMENTED | ✅ |
+| FR-ORD-03 | orders.ts | orders-dashboard | IMPLEMENTED | ✅ |
+| FR-ORD-04 | orders.ts | orders-dashboard | IMPLEMENTED | ✅ |
+| FR-ORD-05 | orders.ts, lib/csv.ts | orders-dashboard | IMPLEMENTED | ✅ |
+| FR-ORD-06 | orders.ts | orders-dashboard | IMPLEMENTED | ✅ |
+| FR-ORD-07 | orders.ts | orders-dashboard | IMPLEMENTED | ✅ |
+| FR-ORD-08 | orders.ts | — | PARTIAL | ❌ |
+| FR-ORD-09 | orders.ts, migrations/005 | — | PARTIAL | 📄 |
+| FR-ORD-10 | — | — | BLOCKED | — |
+| FR-ORD-11 | — | — | NOT_STARTED | — |
+| FR-DSH-01 | dashboard.ts, lib/kpi.ts | unit/kpi、orders-dashboard | IMPLEMENTED | 📄 |
+| FR-DSH-02 | dashboard.ts | unit/kpi、orders-dashboard | IMPLEMENTED | 📄 |
+| FR-DSH-03 | dashboard.ts | orders-dashboard | IMPLEMENTED | ✅ |
+| FR-DSH-04 | dashboard.ts | orders-dashboard | IMPLEMENTED | 📄 |
+| FR-DSH-05 | dashboard.ts | rbac、orders-dashboard | IMPLEMENTED | ✅ |
+| FR-DSH-06 | dashboard.ts | orders-dashboard | IMPLEMENTED | ✅ |
+| FR-DSH-07 | dashboard.ts | orders-dashboard | IMPLEMENTED | ✅ |
+| FR-DSH-08 | dashboard.ts | orders-dashboard | IMPLEMENTED | ✅ |
+| FR-DSH-09 | dashboard.ts | orders-dashboard | IMPLEMENTED | ✅ |
+| FR-DSH-10 | dashboard.ts, lib/kpi.ts | — | PARTIAL | ❌ |
+| FR-DSH-11 | — | — | NOT_STARTED | — |
+| FR-DSH-12 | — | — | BLOCKED | — |
+| FR-COM-01 | commission.ts | rbac、scenarios | IMPLEMENTED | 📄 |
+| FR-COM-02 | lib/commission-calc.ts, lib/kpi.ts | unit/kpi、orders-dashboard | IMPLEMENTED | 📄 |
+| FR-COM-03 | — | — | BLOCKED | — |
+| FR-AUT-01 | automation.ts | automation | IMPLEMENTED | 📄 |
+| FR-AUT-02 | automation.ts | unit/misc、automation | IMPLEMENTED | 📄 |
+| FR-AUT-03 | automation.ts | automation | IMPLEMENTED | 📄 |
+| FR-AUT-04 | automation.ts | automation | IMPLEMENTED | 📄 |
+| FR-AUT-05 | automation.ts | automation | IMPLEMENTED | ✅ |
+| FR-AUT-06 | automation.ts | automation | IMPLEMENTED | 📄 |
+| FR-AUT-07 | notifications.ts | automation | IMPLEMENTED | 📄 |
+| FR-AUT-08 | intake.ts | automation | IMPLEMENTED | 📄 |
+| FR-AUT-09 | automation.ts | — | PARTIAL | ❌ |
+| FR-AUT-10 | notifications.ts | — | PARTIAL | ❌ |
+| FR-AUT-11 | — | — | BLOCKED | — |
+| FR-FUL-01 | fulfillment.ts | fulfillment | IMPLEMENTED | 📄 |
+| FR-FUL-02 | fulfillment.ts | fulfillment | IMPLEMENTED | 📄 |
+| FR-FUL-03 | fulfillment.ts | fulfillment | IMPLEMENTED | 📄 |
+| FR-FUL-04 | fulfillment.ts | fulfillment | IMPLEMENTED | 📄 |
+| FR-FUL-05 | fulfillment.ts | fulfillment | IMPLEMENTED | 📄 |
+| FR-FUL-06 | fulfillment.ts | fulfillment | IMPLEMENTED | 📄 |
+| FR-FUL-07 | fulfillment.ts, migrations/009 | fulfillment | IMPLEMENTED | 📄 |
+| FR-FUL-08 | fulfillment.ts | fulfillment | IMPLEMENTED | 📄 |
+| FR-FUL-09 | fulfillment.ts | fulfillment | IMPLEMENTED | 📄 |
+| FR-FUL-10 | — | — | NOT_STARTED | — |
+| FR-AFT-01 | aftersales.ts | aftersales | IMPLEMENTED | 📄 |
+| FR-AFT-02 | aftersales.ts | aftersales | IMPLEMENTED | 📄 |
+| FR-AFT-03 | aftersales.ts | aftersales | IMPLEMENTED | ✅ |
+| FR-AFT-04 | aftersales.ts, lib/permissions.ts | aftersales | IMPLEMENTED | 📄 |
+| FR-AFT-05 | aftersales.ts | aftersales | IMPLEMENTED | 📄 |
+| FR-AFT-06 | aftersales.ts | aftersales | IMPLEMENTED | 📄 |
+| FR-AFT-07 | aftersales.ts | aftersales | IMPLEMENTED | 📄 |
+| FR-AFT-08 | aftersales.ts | aftersales | IMPLEMENTED | 📄 |
+| FR-AFT-09 | migrations/010 | aftersales | IMPLEMENTED | 📄 |
+| FR-AFT-10 | aftersales.ts | aftersales | IMPLEMENTED | 📄 |
+| FR-AFT-11 | — | — | NOT_STARTED | — |
+| FR-AFT-12 | — | — | BLOCKED | — |
+| FR-FIN-01 | settlements.ts, lib/commission-calc.ts | finance | IMPLEMENTED | 📄 |
+| FR-FIN-02 | settlements.ts, migrations/011 | finance | IMPLEMENTED | 📄 |
+| FR-FIN-03 | settlements.ts, migrations/011 | finance | IMPLEMENTED | ✅ |
+| FR-FIN-04 | settlements.ts | finance | IMPLEMENTED | ✅ |
+| FR-FIN-05 | finance.ts, migrations/011 | finance | IMPLEMENTED | 📄 |
+| FR-FIN-06 | finance.ts | finance | IMPLEMENTED | 📄 |
+| FR-FIN-07 | finance.ts | finance | IMPLEMENTED | 📄 |
+| FR-FIN-08 | settlements.ts, finance.ts | finance | IMPLEMENTED | 📄 |
+| FR-FIN-09 | finance.ts, settlements.ts | finance | IMPLEMENTED | 📄 |
+| FR-FIN-10 | — | — | NOT_STARTED | — |
+| FR-FIN-11 | — | — | BLOCKED | — |
+| FR-AUD-01 | lib/audit.ts, migrations/001 | unit/misc、database | IMPLEMENTED | 📄 |
+| FR-AUD-02 | migrations/* | scenarios、database | IMPLEMENTED | 📄 |
+| FR-AUD-03 | gates.ts, campaigns.ts | lifecycle、reschedule | IMPLEMENTED | ✅ |
+| FR-AUD-04 | 各模組 | fulfillment、finance | PARTIAL | 📄 |
+| FR-AUD-05 | — | — | NOT_STARTED | — |
+| FR-UI-01 | src/app, src/ui | E2E | PARTIAL | ❌ |
+| FR-UI-02 | — | — | NOT_STARTED | — |
+
+
+---
+
+## 11 附錄：驗證方法、抽樣結果與落差
+
+### 11.1 驗證方法
+1. 逐條 FR 回頭對照程式（`src/server/**`、`migrations/**`），確認實作存在。
+2. 對照 `tests/**`：列出每個 FR 的測試檔與測試標題。
+3. **抽樣讀測試內容**：對 43 條 FR（驗欄標 ✅）實際讀了測試的程式碼，確認斷言涵蓋驗收條件；其餘（📄）只核對標題與被測函式存在。
+4. **重跑測試**：在獨立資料庫（`erp_srs_test`，不影響其他工作）重跑 `npx vitest run`，結果見 11.2。
+5. 驗欄 ❌ 的 7 條：程式存在，但找不到任何自動化測試保護；已標 PARTIAL，不當成已驗證。
+
+### 11.2 測試重跑結果
+`npx vitest run`（真實 PostgreSQL 16，14 個測試檔）：**245 項全部通過**，約 14 秒。這只證明「已寫的測試通過」，不代表所有需求都有測試——沒有測試保護的需求見 11.3 的 T 系列。
+
+### 11.3 規格與程式的落差（需 Owner 決定改程式或改規格）
+
+| # | 類型 | 落差 | 證據 | 建議處理（供 Owner 決定） |
+|---|---|---|---|---|
+| G-01 | 程式文字過時 | G4 關卡檢查仍恆顯示一條 WARN「結算試算（Phase 2 尚未實作）」，但結算模組已實作 | `gates.ts` G4 區塊 `settlement_module` 項 `ok: false` 寫死 | ✅ 文字已於整合時改為「結算試算與確認（需人工確認）」；若要改為實際檢查「該檔期有已確認的結算」屬行為變更，需 D-07 決定 |
+| G-02 | 功能未串接 | 結算確認不會推進 G4 或檔期狀態；G4 只檢查請款任務，不檢查結算是否已確認 | `gates.ts`；FINANCE.md §2 | 見 D-07 |
+| G-03 | 功能無操作入口 | 「發佈新版流程模板」只有服務函式 `publishTemplateVersion`，`src/`、`scripts/` 沒有呼叫端；使用者無法調整預設天數 | `grep` 結果；只有 `tests/reschedule.test.ts` 呼叫 | 補 API／介面，或把「修改預設天數」改寫為工程操作（FR-WF-08、FR-WF-11） |
+| G-04 | 功能無操作入口 | 組織設定 `approval.require_distinct_actor` 沒有任何 API／介面／種子可設定，只能直接寫 `system_settings` | `grep system_settings`：僅 `gates.ts` 讀取；測試以 SQL 寫入 | 補設定介面，或在文件中標為工程設定（FR-GATE-06） |
+| G-05 | 文件過時 | `RTM` 仍寫結算／履約／售後 NOT_STARTED；`DASHBOARD_SPEC` §4、§5 仍寫「結算進度／財務模組屬 Phase 2」；`FEATURE_STATUS` #12 限制欄仍寫 G4 僅人工；`phase2/FULFILLMENT.md` 的「尚未接進 bootstrap-demo」「檔期詳情頁尚未加履約分頁」已不符現況（已串接；檔期頁有相關作業連結，無分頁） | 各文件原文 vs `scripts/bootstrap-demo.ts`、`campaigns/[id]/page.tsx` | 以本 SRS 第 4 節狀態為準，逐檔更新舊文件 |
+| G-06 | 識別碼 | 發票（`ids.invoice`）與庫存異動（`ids.inventoryMovement`）都產生 `INV-NNNNNN`，且共用計數器 `INV`；編號不重複但無法由前綴判斷是發票還是庫存異動 | `lib/ids.ts` | ✅ 整合時已讓庫存異動對新資料改用 `STK-`（既有紀錄不變） |
+| G-07 | 藍圖 vs 實作 | 藍圖要求廠商可回填供貨／出貨／請款、團主可申請檔期、客服／稽核角色、匯出個資需額外權限 | BP §2.2、§2.4 vs `permissions.ts` | 見 D-14、D-15；其餘列為後續範圍 |
+| G-08 | 實作 vs 驗收條件 | 售後卡片元件 `OverviewCards` 與 `GET /aftersales/overview` 已備妥，但未嵌入 Dashboard | `docs/phase2/AFTERSALES.md` 限制 | 由 Owner 決定放哪裡 |
+| G-09 | 防呆未生效 | 「production 必須設定 ≥32 字元 SESSION_SECRET」的檢查寫在 `sessionSecret()`，但沒有任何呼叫端，等於沒有防呆 | `git grep sessionSecret`：僅定義處 | ✅ 整合時已採「移除」（K4） |
+
+**測試缺口（已實作但沒有自動化測試保護，已在對應 FR 標 PARTIAL／❌）**
+
+| # | 缺口 | 對應 FR |
+|---|---|---|
+| T-01 | 廠商聯絡人新增／封存（`POST /vendors/:id/contacts`、`/vendor-contacts/:id/archive`） | FR-MD-02 |
+| T-02 | 檔期／團主列表的搜尋、狀態篩選與排程日曆（僅 E2E 覆蓋，E2E 不在 `npm test`／CI） | FR-CMP-09 |
+| T-03 | 匯入錯誤的處理流程（`POST /import-errors/:id/resolve`） | FR-ORD-08 |
+| T-04 | 例外的人工認領／結案（`POST /exceptions/:id/status`） | FR-AUT-09 |
+| T-05 | 站內通知列表與標示已讀 | FR-AUT-10 |
+| T-06 | 登入限流是否真的套用在 `/auth/login` 路由（測試輔助程式每次請求前會重設限流） | FR-AUTH-08 |
+| T-07 | `kpiDefinitions`／KPI 的來源與公式欄位 | FR-DSH-10 |
+| T-08 | 內部角色讀取檔期稽核的 API 層斷言；G5 與 G1 部分檢查項的個別斷言 | FR-CMP-10、FR-GATE-09 |
+| T-09 | 鎖定帳號 15 分鐘後自動解鎖、session 12 小時的常數值 | FR-AUTH-02、FR-AUTH-04 |
+| T-10 | E2E 煙霧測試（49 項）不在 CI | FR-UI-01 |
+
+### 11.4 本文件的限制
+- 需求描述是從程式與既有文件推導；沒有與真實使用者訪談或實際營運流程核對。
+- 「驗」欄為 📄 的 FR 只核對測試標題，若測試標題與內容不符，可能高估覆蓋；已抽樣讀過內容的 FR 標 ✅。
+- 非功能需求沒有量化門檻（藍圖未訂），因此「通過」只代表有實作，不代表達標。
