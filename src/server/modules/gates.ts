@@ -72,7 +72,7 @@ export async function runGateChecks(db: Queryable, orgId: string, campaignId: st
     const inv = await db.query(`SELECT status FROM tasks WHERE campaign_id=$1 AND step_key='INVOICE_REQUEST'`, [campaignId]);
     const invOk = !inv.rows[0] || ['DONE', 'SKIPPED'].includes(inv.rows[0].status);
     out.push(item('invoice_done', '請款作業（開發票請款）已完成', 'BLOCK', invOk, invOk ? undefined : `目前狀態：${inv.rows[0].status}`));
-    out.push(item('settlement_module', '結算試算（Phase 2 尚未實作）', 'WARN', false, '目前以人工確認結算結果；佣金試算與批次結算將於 Phase 2 提供'));
+    out.push(item('settlement_module', '結算試算與確認（需人工確認）', 'WARN', false, '請至「財務結算」確認此檔期的結算試算已確認；系統目前不會自動串接 G4，口徑待 Owner 確認'));
   }
   if (gate === 'G5') {
     const ex = await db.query(`SELECT count(*)::int AS n FROM exceptions WHERE campaign_id=$1 AND status<>'RESOLVED' AND severity='HIGH'`, [campaignId]);

@@ -6,7 +6,7 @@ import { camelize } from '../lib/case';
 import { nonEmpty } from '../lib/text';
 import { campaignScope } from '../lib/scope';
 
-const FINANCE_ENTITIES = ['order', 'import_batch', 'import_error', 'commission_rule', 'settlement'];
+const FINANCE_ENTITIES = ['order', 'import_batch', 'import_error', 'commission_rule', 'settlement', 'settlement_item', 'settlement_adjustment', 'payment', 'invoice', 'expense', 'refund_request'];
 
 export async function listAudit(actor: Actor, q: URLSearchParams) {
   requirePerm(actor, 'audit.read');
@@ -19,7 +19,8 @@ export async function listAudit(actor: Actor, q: URLSearchParams) {
   add('a.campaign_id', nonEmpty(q.get('campaignId')));
   add('a.actor_user_id', nonEmpty(q.get('actorUserId')));
   add('a.action', nonEmpty(q.get('action')));
-  const limit = Math.min(Number(q.get('limit') ?? 100) || 100, 500);
+  const rawLimit = Number(q.get('limit') ?? 100);
+  const limit = Number.isFinite(rawLimit) && rawLimit >= 1 ? Math.min(Math.trunc(rawLimit), 500) : 100;
   const rows = await query(
     `SELECT a.id, a.occurred_at, a.actor_user_id, u.name AS actor_name, a.actor_role, a.actor_type, a.action, a.entity_type, a.entity_id, a.campaign_id,
        a.before_data, a.after_data, a.reason, a.request_id, a.source

@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" font-family="-apple-system, 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif">
+  <title>財務結算詳情</title>
+  <rect x="0" y="0" width="1200" height="800" rx="0" fill="#f4f4f4" stroke="none" stroke-width="1"/>
+  <rect x="0" y="0" width="200" height="800" rx="0" fill="#e9e9e9" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="18" y="34" font-size="15" text-anchor="start" font-weight="bold" fill="#333333">團購 ERP</text>
+  <text x="18" y="64" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">營運</text>
+  <text x="24" y="84" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">總覽</text>
+  <text x="24" y="110" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">檔期</text>
+  <text x="24" y="136" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">排程日曆</text>
+  <text x="24" y="162" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">任務</text>
+  <text x="24" y="188" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">核准</text>
+  <text x="24" y="214" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">售後</text>
+  <text x="24" y="240" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">履約出貨</text>
+  <text x="18" y="270" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">主檔</text>
+  <text x="24" y="290" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">廠商</text>
+  <text x="24" y="316" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">團主</text>
+  <text x="24" y="342" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">社群</text>
+  <text x="24" y="368" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">商品</text>
+  <text x="18" y="398" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">財務</text>
+  <rect x="8" y="401" width="184" height="24" rx="4" fill="#cfcfcf" stroke="none" stroke-width="1"/>
+  <text x="24" y="418" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">財務結算</text>
+  <text x="18" y="448" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">資料與監控</text>
+  <text x="24" y="468" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">訂單匯入</text>
+  <text x="24" y="494" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">例外</text>
+  <text x="24" y="520" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">自動化</text>
+  <text x="24" y="546" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">稽核</text>
+  <rect x="200" y="0" width="1000" height="48" rx="0" fill="#ffffff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="216" y="30" font-size="12" text-anchor="start" font-weight="normal" fill="#777777">財務 / 結算 / SET-…</text>
+  <rect x="950" y="12" width="24" height="24" rx="12" fill="#ffffff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="962" y="29" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">🔔</text>
+  <text x="990" y="30" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">使用者　財務</text>
+  <rect x="1100" y="11" width="72" height="28" rx="5" fill="#ffffff" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="1136.0" y="29.0" font-size="12" text-anchor="middle" font-weight="normal" fill="#333333">登出</text>
+  <text x="216" y="88" font-size="22" text-anchor="start" font-weight="bold" fill="#333333">結算試算 SET-…</text>
+  <rect x="500" y="70" width="44" height="20" rx="10" fill="#ececec" stroke="#9a9a9a" stroke-width="1"/>
+  <text x="522.0" y="84" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">草稿</text>
+  <rect x="764" y="66" width="96" height="28" rx="5" fill="#ffffff" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="812.0" y="84.0" font-size="12" text-anchor="middle" font-weight="normal" fill="#333333">重新試算</text>
+  <rect x="868" y="66" width="96" height="28" rx="5" fill="#4a4a4a" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="916.0" y="84.0" font-size="12" text-anchor="middle" font-weight="normal" fill="#ffffff">確認結算</text>
+  <rect x="972" y="66" width="64" height="28" rx="5" fill="#ffffff" stroke="#b00020" stroke-width="1"/>
+  <text x="1004.0" y="84.0" font-size="12" text-anchor="middle" font-weight="normal" fill="#b00020">作廢</text>
+  <rect x="216" y="112" width="960" height="30" rx="4" fill="#ececec" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="228" y="132" font-size="13" text-anchor="start" font-weight="bold" fill="#333333">試算，口徑待 Owner 確認；非正式付款依據</text>
+  <rect x="216" y="150" width="960" height="26" rx="4" fill="#ececec" stroke="#9a9a9a" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="228" y="168" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">此結算依據 DEMO 示範訂單資料／訂單或規則已變動，數字已過期請重新試算（條件式橫幅）</text>
+  <rect x="216" y="188" width="470" height="130" rx="4" fill="#ffffff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="230" y="212" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">試算資訊</text>
+  <line x1="216" y1="222" x2="686" y2="222" stroke="#bdbdbd"/>
+  <text x="232" y="232" font-size="12" text-anchor="start" font-weight="normal" fill="#666666">檔期</text>
+  <rect x="330" y="225" width="150" height="8" rx="3" fill="#d9d9d9"/>
+  <text x="232" y="252" font-size="12" text-anchor="start" font-weight="normal" fill="#666666">資料基準</text>
+  <rect x="330" y="245" width="210" height="8" rx="3" fill="#d9d9d9"/>
+  <text x="232" y="272" font-size="12" text-anchor="start" font-weight="normal" fill="#666666">建立</text>
+  <rect x="330" y="265" width="150" height="8" rx="3" fill="#d9d9d9"/>
+  <text x="232" y="292" font-size="12" text-anchor="start" font-weight="normal" fill="#666666">確認</text>
+  <rect x="330" y="285" width="210" height="8" rx="3" fill="#d9d9d9"/>
+  <text x="232" y="312" font-size="12" text-anchor="start" font-weight="normal" fill="#666666">備註</text>
+  <rect x="330" y="305" width="150" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="706" y="188" width="470" height="130" rx="4" fill="#ffffff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="720" y="212" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">合計</text>
+  <line x1="706" y1="222" x2="1176" y2="222" stroke="#bdbdbd"/>
+  <text x="722" y="232" font-size="12" text-anchor="start" font-weight="normal" fill="#666666">檔期有效淨銷售額</text>
+  <rect x="990" y="225" width="90" height="8" rx="3" fill="#d9d9d9"/>
+  <text x="722" y="252" font-size="12" text-anchor="start" font-weight="normal" fill="#666666">已歸因給團主／未歸因（不計佣金）</text>
+  <rect x="990" y="245" width="130" height="8" rx="3" fill="#d9d9d9"/>
+  <text x="722" y="272" font-size="12" text-anchor="start" font-weight="normal" fill="#666666">最終佣金合計（試算）</text>
+  <rect x="990" y="265" width="90" height="8" rx="3" fill="#d9d9d9"/>
+  <text x="722" y="292" font-size="12" text-anchor="start" font-weight="normal" fill="#666666">尚缺費率的團主／已關聯入帳筆數</text>
+  <rect x="990" y="285" width="130" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="216" y="334" width="960" height="210" rx="4" fill="#ffffff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="230" y="358" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">團主項目</text>
+  <line x1="216" y1="368" x2="1176" y2="368" stroke="#bdbdbd"/>
+  <rect x="226" y="378" width="940" height="36" rx="0" fill="#ececec" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="234" y="400.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">團主</text>
+  <text x="344" y="400.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">歸因淨銷售額</text>
+  <text x="474" y="400.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">費率（規則）</text>
+  <text x="604" y="400.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">自動試算</text>
+  <text x="724" y="400.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">覆寫</text>
+  <text x="834" y="400.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">調整合計</text>
+  <text x="944" y="400.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">最終佣金（試算）</text>
+  <text x="1084" y="400.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333"></text>
+  <line x1="226" y1="414" x2="1166" y2="414" stroke="#bdbdbd"/>
+  <rect x="234" y="429.0" width="66" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="344" y="429.0" width="65" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="474" y="429.0" width="65" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="604" y="429.0" width="60" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="724" y="429.0" width="55" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="834" y="429.0" width="55" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="944" y="429.0" width="70" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="1084" y="429.0" width="45" height="8" rx="3" fill="#d9d9d9"/>
+  <line x1="226" y1="450" x2="1166" y2="450" stroke="#bdbdbd"/>
+  <rect x="234" y="465.0" width="66" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="344" y="465.0" width="65" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="474" y="465.0" width="65" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="604" y="465.0" width="60" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="724" y="465.0" width="55" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="834" y="465.0" width="55" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="944" y="465.0" width="70" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="1084" y="465.0" width="45" height="8" rx="3" fill="#d9d9d9"/>
+  <line x1="226" y1="486" x2="1166" y2="486" stroke="#bdbdbd"/>
+  <rect x="234" y="501.0" width="66" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="344" y="501.0" width="65" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="474" y="501.0" width="65" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="604" y="501.0" width="60" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="724" y="501.0" width="55" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="834" y="501.0" width="55" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="944" y="501.0" width="70" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="1084" y="501.0" width="45" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="226" y="378" width="940" height="144" rx="0" fill="none" stroke="#bdbdbd" stroke-width="1"/>
+  <rect x="1100" y="410" width="62" height="22" rx="5" fill="#ffffff" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="1131.0" y="425.0" font-size="12" text-anchor="middle" font-weight="normal" fill="#333333">覆寫</text>
+  <rect x="1100" y="446" width="62" height="22" rx="5" fill="#ffffff" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="1131.0" y="461.0" font-size="12" text-anchor="middle" font-weight="normal" fill="#333333">調整</text>
+  <rect x="216" y="560" width="960" height="190" rx="4" fill="#ffffff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="230" y="584" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">調整項紀錄（只增不改）</text>
+  <line x1="216" y1="594" x2="1176" y2="594" stroke="#bdbdbd"/>
+  <rect x="226" y="604" width="940" height="30" rx="0" fill="#ececec" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="234" y="623.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">時間</text>
+  <text x="384" y="623.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">團主</text>
+  <text x="524" y="623.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">金額</text>
+  <text x="644" y="623.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">原因</text>
+  <text x="1044" y="623.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">操作者</text>
+  <line x1="226" y1="634" x2="1166" y2="634" stroke="#bdbdbd"/>
+  <rect x="234" y="646.0" width="90" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="384" y="646.0" width="70" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="524" y="646.0" width="60" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="644" y="646.0" width="200" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="1044" y="646.0" width="65" height="8" rx="3" fill="#d9d9d9"/>
+  <line x1="226" y1="664" x2="1166" y2="664" stroke="#bdbdbd"/>
+  <rect x="234" y="676.0" width="90" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="384" y="676.0" width="70" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="524" y="676.0" width="60" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="644" y="676.0" width="200" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="1044" y="676.0" width="65" height="8" rx="3" fill="#d9d9d9"/>
+  <line x1="226" y1="694" x2="1166" y2="694" stroke="#bdbdbd"/>
+  <rect x="234" y="706.0" width="90" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="384" y="706.0" width="70" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="524" y="706.0" width="60" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="644" y="706.0" width="200" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="1044" y="706.0" width="65" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="226" y="604" width="940" height="120" rx="0" fill="none" stroke="#bdbdbd" stroke-width="1"/>
+  <circle cx="206" cy="82" r="11" fill="#111111"/><text x="206" y="86" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">1</text>
+  <circle cx="206" cy="112" r="11" fill="#111111"/><text x="206" y="116" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">2</text>
+  <circle cx="206" cy="150" r="11" fill="#111111"/><text x="206" y="154" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">3</text>
+  <circle cx="206" cy="188" r="11" fill="#111111"/><text x="206" y="192" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">4</text>
+  <circle cx="700" cy="188" r="11" fill="#111111"/><text x="700" y="192" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">5</text>
+  <circle cx="1170" cy="380" r="11" fill="#111111"/><text x="1170" y="384" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">6</text>
+  <circle cx="1170" cy="410" r="11" fill="#111111"/><text x="1170" y="414" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">7</text>
+  <circle cx="206" cy="560" r="11" fill="#111111"/><text x="206" y="564" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">8</text>
+</svg>

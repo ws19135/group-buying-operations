@@ -18,6 +18,9 @@ const REQUIRED_COLUMNS = ['source_order_id', 'campaign_id', 'ordered_at', 'statu
 const KNOWN_COLUMNS = [...REQUIRED_COLUMNS, 'sku_code', 'buyer_ref', 'host_id', 'community_id', 'refund_amount'];
 const MAX_ROWS = 20000;
 const MAX_BYTES = 2_000_000;
+/** 單列數量與單價上限：避免乘積超出 bigint／JS 安全整數，讓整批匯入因一個異常值而整批失敗 */
+const MAX_QTY = 1_000_000;
+const MAX_UNIT_PRICE = 100_000_000;
 
 export const importSchema = z.object({
   sourceSystem: z.string().trim().min(1).max(60),
@@ -92,8 +95,8 @@ export async function importOrders(actor: Actor, raw: z.input<typeof importSchem
       const sid = rec['source_order_id'];
       if (!sid) { errors.push({ line, code: 'MISSING_ORDER_ID', message: '缺少來源訂單編號', raw: rec }); continue; }
       const qty = toInt(rec['quantity']); const unit = toInt(rec['unit_price']);
-      if (qty == null || Number.isNaN(qty) || qty <= 0) { errors.push({ line, code: 'BAD_QUANTITY', message: '數量需為正整數', raw: rec }); continue; }
-      if (unit == null || Number.isNaN(unit) || unit < 0) { errors.push({ line, code: 'BAD_PRICE', message: '單價需為非負整數', raw: rec }); continue; }
+      if (qty == null || Number.isNaN(qty) || qty <= 0 || qty > MAX_QTY) { errors.push({ line, code: 'BAD_QUANTITY', message: `數量需為 1～${MAX_QTY.toLocaleString('en-US')} 的整數`, raw: rec }); continue; }
+      if (unit == null || Number.isNaN(unit) || unit < 0 || unit > MAX_UNIT_PRICE) { errors.push({ line, code: 'BAD_PRICE', message: `單價需為 0～${MAX_UNIT_PRICE.toLocaleString('en-US')} 的整數`, raw: rec }); continue; }
       if (!groups.has(sid)) { groups.set(sid, []); orderOrder.push(sid); }
       (groups.get(sid) as OrderLine[]).push({ line, raw: rec, sku: rec['sku_code'] ?? '', qty, unit });
     }
@@ -108,8 +111,10 @@ export async function importOrders(actor: Actor, raw: z.input<typeof importSchem
       const cid = first.raw['campaign_id'];
       if (lines.some((l) => l.raw['campaign_id'] !== cid)) { fail('INCONSISTENT_ORDER', '同一訂單的各列 campaign_id 不一致'); continue; }
       if (!campaignCache.has(cid)) {
-        const c = await tx.query('SELECT status FROM campaigns WHERE id=$1 AND organization_id=$2 AND deleted_at IS NULL', [cid, actor.orgId]);
-        campaignCache.set(cid, c.rows[0] ?? null);
+        // 與其他讀寫一樣套用檔期資料範圍：營運小編只能匯入自己負責（或被指派任務）的檔期；範圍外與不存在的訊息相同
+        const sc = campaignScope(actor, 2, 'c');
+        const c = sc.sql === 'FALSE' ? null : await tx.query(`SELECT c.status FROM campaigns c WHERE c.id=$1 AND (${sc.sql})`, [cid, ...sc.params]);
+        campaignCache.set(cid, c?.rows[0] ?? null);
       }
       const camp = campaignCache.get(cid);
       if (!camp) { fail('UNKNOWN_CAMPAIGN', `找不到檔期 ${cid}`); continue; }

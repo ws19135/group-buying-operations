@@ -169,7 +169,7 @@ export async function createBatch(actor: Actor, campaignId: string, raw: z.input
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8)`, [id, actor.orgId, campaignId, input.kind, input.label, input.plannedShipDate ?? null, input.note ?? null, actor.userId]);
       await audit(tx, actor, { action: 'fulfillment_batch.create', entityType: 'fulfillment_batch', entityId: id, campaignId, after: input });
       return { id };
-    }, input);
+    }, { campaignId, ...input });
     return { ...result, replayed };
   });
 }
@@ -319,7 +319,7 @@ export async function addShipment(actor: Actor, batchId: string, raw: z.input<ty
       await audit(tx, actor, { action: 'shipment.create', entityType: 'shipment', entityId: id, campaignId: b['campaign_id'] as string, after: { batchId, ...input } });
       const batchStatus = await recomputeBatch(tx, actor, batchId);
       return { id, batchStatus };
-    }, input);
+    }, { batchId, ...input });
     return { ...result, replayed };
   });
 }
@@ -541,7 +541,7 @@ export async function listStock(actor: Actor, q: URLSearchParams) {
   if (q.get('tracked') === '1') where.push(`EXISTS (SELECT 1 FROM inventory_movements m WHERE m.sku_id=k.id)`);
   const res = await listPaged<Record<string, unknown>>(
     `SELECT k.id AS sku_id, k.sku_code, k.name AS sku_name, p.id AS product_id, p.name AS product_name,
-       COALESCE((SELECT sum(delta) FROM inventory_movements m WHERE m.sku_id=k.id),0)::int AS balance,
+       COALESCE((SELECT sum(delta) FROM inventory_movements m WHERE m.sku_id=k.id),0)::bigint AS balance,
        EXISTS (SELECT 1 FROM inventory_movements m WHERE m.sku_id=k.id) AS tracked,
        (SELECT max(created_at) FROM inventory_movements m WHERE m.sku_id=k.id) AS last_movement_at
      FROM skus k JOIN products p ON p.id=k.product_id WHERE ${where.join(' AND ')}`, params, 'p.name, k.sku_code', pageParams(q));

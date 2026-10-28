@@ -10,6 +10,7 @@ import { dispatchNotifications, getAdapter, queueNotification, type NotifyAdapte
 import { processIntake } from './intake';
 import { generateTasks } from './tasks';
 import { runGateChecks, transitionCampaign } from './gates';
+import { purgeExpiredIdempotencyKeys } from '../lib/idempotency';
 
 export const JOB_KEYS = ['event_dispatch', 'vendor_intake', 'task_reminders', 'overdue_detection', 'prelaunch_check', 'campaign_status_progress', 'daily_summary', 'notification_dispatch'] as const;
 export type JobKey = (typeof JOB_KEYS)[number];
@@ -333,7 +334,9 @@ const HANDLERS: Record<JobKey, Handler> = {
       const text = `進行中 ${metrics.runningCampaigns}／已排程 ${metrics.scheduledCampaigns}／未來7天開團 ${metrics.opensNext7Days}、結團 ${metrics.closesNext7Days}／逾期任務 ${metrics.overdueTasks}／待核准 ${metrics.pendingApprovals}／未結例外 ${metrics.openExceptions}`;
       for (const m of await managersOf(orgId)) if (await queueNotification(pool(), orgId, { channel: 'EMAIL', recipientUserId: m, subject: `每日營運摘要 ${today}`, body: text, dedupeKey: `daily:${today}:${m}` })) queued++;
     }
-    return { ...metrics, created: ins.length > 0, queuedEmails: queued };
+    // 順手清除過期的重複送出保護紀錄（K6）；與摘要同一個每日工作，同樣預設停用
+    const idempotencyKeysPurged = await purgeExpiredIdempotencyKeys(orgId, now);
+    return { ...metrics, created: ins.length > 0, queuedEmails: queued, idempotencyKeysPurged };
   },
 
   // ---- 通知派送 ----

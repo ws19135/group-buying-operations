@@ -51,7 +51,7 @@ Render 後台刪除 `group-buying-erp-demo` 網站與 `erp-demo-db` 資料庫即
 
 ## 其他部署選項
 
-任何能跑 Node 22＋PostgreSQL 16 的地方都可以（Fly.io、Railway、自己的主機、Vercel＋Neon 等）。設定的環境變數與 `render.yaml` 相同：`APP_ENV=production`、`ALLOW_DEMO_IN_PRODUCTION=yes`、`DATABASE_URL`、`SESSION_SECRET`（至少 32 字元的隨機值）、`ADMIN_EMAIL`、`ADMIN_INITIAL_PASSWORD`、`DEMO_PASSWORD`；啟動指令 `npm run bootstrap:demo && npm start`。
+任何能跑 Node 22＋PostgreSQL 16 的地方都可以（Fly.io、Railway、自己的主機、Vercel＋Neon 等）。設定的環境變數與 `render.yaml` 相同：`APP_ENV=production`、`ALLOW_DEMO_IN_PRODUCTION=yes`、`DATABASE_URL`、`ADMIN_EMAIL`、`ADMIN_INITIAL_PASSWORD`、`DEMO_PASSWORD`；啟動指令 `npm run bootstrap:demo && npm start`。
 
 ## 一邊開放示範、一邊繼續開發（Mac）
 

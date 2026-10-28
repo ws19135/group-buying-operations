@@ -145,6 +145,22 @@
 - 結算口徑、階梯與扣項、G4 是否自動串接、退款核准者可否為申請者本人、`WAITING_VENDOR` 是否保留、新增 `refund.complete` 權限是否保留。
 - 仍為 BLOCKED／未開工：電商訂單 API、真實 LINE／Email、廠商入口、歷史資料遷移與雙軌對帳、SSO／MFA、Production 與備份演練。
 
+## 2026-10-28｜規格補齊與獨立安全審查（分支 `feat/erp-spec-and-hardening`）
+
+### 目標
+補上先前缺少的 SRS／SAD／SDD／線框圖（逆向整理並與程式核對），並對全系統（重點 Phase 2）做獨立安全與權限審查。
+
+### 變更
+- `docs/spec/`：SRS（FR 142、UC 18、NFR 28）、SAD（8 圖）、SDD（14 圖、17 模組）、索引；`docs/wireframes/`：畫面清單（37 路由）、15 張線框 SVG、94 張現況截圖。
+- 安全審查（`docs/phase2/SECURITY_REVIEW.md`）：17 項（中 5、低 12），16 項已修；migration 012；新增 60 項測試；K4（移除 `SESSION_SECRET`）、K6（冪等鍵清理，預設停用）。
+- 整合時修正：G4 檢查訊息、庫存異動編號前綴改 `STK-`、README 首頁加入架構圖、狀態機圖、文件地圖。
+
+### 證據
+`tsc`、`eslint` 乾淨；`vitest` 16 檔 305 項；`next build` 成功；從零資料庫 `bootstrap:demo` 後 E2E 49/49；文件 222 個相對連結無壞連結；26 張 Mermaid 圖以 mermaid 11.4.1 解析通過；15 張 SVG 以 xmllint 驗證。
+
+### 未解與待 Owner 決策
+見 SRS 第 9 節（D-01～D-17）、第 11 節（落差 G-01～G-09、測試缺口 T-01～T-10）與安全審查第 5 節。
+
 ## 後續紀錄格式
 
 每次變更新增一節，至少包含：

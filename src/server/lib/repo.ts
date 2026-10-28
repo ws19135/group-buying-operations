@@ -9,8 +9,10 @@ export interface Page { limit: number; offset: number }
 
 export function pageParams(q: URLSearchParams | Record<string, string | undefined>): Page {
   const get = (k: string) => (q instanceof URLSearchParams ? q.get(k) : q[k]) ?? undefined;
-  const limit = Math.min(Math.max(Number(get('limit') ?? 50) || 50, 1), 200);
-  const page = Math.max(Number(get('page') ?? 1) || 1, 1);
+  const finite = (v: string | undefined, dflt: number) => { const n = Number(v ?? dflt); return Number.isFinite(n) && n !== 0 ? n : dflt; };
+  const limit = Math.min(Math.max(Math.trunc(finite(get('limit'), 50)), 1), 200);
+  // page 上限避免 OFFSET 變成 Infinity／超出 bigint 而讓資料庫報錯（回 500）
+  const page = Math.min(Math.max(Math.trunc(finite(get('page'), 1)), 1), 1_000_000);
   return { limit, offset: (page - 1) * limit };
 }
 

@@ -305,8 +305,12 @@ export async function requestRefund(actor: Actor, caseId: string, raw: z.input<t
         if (ord.campaign_id !== c['campaign_id']) throw validation('訂單不屬於此案件的檔期');
         if (!ORDER_REFUNDABLE.includes(ord.status)) throw precondition(`此訂單狀態為「${ord.status}」，不可申請退款`);
         const active = await tx.query(`SELECT COALESCE(sum(amount),0)::bigint AS s FROM refund_requests WHERE order_id=$1 AND status IN ('REQUESTED','APPROVED')`, [orderId]);
-        const remaining = Number(ord.gross_amount) - Number(ord.refund_amount) - Number(active.rows[0].s);
-        if (input.amount > remaining) throw validation(`退款金額超過可退餘額（訂單金額 ${ord.gross_amount}、已退 ${ord.refund_amount}、其他申請中 ${active.rows[0].s}，剩餘 ${Math.max(remaining, 0)}）`);
+        // 已完成但「未寫回」的退款不會出現在 orders.refund_amount（要等下次匯入才反映），不能因此被忽略而讓同一張訂單被超額退款；
+        // 取「訂單已記錄的退款」與「本系統已完成的退款合計」較大者，來源匯入反映後兩者重疊時也不會重複計算
+        const completed = await tx.query(`SELECT COALESCE(sum(amount),0)::bigint AS s FROM refund_requests WHERE order_id=$1 AND status='COMPLETED'`, [orderId]);
+        const refunded = Math.max(Number(ord.refund_amount), Number(completed.rows[0].s));
+        const remaining = Number(ord.gross_amount) - refunded - Number(active.rows[0].s);
+        if (input.amount > remaining) throw validation(`退款金額超過可退餘額（訂單金額 ${ord.gross_amount}、已退 ${refunded}、其他申請中 ${active.rows[0].s}，剩餘 ${Math.max(remaining, 0)}）`);
       }
       const id = await ids.refundRequest(tx);
       await tx.query(

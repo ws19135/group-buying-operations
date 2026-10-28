@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" font-family="-apple-system, 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif">
+  <title>團主我的結算</title>
+  <rect x="0" y="0" width="1200" height="800" rx="0" fill="#f4f4f4" stroke="none" stroke-width="1"/>
+  <rect x="0" y="0" width="200" height="800" rx="0" fill="#e9e9e9" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="18" y="34" font-size="15" text-anchor="start" font-weight="bold" fill="#333333">團購 ERP</text>
+  <text x="18" y="64" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">營運</text>
+  <text x="24" y="84" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">總覽</text>
+  <text x="24" y="110" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">檔期</text>
+  <text x="24" y="136" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">排程日曆</text>
+  <text x="24" y="162" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">任務</text>
+  <text x="24" y="188" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">售後</text>
+  <text x="24" y="214" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">履約出貨</text>
+  <text x="18" y="244" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">主檔</text>
+  <text x="24" y="264" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">團主</text>
+  <text x="24" y="290" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">社群</text>
+  <text x="24" y="316" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">商品</text>
+  <text x="18" y="346" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">財務</text>
+  <rect x="8" y="349" width="184" height="24" rx="4" fill="#cfcfcf" stroke="none" stroke-width="1"/>
+  <text x="24" y="366" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">我的結算</text>
+  <rect x="200" y="0" width="1000" height="48" rx="0" fill="#ffffff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="216" y="30" font-size="12" text-anchor="start" font-weight="normal" fill="#777777">財務 / 我的結算</text>
+  <rect x="950" y="12" width="24" height="24" rx="12" fill="#ffffff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="962" y="29" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">🔔</text>
+  <text x="990" y="30" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">使用者　團主</text>
+  <rect x="1100" y="11" width="72" height="28" rx="5" fill="#ffffff" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="1136.0" y="29.0" font-size="12" text-anchor="middle" font-weight="normal" fill="#333333">登出</text>
+  <text x="216" y="88" font-size="22" text-anchor="start" font-weight="bold" fill="#333333">我的結算</text>
+  <text x="216" y="134" font-size="12" text-anchor="start" font-weight="normal" fill="#777777">僅顯示已確認的結算（草稿不顯示）</text>
+  <rect x="216" y="150" width="960" height="30" rx="4" fill="#ececec" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="228" y="170" font-size="13" text-anchor="start" font-weight="bold" fill="#333333">試算，口徑待 Owner 確認；非正式付款依據</text>
+  <rect x="216" y="200" width="960" height="38" rx="0" fill="#ececec" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="224" y="223.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">檔期</text>
+  <text x="524" y="223.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">確認日期</text>
+  <text x="674" y="223.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">我的淨銷售額</text>
+  <text x="864" y="223.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">費率</text>
+  <text x="994" y="223.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">試算佣金</text>
+  <line x1="216" y1="238" x2="1176" y2="238" stroke="#bdbdbd"/>
+  <rect x="224" y="254.0" width="180" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="524" y="254.0" width="75" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="674" y="254.0" width="95" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="864" y="254.0" width="65" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="994" y="254.0" width="95" height="8" rx="3" fill="#d9d9d9"/>
+  <line x1="216" y1="276" x2="1176" y2="276" stroke="#bdbdbd"/>
+  <rect x="224" y="292.0" width="180" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="524" y="292.0" width="75" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="674" y="292.0" width="95" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="864" y="292.0" width="65" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="994" y="292.0" width="95" height="8" rx="3" fill="#d9d9d9"/>
+  <line x1="216" y1="314" x2="1176" y2="314" stroke="#bdbdbd"/>
+  <rect x="224" y="330.0" width="180" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="524" y="330.0" width="75" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="674" y="330.0" width="95" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="864" y="330.0" width="65" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="994" y="330.0" width="95" height="8" rx="3" fill="#d9d9d9"/>
+  <line x1="216" y1="352" x2="1176" y2="352" stroke="#bdbdbd"/>
+  <rect x="224" y="368.0" width="180" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="524" y="368.0" width="75" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="674" y="368.0" width="95" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="864" y="368.0" width="65" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="994" y="368.0" width="95" height="8" rx="3" fill="#d9d9d9"/>
+  <rect x="216" y="200" width="960" height="190" rx="0" fill="none" stroke="#bdbdbd" stroke-width="1"/>
+  <rect x="216" y="420" width="960" height="100" rx="4" fill="#ececec" stroke="#9a9a9a" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="228" y="450" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">空狀態：目前沒有已確認的結算</text>
+  <rect x="216" y="540" width="960" height="120" rx="4" fill="#ffffff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="230" y="564" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">你看不到的資料</text>
+  <line x1="216" y1="574" x2="1176" y2="574" stroke="#bdbdbd"/>
+  <text x="232" y="590" font-size="12" text-anchor="start" font-weight="normal" fill="#555555">其他團主的數字、調整項原因、費用、入帳、發票、成本——後端直接不回傳（不是只在畫面隱藏）</text>
+  <circle cx="206" cy="150" r="11" fill="#111111"/><text x="206" y="154" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">1</text>
+  <circle cx="206" cy="200" r="11" fill="#111111"/><text x="206" y="204" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">2</text>
+  <circle cx="206" cy="420" r="11" fill="#111111"/><text x="206" y="424" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">3</text>
+  <circle cx="206" cy="540" r="11" fill="#111111"/><text x="206" y="544" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">4</text>
+</svg>

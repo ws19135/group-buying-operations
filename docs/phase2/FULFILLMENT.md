@@ -10,7 +10,7 @@
 |---|---|
 | `fulfillment_batches` | `FBT-000001`；`kind`、`status`（PENDING／PACKED／SHIPPED／DELIVERED／EXCEPTION／CANCELLED）；`status` 由出貨單彙總，只有「取消」是人工動作；`cancel_reason` 必填（CHECK） |
 | `shipments` | `SHP-000001`；`sku_id`（選填，需屬於該檔期商品）、`quantity>0`、`carrier`、`tracking_no`、`planned/shipped/delivered_date`、`exception_reason`、簽收欄位；CHECK：異常／取消必須有原因、簽收只能在 DELIVERED、送達日≥出貨日；唯一索引：同物流商＋追蹤碼（不分大小寫）在「未取消」的出貨單上不可重複 |
-| `inventory_movements` | `INV-000001`；`delta≠0`；`reason_code`、`reason`（必填）、`reverses_id`（唯一：同一筆只能被更正一次）；**觸發器禁止 UPDATE／DELETE**；目前庫存＝`SUM(delta)` |
+| `inventory_movements` | `STK-000001`（012 之前建立的紀錄沿用 `INV-` 前綴）；`delta≠0`；`reason_code`、`reason`（必填）、`reverses_id`（唯一：同一筆只能被更正一次）；**觸發器禁止 UPDATE／DELETE**；目前庫存＝`SUM(delta)` |
 
 `fulfillment_batches`、`shipments` 有 `forbid_delete`（只能以狀態軟刪除），所有表皆有 `organization_id`。
 

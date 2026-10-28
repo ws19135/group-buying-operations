@@ -48,9 +48,11 @@ export async function login(email: string, password: string, ctx: { ip?: string 
   }
   if (!verifyPassword(password, u.password_hash)) {
     await query(
-      `UPDATE users SET failed_login_count = failed_login_count + 1,
-         locked_until = CASE WHEN failed_login_count + 1 >= $2 THEN now() + ($3 || ' minutes')::interval ELSE locked_until END
-       WHERE id=$1`, [u.id, MAX_FAILS, String(LOCK_MINUTES)]);
+      `UPDATE users SET
+         failed_login_count = CASE WHEN locked_until IS NOT NULL AND locked_until <= now() THEN 1 ELSE failed_login_count + 1 END,
+         locked_until = CASE WHEN locked_until IS NOT NULL AND locked_until <= now() THEN NULL
+                             WHEN failed_login_count + 1 >= $2 THEN now() + ($3 || ' minutes')::interval ELSE locked_until END
+       WHERE id=$1`, [u.id, MAX_FAILS, String(LOCK_MINUTES)]);   // 鎖定期滿後重新計數，否則期滿後只要再錯一次就會立刻再鎖 15 分鐘
     throw generic;
   }
   const token = crypto.randomBytes(32).toString('base64url');
@@ -93,7 +95,9 @@ export function parseCookie(header: string | null | undefined, name: string): st
   for (const part of header.split(';')) {
     const i = part.indexOf('=');
     if (i < 0) continue;
-    if (part.slice(0, i).trim() === name) return decodeURIComponent(part.slice(i + 1).trim());
+    if (part.slice(0, i).trim() === name) {
+      try { return decodeURIComponent(part.slice(i + 1).trim()); } catch { return null; }   // 壞的百分比編碼＝沒有有效 session，不是伺服器錯誤
+    }
   }
   return null;
 }
