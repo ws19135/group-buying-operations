@@ -73,7 +73,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
           {d.upcoming.length === 0 ? <EmptyState title="未來 30 天沒有開團或結團" /> : (
             <Table head={['日期', '事件', '檔期', '團主', '廠商', '狀態']}>
               {d.upcoming.map((u) => (
-                <tr key={`${u.id}${u.event}`} data-testid={`upcoming-${u.id}`}><td className="nowrap">{u.eventDate}</td><td>{u.event === 'OPEN' ? '開團' : '結團'}</td><td><Link href={`/campaigns/${u.id}`}>{u.title}</Link></td><td data-testid={`upcoming-hosts-${u.id}`}><HostNames hosts={u.hosts} /></td><td><Link href={`/vendors/${u.vendorId}`}>{u.vendorName}</Link></td><td><StatusBadge map={CAMPAIGN_STATUS} value={u.status} /></td></tr>
+                <tr key={`${u.id}${u.event}`} data-testid={`upcoming-${u.id}`}><td className="nowrap">{u.eventDate}</td><td className="nowrap">{u.event === 'OPEN' ? '開團' : '結團'}</td><td><Link href={`/campaigns/${u.id}`}>{u.title}</Link></td><td data-testid={`upcoming-hosts-${u.id}`}><HostNames hosts={u.hosts} /></td><td><Link href={`/vendors/${u.vendorId}`}>{u.vendorName}</Link></td><td><StatusBadge map={CAMPAIGN_STATUS} value={u.status} /></td></tr>
               ))}
             </Table>
           )}
