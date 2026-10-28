@@ -1,0 +1,39 @@
+# Render Blueprint：公開「示範環境」（只放虛構的 [DEMO] 資料）。
+# 使用方式見 docs/DEMO_DEPLOYMENT.md。密碼類變數用 sync:false，建立時才在 Render 網頁輸入，不會進 repo。
+databases:
+  - name: erp-demo-db
+    plan: free
+    databaseName: erp_demo
+    user: erp
+
+services:
+  - type: web
+    name: group-buying-erp-demo
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run bootstrap:demo && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: APP_ENV
+        value: production
+      - key: ALLOW_DEMO_IN_PRODUCTION
+        value: "yes"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: erp-demo-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_INITIAL_PASSWORD
+        sync: false
+      - key: DEMO_PASSWORD
+        sync: false
+      - key: NOTIFY_ADAPTER
+        value: test
+      - key: AUTOMATION_ENABLED
+        value: "off"

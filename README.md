@@ -32,6 +32,7 @@ Next.js 15 + TypeScript + PostgreSQL 16 模組化單體；服務層 `src/server`
 | [Dashboard 規格](docs/DASHBOARD_SPEC.md) | KPI 口徑、資料來源、DEMO／待串接規則 |
 | [自動化](docs/AUTOMATION.md) | 8 個工作、安全欄杆、事件 |
 | [API](docs/API.md)、[資料字典](docs/generated/DATA_DICTIONARY.md)、[ERD](docs/generated/ERD.md) | 介面與資料模型 |
+| [公開示範環境部署](docs/DEMO_DEPLOYMENT.md) | 用 `render.yaml` 部署只含虛構資料的示範站，給同事瀏覽器直接看 |
 | [測試報告](docs/TEST_REPORT.md)、[UAT 證據](docs/UAT_EVIDENCE.md)、[已知問題](docs/KNOWN_ISSUES.md) | 驗證結果與限制 |
 
 ## 開始閱讀

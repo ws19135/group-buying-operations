@@ -22,13 +22,15 @@
     "worker": "tsx scripts/worker.ts",
     "e2e": "tsx scripts/e2e-smoke.ts",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
-    "docs:gen": "tsx scripts/gen-docs.ts"
+    "docs:gen": "tsx scripts/gen-docs.ts",
+    "bootstrap:demo": "tsx scripts/bootstrap-demo.ts"
   },
   "dependencies": {
     "next": "^15.5.0",
     "pg": "^8.13.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "tsx": "^4.19.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
@@ -39,7 +41,6 @@
     "@types/react-dom": "^19.1.0",
     "eslint": "^9.0.0",
     "playwright": "1.63.0",
-    "tsx": "^4.19.0",
     "typescript": "~5.9.0",
     "typescript-eslint": "^8.30.0",
     "vitest": "^3.2.0"

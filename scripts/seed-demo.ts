@@ -24,7 +24,9 @@ function rng(seed: number) { let a = seed >>> 0; return () => { a = (a + 0x6d2b7
 
 async function main() {
   loadEnv();
-  if (appEnv() === 'production') throw new Error('拒絕在 production 建立 DEMO 資料');
+  if (appEnv() === 'production' && process.env.ALLOW_DEMO_IN_PRODUCTION !== 'yes') {
+    throw new Error('拒絕在 production 建立 DEMO 資料。這是示範用的虛構資料；只有「公開示範環境」才可設定 ALLOW_DEMO_IN_PRODUCTION=yes（絕不可用於放真實資料的環境）');
+  }
   await migrate();
   let org = await firstOrganization();
   if (!org) { const r = await createOrganization('[DEMO] 示範營運公司'); org = { id: r.orgId, name: '[DEMO] 示範營運公司' }; }
