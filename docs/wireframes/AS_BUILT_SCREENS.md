@@ -163,16 +163,16 @@
 
 | 畫面 | 路徑 | 截圖 | 結果 |
 |---|---|---|---|
-| 選品與試用總覽 | `/selection` | [26-selection.png](../uat/screens/26-selection.png) | 待 E2E 確認　建議值待確認橫幅、待覆核評估、審查中調查、待覆核試用、即將到期證據 |
-| 廠商詳情：合作資格審查 | `/vendors/VEN-…` | [27-vendor-diligence.png](../uat/screens/27-vendor-diligence.png) | 待 E2E 確認　調查清單（合約版本、範圍、狀態、進度、有效期） |
-| 合作資格審查詳情 | `/diligence/VDD-…` | [28-diligence.png](../uat/screens/28-diligence.png) | 待 E2E 確認　已核准、有效期、12 類卡片、法務標示 |
-| 商品詳情：選品評估／試用／可行性 | `/products/PRD-…` | [29-product-selection.png](../uat/screens/29-product-selection.png) | 待 E2E 確認　80 分、建議進入商務審查、合規通過、已覆核；商品資格仍有效 |
-| 檔期：選品與試用 | `/campaigns/CMP-…?tab=selection` | [30-campaign-selection.png](../uat/screens/30-campaign-selection.png) | 待 E2E 確認　決策摘要（燈號、風險）、本檔試用、相關任務 |
-| 試用詳情 | `/trials/TRL-…` | [31-trial.png](../uat/screens/31-trial.png) | 待 E2E 確認　系統建議、四大面向檢核表 |
-| 可行性詳情 | `/feasibility/FSB-…` | [32-feasibility.png](../uat/screens/32-feasibility.png) | 待 E2E 確認　試算結果、輸入與假設來源、版本 |
-| 手機版總覽 | `/selection`（390 寬） | [33-mobile-selection.png](../uat/screens/33-mobile-selection.png) | 待 E2E 確認　無水平溢出（E2E 檢查） |
+| 選品與試用總覽 | `/selection` | [26-selection.png](../uat/screens/26-selection.png) | E2E 通過　建議值待確認橫幅、待覆核評估、審查中調查、待覆核試用、即將到期證據 |
+| 廠商詳情：合作資格審查 | `/vendors/VEN-…` | [27-vendor-diligence.png](../uat/screens/27-vendor-diligence.png) | E2E 通過　調查清單（合約版本、範圍、狀態、進度、有效期） |
+| 合作資格審查詳情 | `/diligence/VDD-…` | [28-diligence.png](../uat/screens/28-diligence.png) | E2E 通過　已核准、有效期、12 類卡片、法務標示 |
+| 商品詳情：選品評估／試用／可行性 | `/products/PRD-…` | [29-product-selection.png](../uat/screens/29-product-selection.png) | E2E 通過　80 分、建議進入商務審查、合規通過、已覆核；商品資格仍有效 |
+| 檔期：選品與試用 | `/campaigns/CMP-…?tab=selection` | [30-campaign-selection.png](../uat/screens/30-campaign-selection.png) | E2E 通過　決策摘要（燈號、風險）、本檔試用、相關任務 |
+| 試用詳情 | `/trials/TRL-…` | [31-trial.png](../uat/screens/31-trial.png) | E2E 通過　系統建議、四大面向檢核表 |
+| 可行性詳情 | `/feasibility/FSB-…` | [32-feasibility.png](../uat/screens/32-feasibility.png) | E2E 通過　試算結果、輸入與假設來源、版本 |
+| 手機版總覽 | `/selection`（390 寬） | [33-mobile-selection.png](../uat/screens/33-mobile-selection.png) | E2E 通過　無水平溢出（E2E 檢查） |
 
-> 「待 E2E 確認」＝撰寫此表時 E2E 尚在重跑；實際通過數與逐項結果以 `docs/uat/e2e-results.json` 為準，不在此重複。
+> 「E2E 通過」＝對重設並灌入全部 DEMO 種子的資料庫連跑 2 次，122/122 通過；逐項結果見 `docs/uat/e2e-results.json`。
 
 ### 建置前線框 vs. 實際畫面的差異
 

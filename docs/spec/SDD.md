@@ -68,6 +68,8 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 | PAY／EXP | 入帳／費用 | `PAY-000001`、`EXP-000001` |
 | SEG／SPF／LNK／EVD | 客群／客群偏好／團主↔客群連結／研究證據（SOP 01） | `SEG-0001`、`SPF-000001`、`LNK-000001`、`EVD-000001` |
 | FIT | 適配評估（SOP 01） | `FIT-000001` |
+| EVI／VDD／VDI | 證據連結／廠商合作資格審查／調查項目（SOP 02／03；`EVI` 與 SOP 01 的 `EVD` 不同） | `EVI-000001`、`VDD-000001`、`VDI-000001` |
+| SEL／TRL／TCK／FSB | 選品評估／商品試用／試用檢核項／可行性情境（SOP 02／03） | `SEL-000001`、`TRL-000001`、`TCK-000001`、`FSB-000001` |
 | RUN／NTF／INT | 自動化執行／通知／進件 | `RUN-YYYYMMDD-0001`、`NTF-YYYYMMDD-000001`、`INT-000001` |
 
 > 時間分段的計數（CMP、TSK、IMP、SET、RUN、NTF）以台北日期或月份為 `period`，跨期自動重新從 1 起算。
@@ -76,7 +78,7 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 
 ## 1. 角色與權限矩陣
 
-> **本節矩陣由 `src/server/lib/permissions.ts` 直接產生**（腳本 `import ROLE_PERMISSIONS` 後輸出，非手抄）。49 項權限（SOP 01 新增 6 項：`segment.read／write`、`fit.read／assess／review／config`）；各角色持有數：管理者 49、主管 42、小編 30、團主 10、廠商 7、財務 22。
+> **本節矩陣由 `src/server/lib/permissions.ts` 直接產生**（腳本 `import ROLE_PERMISSIONS` 後輸出，非手抄）。52 項權限（SOP 01 新增 6 項：`segment.read／write`、`fit.read／assess／review／config`；SOP 02／03 新增 3 項：`selection.read／write／config`）；各角色持有數：管理者 52、主管 45、小編 32、團主 10、廠商 7、財務 23。
 
 | 權限 | 管理者 | 主管 | 小編 | 團主 | 廠商 | 財務 |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
@@ -121,6 +123,9 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 | `refund.complete` | ● |  |  |  |  | ● |
 | `segment.read` | ● | ● | ● |  |  |  |
 | `segment.write` | ● | ● | ● |  |  |  |
+| `selection.config` | ● | ● |  |  |  |  |
+| `selection.read` | ● | ● | ● |  |  | ● |
+| `selection.write` | ● | ● | ● |  |  |  |
 | `settlement.confirm` | ● |  |  |  |  | ● |
 | `task.complete` | ● | ● | ● | ● | ● | ● |
 | `task.read` | ● | ● | ● | ● | ● | ● |
@@ -135,6 +140,7 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 - 權限只回答「能不能做這類動作」；「能碰哪些資料列」由 `campaignScope`（SAD §8.3）決定。
 - `OPS_MANAGER` ＝ 全部權限，**扣除** `user.manage`、`commission.write`、`host.self`、`vendor.self`、`refund.complete`、`finance.write`、`settlement.confirm`（程式用 `ALL.filter(…)`）。
 - SOP 01 的 6 項權限只給管理者、主管與（部分）營運小編：小編有 `segment.read／write`、`fit.read／assess`，**沒有** `fit.review`、`fit.config`；財務、團主、廠商一項都沒有（客群分析與適配評估無外部入口）。矩陣中這 6 列依 `permissions.ts` 補入；其餘列未重新產生，沿用原基準。
+- SOP 02／03 的 3 項權限：`selection.read`（管理者、主管、小編、財務）、`selection.write`（管理者、主管、小編）、`selection.config`（管理者、主管）；團主、廠商一項都沒有。**覆核評估與試用、核准調查、確認法務無虞、覆寫試用建議沿用既有 `product.review`；成本、分潤與利潤欄位沿用既有 `product.cost.read`**，不另立新權限。矩陣中這 3 列依 `permissions.ts` 補入。
 - 核准關卡的決定者另有一張表（`GATE_APPROVER_ROLES`），**不用** `approval.*` 權限判斷：G1／G2／G5 ＝ 管理者、主管；G3 ＝ 管理者、主管、財務；G4 ＝ 管理者、財務。
 - 測試鎖定：`tests/unit/misc.test.ts`「權限矩陣（不可被默默放寬）」、`tests/aftersales.test.ts`「權限矩陣（定義）」、`tests/rbac.test.ts`。
 
@@ -1146,13 +1152,222 @@ sequenceDiagram
 
 ---
 
+## 18B. 商品選品、廠商合作資格審查、試用與可行性（`modules/{selection,evidence,diligence,trials,feasibility,decision-summary}.ts`，SOP 02／03）
+
+**職責**：把 SOP 02「商品選品與廠商開發」與 SOP 03「商品試用與商業可行性驗證」系統化——商品通用選品評分（人工 1–5 分、獨立合規查核）、廠商首次合作 12 類盡職調查（結構化條款、責任方、證據、法務／合規標示）、證據連結、商品試用（兩層級三類型、四面向檢核、資格沿用）、商業可行性試算（缺資料不捏造、敏感欄位控管），並彙整成 G1 統一決策摘要供核准者**查閱**。**不修改 `gates.ts`／`state.ts`／`campaigns.ts`／`tasks.ts`／`products.ts` 審核流程／`workflow/*`，不碰分潤、財務、發票模組，不自動核准，不發通知，不新增任務狀態機。**設計與驗收見 [`docs/phase2/PRODUCT_SELECTION_TRIAL.md`](../phase2/PRODUCT_SELECTION_TRIAL.md)。相關檔案：`migrations/014_selection_trial.sql`、`lib/{selection-score,dd-catalog,trial-catalog,feasibility-calc,decision-risk}.ts`（純函式，無資料庫相依）。
+
+### 18B.1 資料表與約束（migration 014）
+
+七張表皆有 `organization_id`、建立／更新者、`version`、`touch_row`（`version+1`）與 `forbid_delete`（只軟刪除或以狀態結束）。
+
+| 資料表 | ID | 重點約束 |
+|---|---|---|
+| `evidence_items` | `EVI-000001` | `subject_type`∈`DD_ITEM／EVALUATION／TRIAL／TRIAL_CHECK／FEASIBILITY`＋`subject_id`；`kind`∈`CERTIFICATE／TEST_REPORT／CONTRACT／QUOTE／PHOTO／VIDEO／LICENSE／LEGAL_OPINION／OTHER`；`title`、`url` 必填；`valid_from`／`valid_until`（CHECK `valid_until ≥ valid_from`，空＝無期限或未知）；選填 `vendor_id`、`product_id`、`asset_id`→`product_assets`（引用不複製）；`deleted_at` 軟刪除；索引 `(org, subject_type, subject_id)`、`(org, valid_until)` |
+| `vendor_dd_records` | `VDD-000001` | `vendor_id`、選填 `product_id`、`contract_version` 必填（CHECK 非空白）、`contract_ref`、`regulated_category`∈`FOOD／SUPPLEMENT／MEDICAL_DEVICE／COSMETIC／CHILD_PRODUCT／OTHER_REGULATED`；`status`∈`DRAFT／IN_REVIEW／APPROVED／REJECTED`；**CHECK：APPROVED 必有 `valid_until`、`reviewed_by`、`reviewed_at`；REJECTED 必有 `review_note` 與 `reviewed_by`**；唯一 `(vendor_id, COALESCE(product_id,''), contract_version) WHERE deleted_at IS NULL` |
+| `vendor_dd_items` | `VDI-000001` | `record_id`＋`category_key`（12 類之一，CHECK）唯一；`status`∈`CONFIRMED／PENDING_DOCS／NOT_APPLICABLE／AT_RISK`（預設待補件）；`responsible_party`∈`BRAND／COMPANY／HOST／SHARED／TBD`；`owner_user_id`→`users`；`terms` jsonb；`legal_status`∈`NOT_REQUIRED／REQUIRED／CLEARED／BLOCKED`；**CHECK：NOT_APPLICABLE 必有 `na_reason`、AT_RISK 必有 `risk_note`、CLEARED 必有 `legal_cleared_by`／`legal_cleared_at`／`legal_note`** |
+| `product_evaluations` | `SEL-000001` | `(product_id, version_no)` 唯一；`status`∈`DRAFT／SUBMITTED`；`scores`、`compliance`、`config_snapshot`、`evidence_gaps` jsonb；`total_score` numeric(5,1)、`completeness` numeric(4,3)、`confidence`∈`HIGH／MEDIUM／LOW／INSUFFICIENT`、`recommendation`∈`PROCEED／SUPPLEMENT／HOLD／BLOCKED／INSUFFICIENT_DATA`；`review_decision`∈`ACCEPTED／REJECTED／NEEDS_MORE`；`superseded_at`；**部分唯一 `product_evaluations_draft_uq (product_id) WHERE status='DRAFT'`**；CHECK：送出必有送出時間、建議、評估人與評估日；覆核必有覆核人與時間且須已送出，非 ACCEPTED 必有原因；`product_evaluations_guard()` 鎖定已送出內容 |
+| `product_trials` | `TRL-000001` | `level`∈`QUALIFICATION／HOST_FIT`、`trial_type`∈`INTERNAL／DESIGNATED_HOST／MINI_GROUP`、`status`∈`OPEN／CONCLUDED／CANCELLED`；`product_id`、選填 `sku_id`、`vendor_id`、`host_id`、`campaign_id`、`tester_user_id`、`qualification_trial_id`（自我參照）、`sample_batch_id`；日期 `ship_date／arrival_date／start_date／feedback_date／closed_date`（CHECK 依序）；`carrier`、`tracking_no`；`recovery_required`＋`recovery_status`∈`NOT_REQUIRED／PENDING／RECOVERED／WAIVED／LOST`；`conclusion`、`suggested_conclusion`∈`PASS／CONDITIONAL／FAIL／RETEST`、`override_reason`、`valid_until`、`basis_fingerprint`；CHECK：指定團主必有 `host_id`、小規模測試團必有 `campaign_id`、資格驗證不可有 `qualification_trial_id`、取消必有原因、結論必有結論人／時間／說明、覆核須已結論且非接受必有原因、需回收與回收狀態一致；**部分唯一 `product_trials_open_uq`**；`product_trials_guard()` 鎖定已結論內容 |
+| `trial_checks` | `TCK-000001` | `(trial_id, item_key)` 唯一；`dimension`∈`PRODUCT／CUSTOMER／CONTENT／BUSINESS`；`result`∈`NOT_TESTED／PASS／CONCERN／FAIL`；`defect_severity`∈`NONE／MINOR／MAJOR／CRITICAL`；**CHECK：PASS 必有 `evidence_text`、有缺陷必有 `defect_note`、FAIL 必有 `risk_note` 或 `defect_note`**；`trial_checks_guard()`（BEFORE INSERT OR UPDATE）：父層試用非 OPEN 就拒絕 |
+| `feasibility_scenarios` | `FSB-000001` | `(product_id, COALESCE(campaign_id,''), COALESCE(host_id,''), version_no)` 唯一；`inputs`、`sources`、`results` jsonb；`actuals`、`actuals_at`；選填 `campaign_id`、`host_id`、`trial_id`；`feasibility_scenarios_guard()`：輸入、來源、結果、商品、檔期、團主、版本號不可改，只允許補寫實際回寫 |
+
+觸發器違反時 PostgreSQL 錯誤碼為 `restrict_violation`（23001），服務層 `mapDbError` 轉為 **412**；唯一索引（23505）轉 **409**；CHECK（23514）轉 **422**。既有表都不改；評分與有效期設定存於 `system_settings['selection.scoring']`（無新表）。
+
+### 18B.2 API（`routes.ts` 新增 33 條）
+
+| 方法／路徑 | 權限 | 規則 |
+|---|---|---|
+| `GET /api/selection/config`、`PUT /api/selection/config` | `selection.read`／`selection.config` | 見 §18B.3；PUT 帶 `version` 不符 409；權重合計 ≠100、門檻順序錯、天數非 1–3650 整數、白名單格式錯 422 |
+| `GET /api/selection/overview` | `selection.read` | 待覆核評估（30）、審查中調查（30）、待覆核試用（30，檔期層級者經 `campaignScope`）、到期／已過期證據（40；無 `product.cost.read` 者不列第 10 類證據）、待回收筆數、設定、`canReview`、`canConfig` |
+| `POST /api/evidence`、`POST /api/evidence/:id/remove` | `selection.write`（敏感主體另需 `product.cost.read`） | 見 §18B.5；父層鎖定 412；移除＝軟刪除，再移除 404 |
+| `GET /api/vendors/:id/diligence`、`POST /api/vendors/:id/diligence` | `selection.read`／`selection.write` | 列表附準備度與有效性；POST 支援 `Idempotency-Key`（範圍 `dd.create`），重複 409 |
+| `GET /api/diligence/:id`、`PATCH /api/diligence/:id` | `selection.read`／`selection.write` | GET 回 12 項（敏感項遮罩）、準備度、有效性、`canSeeSensitive`；PATCH 只限草稿／已退回（否則 412），可改合約編號、受規範品類（會重新標示法務）、備註；`version` 不符 409 |
+| `POST /api/diligence/:id/submit`、`POST /api/diligence/:id/review` | `selection.write`／`product.review`＋`selection.read` | 送審須準備度全過（否則 422 說明原因）；核准重新檢查，`validUntil` 預設 `ddValidDays`；退回／撤銷需原因 |
+| `PATCH /api/diligence-items/:id`、`POST /api/diligence-items/:id/legal` | `selection.write`（`legal` 的 CLEAR／BLOCK／RELEASE 另需 `product.review`） | 見 §18B.4；`legal` 的 `action`∈`REQUIRE／CLEAR／BLOCK／RELEASE`，說明必填 |
+| `GET /api/products/:id/evaluations`、`POST /api/products/:id/evaluations` | `selection.read`／`selection.write` | GET：草稿、現行、全部版本、設定、（有 `fit.read` 者）SOP 01 唯讀參考；POST 建立草稿，已有草稿 409 |
+| `GET /api/evaluations/:id`、`PATCH /api/evaluations/:id` | `selection.read`／`selection.write` | PATCH 只限草稿（否則 412）：`scores`（逐項給了就整項取代）、`compliance`、`evaluatedOn`、`version`；引用的證據須屬此評估；草稿回傳即時試算 `preview` |
+| `POST /api/evaluations/:id/submit`、`POST /api/evaluations/:id/review` | `selection.write`／`product.review`＋`selection.read` | 送出檢查失敗 422；覆核對草稿 412、對被取代版本 409、非接受缺原因 422 |
+| `GET /api/products/:id/trials`、`POST /api/products/:id/trials` | `selection.read`／`selection.write` | GET 經 `campaignScope` 過濾檔期層級試用並回傳 `qualification`；POST 支援 `Idempotency-Key`（範圍 `trial.create`），進行中相同組合 409 |
+| `GET /api/trials/:id`、`PATCH /api/trials/:id` | `selection.read`／`selection.write` | GET：檢核項（遮罩）、證據、系統建議、資格、任務現況（唯讀）、歷史（最近 60 筆稽核）；PATCH 改物流／日期／回收（已取消 412） |
+| `POST /api/trials/:id/conclude`、`POST /api/trials/:id/review`、`POST /api/trials/:id/cancel` | `selection.write`／`product.review`＋`selection.read`／`selection.write` | 見 §18B.6；取消需 `reason` |
+| `PATCH /api/trial-checks/:id` | `selection.write` | 父層非進行中 412；通過缺客觀證據 422；「預估毛利」文字需 `product.cost.read` |
+| `GET /api/campaigns/:id/trials` | `selection.read`＋`campaignScope` | 本檔試用清單、相關任務現況、摘要計數；範圍外 404 |
+| `GET /api/campaigns/:id/g1-summary` | `selection.read`＋`campaignScope` | 見 §18B.8；唯讀 |
+| `GET /api/products/:id/feasibility`、`POST /api/products/:id/feasibility` | `selection.read`／`selection.write` | GET 經 `campaignScope` 過濾並遮罩，附商品主檔參考價格、可填欄位、說明；POST 建立新版本 |
+| `GET /api/feasibility/:id`、`POST /api/feasibility/:id/actuals` | `selection.read`／`selection.write` | 範圍外 404；回寫須關聯檔期（否則 412） |
+
+### 18B.3 評分設定與演算法（`lib/selection-score.ts`，純函式）
+
+**設定**：存於 `system_settings['selection.scoring']`；未儲存時回傳內建建議值（`DEFAULT_SELECTION_CONFIG`，version 1、`approved:false`，介面顯示「建議值，待 Owner 確認」）；每次 PUT 版本 +1（第一次儲存＝版本 2）、寫稽核 `selection.config.update`；`selectionConfigProblems` 檢查權重為非負整數且合計 100、`0 ≤ supplement ≤ proceed ≤ 100`、`0 < minCompleteness ≤ mediumConfidence ≤ highConfidence ≤ 1`、三個天數為 1–3650 整數。
+
+| 設定 | 預設 |
+|---|---|
+| 權重 | 客群需求符合度 `need` 25、品質與安全性 `quality` 25、利潤與價格競爭力 `profit` 20、供應商履約能力 `supply` 15、內容展示與說服力 `content` 10、複購潛力 `repeat` 5 |
+| 門檻 | `proceed` 80、`supplement` 65、`minCompleteness` 0.5、`highConfidence` 0.85、`mediumConfidence` 0.6 |
+| 有效期 | `ddValidDays` 365、`trialValidDays` 180、`expiringSoonDays` 30 |
+| 證據網域白名單 | `evidenceHosts`：空陣列＝不限制 |
+
+```
+已知項目  K = 權重 > 0 且已評分（score 非 null）的項目
+總分     = 100 × Σ_K(權重 × 分數 ÷ 5) ÷ Σ_K 權重        （K 為空時為 null；未評分＝未知，不當 0）
+完整度   = Σ_K 權重 ÷ Σ 全部權重                         （四捨五入到 3 位；總分到 1 位）
+信心     = INSUFFICIENT 完整度 < minCompleteness；HIGH 完整度 ≥ highConfidence；MEDIUM ≥ mediumConfidence；其餘 LOW
+缺證據項  = quality、supply 中「已評分但有效證據數 < 1」者（過期證據不計）
+建議     = 合規 FAIL → BLOCKED
+           完整度 < minCompleteness 或 總分 null → INSUFFICIENT_DATA
+           總分 ≥ proceed 且 合規 PASS 且 信心 ≠ LOW 且 無缺證據項 → PROCEED
+           總分 ≥ supplement（含上一列被降級者）→ SUPPLEMENT
+           其餘 → HOLD
+```
+
+- 合規 `compliance.status`∈`PASS／FAIL／UNKNOWN／NEEDS_LEGAL` **不進加權**；UNKNOWN／NEEDS_LEGAL 永遠到不了 PROCEED。
+- `submitProblems`：已評分者分數須 1–5 整數且有理由；合規必填；FAIL、NEEDS_LEGAL 必填說明。服務層另要求至少一項評分。
+- 評分的證據：`scores[key].evidenceIds` 引用本評估的證據；`evidenceCount` 在即時試算與送出時以「未過期且未刪除」的筆數重新計算，送出後連同 `evidenceIds` 保存。
+- 送出時保存 `config_version`、`config_snapshot`（權重、門檻、即將到期天數）；`reasons`（人話摘要）只在送出回應與草稿 `preview` 中回傳，不另存。
+
+### 18B.4 盡職調查（`modules/diligence.ts`、`lib/dd-catalog.ts`）
+
+**12 類目錄與結構化條款**（`terms` 以 zod strict schema 驗證，多餘欄位 422；金額為 0–10⁹ 整數）：
+
+| # | `category_key` | 條款欄位 | 必附證據 |
+|--:|---|---|:-:|
+| 1 | `SOURCE_LICENSE_QA` | 來源類型（自有品牌／授權代理／代工／進口／其他）、授權人、授權到期日、品質檢驗摘要 | ✅ |
+| 2 | `PRICING` | 原價、團購價、最低價、價格條件說明 | — |
+| 3 | `MOQ` | MOQ 數量、最低採購承諾金額、承諾說明 | — |
+| 4 | `STOCK_LEADTIME` | 現貨／預購、出貨交期（天）、出貨時段說明 | — |
+| 5 | `INVENTORY_OVERSELL` | 庫存上限、超賣處理（停止下單／轉預購／人工）、缺貨通知時限（小時） | — |
+| 6 | `DELIVERY_METHOD` | 配送方式（逐單代發／集貨／團主自取／混合）、物流商、說明 | — |
+| 7 | `PAYMENT_LIABILITY` | 收款方、開發票方、售後責任方（品牌／公司／團主／共同／待確認） | ✅ |
+| 8 | `RETURNS_LIABILITY` | 退貨期限（天）、瑕疵／運損／遺失／補寄責任方 | ✅ |
+| 9 | `SAMPLE_MEDIA_LICENSE` | 試用品政策、圖片可使用、影片可使用、授權期限、授權範圍 | ✅ |
+| 10 | `COMMISSION_TERMS` | 分潤基礎（NSV／GMV／其他）、比例（0–100）、結算週期（天）、條款說明——**全部屬敏感** | ✅ |
+| 11 | `EXCLUSIVITY_RESALE` | 是否排他、排他說明、**是否有轉售價格限制**、素材使用條款 | ✅ |
+| 12 | `CONTINGENCY` | 延遲出貨處理、缺貨處理、停止供應處理 | — |
+
+**項目更新（`updateDiligenceItem`）**：僅草稿／已退回；樂觀鎖；負責人須為啟用中、未刪除的內部角色使用者；`terms` 為整份取代；`NOT_APPLICABLE` 與 `AT_RISK` 檢查原因／說明；改為 `CONFIRMED` 時，必附證據的類別須有至少一筆未過期證據，並記錄確認人與時間，離開 `CONFIRMED` 則清除；條款改變會重算法務標示。**敏感類別（第 10 類）**：沒有 `product.cost.read` 者只能改責任方與負責人，碰 `status`／`terms`／`note`／`naReason`／`riskNote` 一律 403。稽核對敏感類別只記狀態、責任方、負責人與法務狀態，不記條款與備註。
+
+**法務／合規觸發（`legalTriggers`）**：第 11 類 `resalePriceRestriction=true`；第 1 類在調查選了受規範品類，或 `suspectRegulated(廠商類別、商品名稱、類別、合規備註)` 命中關鍵字（食品、保健、醫療／醫材、化妝、嬰幼兒…）時，對 `NOT_REQUIRED` 的項目自動改為 `REQUIRED`（建立調查、改受規範品類、改條款時重算；不會把已處理的項目改回）。`setLegalStatus`：`REQUIRE`（`selection.write`）；`CLEAR`、`BLOCK`、`RELEASE`（`product.review`）；說明必填；僅限草稿／審查中／已退回；敏感類別需 `product.cost.read`；`CLEAR` 要求有一筆未過期的 `LEGAL_OPINION` 證據；`RELEASE` 在觸發條件仍成立時 412。
+
+**準備度（`ddReadiness`，以未遮罩的資料計算）**：不齊（12 項未全建立）、待補件數、有風險數、過期證據數、法務未結案數（`REQUIRED`＋`BLOCKED`）、已確認但無未過期證據者；全部為零才 `ready`。**有效性（`approvalValidity`）**：`APPROVED` 且（`valid_until` 未過、無過期證據）才有效；到期與證據過期只在讀取時計算，不改資料。
+
+```mermaid
+stateDiagram-v2
+  [*] --> DRAFT
+  DRAFT --> IN_REVIEW: submit（準備度全過）
+  REJECTED --> IN_REVIEW: submit（再送審）
+  IN_REVIEW --> APPROVED: review APPROVED（重新檢查；valid_until）
+  IN_REVIEW --> REJECTED: review REJECTED（原因）
+  APPROVED --> REJECTED: review REJECTED（撤銷，原因）
+```
+
+### 18B.5 證據連結（`modules/evidence.ts`）
+
+- `createEvidence`：`selection.write`；`resolveSubject` 載入父層並判斷「可編輯」與「敏感」——調查項目（父調查為草稿／審查中／已退回；第 10 類為敏感）、評估（草稿）、試用與檢核項（試用進行中；`margin` 項為敏感；關聯檔期須在使用者範圍內）、可行性（一律敏感）；敏感但無 `product.cost.read` → 403，父層鎖定 → 412。
+- 連結檢查：`isHttpUrl`、無帳密、`evidenceHostAllowed(url, cfg.evidenceHosts)`；引用 `assetId` 時沿用素材連結且素材須屬同商品；標題、來源說明、備註 `assertNoPii`。
+- `removeEvidence`：同樣的可編輯／敏感檢查，`UPDATE … SET deleted_at=now()`；`maskEvidenceList` 供讀取端對無權限者只回 `{id, kind, validUntil, state, restricted:true}`。
+- `evidenceState`：`EXPIRED`（`valid_until < 今天`）、`EXPIRING`（在 `expiringSoonDays` 內）、`VALID`、`NO_EXPIRY`。
+
+### 18B.6 試用（`modules/trials.ts`、`lib/trial-catalog.ts`）
+
+**檢核項目錄（18 項）**：商品本身——品質、規格符合、包裝完整、保存期限／效期、使用限制、安全標示；顧客體驗——開箱體驗、使用難易、效果感受、容易誤解之處、客服疑問；內容素材——可示範性、素材品質、賣點差異；商業效益——預估毛利（`margin`，敏感）、需求、退貨風險、供應風險。`checksForLevel(level, reuse)`：資格驗證與未沿用者 18 項；沿用資格的團主適配試用去掉商品本身，剩 12 項。
+
+**建立（`createTrial`）**：驗證類型規則（團主適配不可為內部、指定團主需團主、小規模測試團需檔期）、日期順序、檔期可見且含此商品、規格屬此商品、團主存在、試用人為啟用中內部使用者、寄樣批次為 `SAMPLE` 且檔期可見；團主適配且未指定 `reuseQualification=false` 時，若 `qualificationFor` 有效就記錄 `qualification_trial_id`；同一交易插入試用與檢核項、寫稽核；唯一衝突轉 409。
+
+**系統建議（`suggestConclusion`）**：無檢核項→`RETEST`；任何 `FAIL` 或 `CRITICAL` 缺陷→`FAIL`；有 `NOT_TESTED`→`RETEST`；有 `CONCERN` 或 `MAJOR` 缺陷→`CONDITIONAL`；否則 `PASS`。樂觀程度 `FAIL<RETEST<CONDITIONAL<PASS`，`isMoreOptimistic(final, suggested)` 為真時：無 `product.review` → 403；缺 `overrideReason` → 422。
+
+**結論（`concludeTrial`）**：僅進行中（否則 412）；若有沿用的資格，重新驗證仍有效（否則 412）；通過／有條件通過者 `valid_until = 指定日期 或 今天 + trialValidDays`（不得超過上限、不得早於今天），並寫入當下的 `basis_fingerprint`；`closed_date` 缺值時補為今天與各日期的最大值；寫入結論、建議、說明、覆寫原因、結論人與時間，稽核 `selection.trial.conclude`（含是否覆寫）。
+
+**商品指紋與資格有效性**：`productFingerprint` = SHA-256（名稱、類別、合規備註、依小寫排序的規格編號；價格不計）。`qualificationFor` 取最近一次已結論的資格試用，`qualificationValidity` 判定：未結論、結論非通過／有條件通過、尚未覆核（reviewDecision 非 ACCEPTED）、覆核未接受、`valid_until < 今天`、指紋不符，任一成立即失效並回傳原因。
+
+**其他**：`updateTrial` 可在已結論後補寫物流／日期／回收（回收一致性：不需回收→`NOT_REQUIRED`；需回收且為 `NOT_REQUIRED`→`PENDING`；`RECOVERED` 須有日期）；`updateTrialCheck` 合併後以 `checkProblems` 驗證、通過／未通過時記錄驗證人與時間，`margin` 項對無 `product.cost.read` 者的文字寫入 403、稽核文字記為「[敏感]」；`reviewTrial` 僅已結論，非接受缺原因 422；`cancelTrial` 僅進行中且需原因；`campaignTrials` 回傳本檔試用與 `SAMPLE_SHIP／TRIAL_ARRIVAL／TRIAL_FEEDBACK／LAUNCH_APPROVAL` 任務現況（唯讀，**不新增、不修改任務**）。
+
+### 18B.7 可行性試算（`modules/feasibility.ts`、`lib/feasibility-calc.ts`）
+
+**輸入**（`feasibilityInputSchema`，strict，全部可空）：`expectedOrders`、`unitPrice`、`refundRatePct`、`unitCost`、`shippingPerOrder`、`platformFeePct`、`platformFeePerOrder`、`otherVariablePerOrder`、`fixedCost`、`brandFeePct`、`serviceFeeFixed`、`hostCommissionPct`、`commissionBasis`(NSV／GMV)、`hostPaidBy`(COMPANY／BRAND)、`cashFlowMode`(BRAND_COLLECTS／HOST_COLLECTS／COMPANY_ESCROW)、`shippingBorneBy`／`platformFeeBorneBy`／`otherCostBorneBy`／`fixedCostBorneBy`(BRAND／COMPANY／HOST)。比例 0–100，金額為 0–10¹⁰ 整數。**非敏感**：`expectedOrders`、`unitPrice`、`refundRatePct`、`cashFlowMode`；其餘 15 個輸入為**敏感**。假設來源 `sources[key].kind`∈`VENDOR_QUOTE／TRIAL_ACTUAL／HISTORICAL_DATA／CONTRACT／MANUAL_ESTIMATE`（可附說明）。
+
+**公式**（口徑待 Owner 確認；`pctOf(x, r)` = x × r 以千分位整數運算後四捨五入到整數元）：
+
+```
+GMV            = 預估訂單 × 團購價
+退款            = pctOf(GMV, 退款率)                 （缺退款率→退款與 NSV 皆 null）
+NSV            = GMV − 退款
+商品成本         = 單位成本 × 預估訂單
+運費／其他變動   = 單位金額 × 預估訂單
+平台費          = pctOf(GMV, 平台費比例) ＋ 每單平台費 × 預估訂單（兩者至少一項）
+分潤基礎         = NSV 或 GMV（依 commissionBasis）
+公司營業收入     = pctOf(分潤基礎, 品牌端服務費比例) ＋ 服務費固定額   （兩者都要明確填，0 也要填）
+團主分潤         = pctOf(分潤基礎, 團主分潤比例)
+某方負擔的成本   = Σ 該方負擔的（運費、平台費、其他變動、固定費用）；金額 > 0 卻未指定負擔方→未知
+公司貢獻利潤     = 公司營業收入 −（付款方＝公司 ? 團主分潤 : 0）− 公司負擔的成本     （需付款方）
+品牌利潤         = NSV − 商品成本 − 公司營業收入 −（付款方＝品牌 ? 團主分潤 : 0）− 品牌負擔的成本
+團主收入         = 團主分潤 − 團主負擔的成本
+公司抽成率       = 公司營業收入 ÷ NSV；品牌利潤率 = 品牌利潤 ÷ NSV；
+應付品牌貨款     = NSV − 公司營業收入（僅 COMPANY_ESCROW；代收款是負債，不是收入）
+```
+
+任何缺少必要輸入的結果為 `null`，並在 `missing[結果]` 列出缺哪些輸入；`notes` 固定附「試算：口徑待 Owner 確認」等說明。**敏感衍生結果**（遮罩對象）：`productCost`、`shippingTotal`、`platformFeeTotal`、`otherVariableTotal`、`fixedCost`、`companyRevenue`、`hostCommission`、`companyContribution`、`brandProfit`、`hostIncome`、`takeRatePct`、`brandMarginPct`、`contributionMarginPct`、`escrowRemitToBrand`；`GMV`、`退款`、`NSV` 與非敏感輸入對所有可讀者可見。
+
+**儲存（`createFeasibility`）**：無 `product.cost.read` 者提供任何敏感輸入或敏感來源（含設為 null）→ 403；以同一 (商品, 檔期, 團主) 範圍的最新版本為基礎，套用本次提供的欄位（`null` 視為清除），**未提供的敏感欄位原樣沿用**；每個非空輸入都須有來源（否則 422 列出缺哪些）；至少要有一項輸入；檔期須可見且含此商品，團主與試用（須同商品）須存在；`version_no` 為範圍內最大值 +1；寫稽核（只記非敏感欄位名稱與「敏感欄位變更個數」與未知結果清單）；回應的結果依權限遮罩。
+
+**小規模測試團實際回寫（`recordActuals`）**：情境須有檔期（否則 412）且在使用者範圍內；有 `host_id` 時以 `attributions.share_percent` 計該團主的訂單數／GMV／退款，否則整檔期；狀態取 `SALES_STATUSES`（排除取消）；另讀 `service_cases`（非取消，依 `COMPLAINT／REFUND／EXCHANGE`）與 ORDER 批次的 `shipments`（例外率）；計算 NSV、客單價、退款率，並與預測（`expectedOrders`、`gmv`、`refundRatePct`）並列差異；寫入 `actuals`／`actuals_at` 與稽核（前後值）；**不寫利潤**。
+
+### 18B.8 G1 統一決策摘要（`modules/decision-summary.ts`、`lib/decision-risk.ts`）
+
+`g1Summary(actor, campaignId)`：`selection.read`＋檔期可見；對 `campaign_products` 的每個商品彙整——`currentEvaluation`（已送出、未被取代的最新版）、`bestDiligence(廠商, 商品)`（商品專屬優先，其次整個廠商；已核准優先，再依建立時間）、`qualificationFor`、本檔該商品的試用（新到舊）、`latestFeasibility`（本檔優先，其次商品層級）、（有 `fit.read`）本檔 SOP 01 適配統計；再以 `buildRisks` 產生風險清單與 `lightOf` 燈號。回傳 `gateImpact:'NONE'`、說明、整體燈號、阻礙／缺口計數、`canSeeMoney` 與設定狀態。**整支函式只有 SELECT。**
+
+| 面向 | 🔴 阻礙（BLOCKING） | 🟡 缺口（GAP） |
+|---|---|---|
+| 商品審核 | 被退回 | 尚未核准（DRAFT／PENDING_REVIEW） |
+| 選品評估 | 合規 FAIL 或建議 BLOCKED；覆核不採用 | 尚無評估；合規 NEEDS_LEGAL／未查核；覆核要求補資料／尚未覆核；建議 HOLD／SUPPLEMENT／資料不足 |
+| 合作資格審查 | 被退回或撤銷；有項目法務封鎖；已核准但核准後證據過期 | 尚無；未核准（草稿／審查中）；已核准但到期（證據未過期）；法務未結案；有風險項 |
+| 試用 | 商品資格試用不通過；本檔試用不通過；結論被覆核退回 | 商品資格已失效；本檔試用進行中／需重測／有條件通過／結論未覆核；沒有有效資格也沒有本檔試用 |
+| 可行性 | — | 尚無試算；輸入不完整；品牌利潤或公司貢獻為負（**僅 `canSeeMoney` 才會產生**，不洩漏給無權限者） |
+
+試用每組（層級＋類型＋團主）只取最新一次，取消的不算。燈號：有任何阻礙→`RED`；否則有缺口→`YELLOW`；否則`GREEN`；沒有商品的檔期為 `YELLOW`。
+
+### 18B.9 錯誤與狀態碼
+
+| 情況 | 狀態 |
+|---|---|
+| 缺少權限（團主／廠商一律；財務寫入；小編覆核、改設定、碰敏感欄位、覆寫試用建議、確認／封鎖法務） | 403 |
+| 他組織資料、檔期範圍外、不存在、已移除的證據 | 404 |
+| 同商品已有評估草稿、調查（廠商＋商品＋合約版本）重複、進行中試用重複、`version` 不符、設定 `version` 不符、覆核已被取代的評估、可行性並發存檔 | 409 |
+| 評估已送出／調查已送審或核准／試用已結論或取消／父層鎖定時的修改、草稿覆核、未結論覆核、重新標示法務時觸發條件仍成立、沿用的資格已失效、可行性無檔期回寫、取消非進行中 | 412 |
+| 欄位驗證：分數與理由、合規說明、個資、非 http(s) 或帶帳密連結、白名單、條款 schema、負責人、未備齊送審／核准、不適用／風險缺原因、已確認缺有效證據、通過缺客觀證據、類型規則、日期順序、覆寫原因、有效期上限、可行性來源缺漏與範圍 | 422 |
+
+### 18B.10 冪等與樂觀鎖
+
+| 對象 | 機制 |
+|---|---|
+| 建立調查、建立試用 | `Idempotency-Key`，範圍 `dd.create`、`trial.create`（`request_hash` 含使用者與完整內容，含廠商／商品 ID）；另有唯一索引防並發 |
+| 評估草稿 | 部分唯一索引 `product_evaluations_draft_uq`；重複 409 |
+| 調查、調查項目、評估草稿、試用、檢核項 | `version` 樂觀鎖（可選帶入，不符 409） |
+| 評分設定 | `PUT` 帶 `version`，不符 409 |
+| 可行性 | 每次存檔新版本；`(product, campaign, host, version_no)` 唯一，並發撞版 409；回寫可重複執行（以最新為準） |
+
+### 18B.11 UI 頁面對照
+
+| 頁面 | 檔案 | 權限／內容 |
+|---|---|---|
+| 導覽「選品與試用」、總覽與設定頁 | `selection/page.tsx`、`ui/selection/SelectionConfigForm.tsx` | `selection.read`；設定需 `selection.config`；顯示「建議值，待 Owner 確認」與「不會自動核准」 |
+| 商品詳情「選品評估」「商品試用」「商業可行性」 | `products/[id]/SelectionCards.tsx`、`ui/selection/{EvaluationEditor,FeasibilityForm}.tsx` | `selection.read`；填報 `selection.write`；覆核 `product.review`；成本欄位對無 `product.cost.read` 者不顯示 |
+| 廠商詳情「合作資格審查」、調查詳情 | `vendors/[id]/DiligenceCard.tsx`、`diligence/[id]/page.tsx`、`ui/selection/DdItemCard.tsx` | `selection.read`；12 類逐項編輯、法務標示、送審；核准／退回／撤銷／確認無虞需 `product.review` |
+| 試用詳情 | `trials/[id]/page.tsx`、`ui/selection/TrialChecks.tsx` | 四面向檢核、系統建議、結論、覆核、取消、相關任務（唯讀）、歷史 |
+| 可行性詳情 | `feasibility/[id]/page.tsx`、`ui/selection/FeasibilityResults.tsx` | 結果（未知顯示「未知」）、輸入與假設來源、實際 vs 預測、證據、版本 |
+| 檔期「選品與試用」分頁、G1 提示 | `campaigns/[id]/SelectionTab.tsx`、`ui/selection/SummaryView.tsx` | `selection.read`＋檔期範圍；摘要、本檔試用、任務現況；G1 核准區 `g1-selection-note` |
+| 證據連結元件 | `ui/selection/EvidenceBox.tsx` | 各面板共用；無權限者只見種類與有效狀態 |
+
+### 18B.12 DEMO 種子與測試
+
+- 種子 `scripts/seed-demo-selection.ts`（`npm run db:seed:demo:selection`，已加入 `bootstrap:demo`）：需先跑 `db:seed:demo`；冪等（已有 `[DEMO]` 證據即略過）；拒絕在 production 執行（除非明確允許公開示範環境）；證據連結一律是保留網域 `docs.example.invalid`；建立 3 份評估（1 份 PROCEED 已覆核、1 份需法務審查、1 份草稿）、2 份調查（1 份已核准、1 份草稿含風險與法務標示）、3 筆試用、2 筆可行性。
+- 測試對應見 §21。突變驗證（未知當 0、合規被總分抵銷、過期證據仍有效、小編讀／寫敏感欄位、結論可更樂觀、資格不隨商品變更失效、允許重複進行中試用、G1 檢查項被改…）共 22 項，每項在錯誤版本下都使對應測試變紅。
+
 ## 19. 橫切設計
 
 ### 19.1 去重與冪等鍵總表
 
 | 對象 | 機制 | 鍵 |
 |---|---|---|
-| 建立類 API（16 個範圍） | `Idempotency-Key` ＋ `request_hash` | `(org, scope, key)`；範圍：`vendor.create`、`host.create`、`community.create`、`product.create`、`campaign.create`、`fulfillment_batch.create`、`shipment.create`、`inventory.adjust`、`aftersales.case.create`、`aftersales.refund.request`、`settlement.create`、`payment.create`、`invoice.create`、`expense.create`、`segment.create`、`segment.link`（SOP 01） |
+| 建立類 API（18 個範圍） | `Idempotency-Key` ＋ `request_hash` | `(org, scope, key)`；範圍：`vendor.create`、`host.create`、`community.create`、`product.create`、`campaign.create`、`fulfillment_batch.create`、`shipment.create`、`inventory.adjust`、`aftersales.case.create`、`aftersales.refund.request`、`settlement.create`、`payment.create`、`invoice.create`、`expense.create`、`segment.create`、`segment.link`（SOP 01）、`dd.create`、`trial.create`（SOP 02／03） |
 | 廠商 | 部分唯一索引 | 正規化名稱、統編 |
 | 團主／社群／商品／規格 | 部分唯一索引 | 正規化名稱；`(platform, 正規化名稱)`；`(vendor, 正規化名稱)`；`(product, lower(sku_code))` |
 | 檔期 | 部分唯一索引 | `(vendor, 正規化標題, 開團日)`，未取消 |
@@ -1168,6 +1383,10 @@ sequenceDiagram
 | 結算 | 部分唯一索引 | 每檔期一份 DRAFT／CONFIRMED；`(settlement_id, host_id)` |
 | 發票 | 部分唯一索引 | `(org, invoice_no)`，未作廢 |
 | 客群／偏好／連結（SOP 01） | 部分唯一索引 | `(org, 正規化客群名稱)`；`(segment, kind, 正規化值)`；`(host, segment)` 進行中 |
+| 選品評估草稿（SOP 02） | 部分唯一索引 | `(product)` 且 `status='DRAFT'`；`(product, version_no)` |
+| 廠商合作資格審查（SOP 02） | 部分唯一索引 | `(vendor, COALESCE(product,''), contract_version)` 未刪除；`(record, category_key)` |
+| 商品試用（SOP 03） | 部分唯一索引 | `(product, COALESCE(sku,''), COALESCE(host,''), COALESCE(campaign,''), trial_type, level)` 且進行中；`(trial, item_key)` |
+| 可行性情境（SOP 03） | 唯一索引 | `(product, COALESCE(campaign,''), COALESCE(host,''), version_no)` |
 | 適配評估（SOP 01） | 部分唯一索引＋`input_hash` | `(product, host, COALESCE(campaign,''))` 未被取代者；輸入相同不新增 |
 
 ### 19.2 樂觀鎖
@@ -1217,6 +1436,16 @@ sequenceDiagram
 | 26 | 結案成效回寫為人工按鈕 | 沒有自動化工作；忘記回寫不影響評分 | 待決策 D-20 |
 | 27 | 第一次儲存評分設定的版本 | 內建建議值為版本 1，第一次儲存＝版本 2 | 刻意設計，使兩者可區分 |
 | 28 | 文件過期（SOP 01） | `ARCHITECTURE.md`、`docs/generated/*` 尚未涵蓋 5 張新表與 22 條新路由 | `npm run docs:gen` 重新產生 |
+| 29 | SOP 02／03 評分、有效期與必附證據類別是建議值 | 權重 25/25/20/15/10/5、門檻 80／65、有效期 365／180 天、必附證據類別 1／7／8／9／10／11 皆為「待 Owner 確認」（`approved:false`）；不涉及佣金或結算公式 | 待決策 D-25、D-27、D-35 |
+| 30 | G1 與選品／調查／試用／可行性 | 摘要僅供查閱，`gates.ts` 未新增檢查項；是否納入 WARN／BLOCK、商品送審前是否須有評估、是否強制資格試用未定 | 待決策 D-26、D-28、D-33 |
+| 31 | 法務／合規審查 | 「疑似受規範品類」是關鍵字比對（`suspectRegulated`），會漏判誤判；系統不判斷合法性，只管理有沒有被審、誰審的；審查窗口與流程未定 | 待決策 D-29 |
+| 32 | 可行性口徑 | 單一費率＋固定費；沿用 biz-model 04 的提案（B-01、B-08、B-09 待確認）；商品成本以出貨量計、不扣退貨回收；平台費以 GMV 為基礎 | 待決策 D-31 |
+| 33 | 證據只存連結 | 不上傳、不轉存檔案；連結失效不偵測；網域白名單預設不限制 | 待決策 D-32 |
+| 34 | 試用品回收逾期、協議（`agreements`） | 回收逾期只記錄、不追蹤；協議仍無 CRUD，以合約版本與合約編號文字記錄 | 待決策 D-34、D-36 |
+| 35 | 到期只在讀取時計算 | 調查與商品資格的「失效」不改資料、不通知；總覽只列 30 天內到期的證據 | 需要提醒時再加自動化（預設停用） |
+| 36 | migration 編號 | `docs/biz-model` 曾提案 014～018 留給合作案與費用規則；本功能取用 014，該提案順延（屬提案） | 提案落地時改用 015 起 |
+| 37 | 路由數 | 開發任務規劃階段估計約 34 條；`routes.ts` 實為 33 條 | 以程式為準 |
+| 38 | 文件過期（SOP 02／03） | `ARCHITECTURE.md`、`docs/generated/*` 尚未涵蓋 7 張新表與 33 條新路由 | `npm run docs:gen` 重新產生 |
 
 ---
 
@@ -1241,8 +1470,19 @@ sequenceDiagram
 | `tests/unit/fit-score.test.ts`（SOP 01） | 32 | §18A.3：未知不當 0 分、完整度與信心、硬性檢查、品類／需求／價格、多客群、歷史與供應切點、權重可設定、輸入雜湊 |
 | `tests/segments.test.ts`（SOP 01） | 23 | §18A.1–18A.2、§5：Owner 範例輪廓、未知與缺漏、多客群與占比、事實需來源、個資防護、更新／版本／稽核／軟刪除、冪等、`partnerType`、權限與租戶隔離 |
 | `tests/fit.test.ts`（SOP 01） | 27 | §18A.3–18A.6：設定、評估與排名、版本與不可改、stale、硬性檢查、覆核、檔期適配與範圍、結案回寫、**G1 語意不變**、權限 |
+| `tests/unit/selection-score.test.ts`（SOP 02） | 14 | §18B.3：加權與門檻邊界、未知不當 0、完整度與信心分級、合規獨立、PROCEED 需證據、送出檢查、設定驗證 |
+| `tests/unit/dd-catalog.test.ts`（SOP 02） | 13 | §18B.4：12 類目錄與必附證據、條款 schema、畫面欄位與 schema 一致、敏感遮罩、法務觸發與關鍵字、證據狀態與準備度、網域白名單 |
+| `tests/unit/trial-catalog.test.ts`（SOP 03） | 12 | §18B.6：18 項檢核目錄、沿用只補 12 項、系統建議、樂觀程度、檢核項規則、商品指紋、資格有效與失效 |
+| `tests/unit/feasibility-calc.test.ts`（SOP 03） | 21 | §18B.7：手算對照（GMV／NSV／公司營業收入／貢獻／品牌利潤／團主收入）、付款方與負擔方、分潤基礎、代收居中、四捨五入、缺資料不捏造（8 項）、輸入驗證、敏感遮罩 |
+| `tests/unit/decision-risk.test.ts`（SOP 02／03） | 6 | §18B.8：全備綠燈、全缺黃燈、阻礙情境、到期只是缺口、試用只看最新一次、不洩漏利潤正負 |
+| `tests/selection.test.ts`（SOP 02） | 27 | §18B.2–18B.5：設定版本與權限、評估流程與不可改、覆核不改商品狀態、證據安全與軟刪除、權限與租戶隔離、不寫 SOP 01 資料 |
+| `tests/diligence.test.ts`（SOP 02） | 30 | §18B.4：建立與 12 類、結構化條款與負責人、狀態規則與證據、第 10 類敏感、法務標示、送審／核准／有效期／撤銷、財務唯讀 |
+| `tests/trials.test.ts`（SOP 03） | 31 | §18B.6：建立與類型、重複進行中（含資料庫）、回收、四面向與客觀證據、建議與覆寫、資格沿用與失效、檔期範圍與任務唯讀、權限 |
+| `tests/feasibility.test.ts`（SOP 03） | 18 | §18B.7：版本與來源、不捏造、不可變、敏感欄位（寫 403／讀 null／沿用／參考價格／證據／稽核）、實際回寫 |
+| `tests/selection-g1.test.ts`（SOP 02／03） | 15 | §18B.8：**G1–G5 與商品審核語意不變**（檢查項、核准列、通知、任務、狀態）、摘要內容、紅黃綠燈、敏感資料、檔期範圍 |
 | **合計（原基準）** | **245** | 14 個檔案；真實 PostgreSQL；一檔一組織 |
 | **合計（含 SOP 01 的 82 項，以全套重跑為準）** | **405** | 20 個檔案（SOP 01 開工前以全套重跑為 17 檔 323 項；SOP 01 新增 3 檔 82 項）；既有 API 模糊測試（`security-fuzz.test.ts`）自動涵蓋新路由，無 5xx |
+| **合計（含 SOP 02／03 的 187 項，以各檔 `it(` 計數）** | **592** | 30 個檔案（SOP 02／03 新增 10 檔 187 項）；全部通過的實測結果見 `docs/TEST_REPORT.md` |
 
 > 項數以 `grep -cE "^\s*(it|test)\("` 計算，加總為 245，與 `vitest run` 的輸出一致。E2E（Playwright）：`scripts/e2e-smoke.ts`（含 SOP 01 新增的 37 項，共 86 項；新區塊涵蓋團主客群分析建立與讀回、商品候選團主適配、檔期適配分頁與 G1 唯讀提示、覆核流程、評分設定、客群清單／詳情、團主／廠商／財務無權限）、`scripts/e2e-aftersales.ts`（52 項）。
 
@@ -1250,6 +1490,7 @@ sequenceDiagram
 
 ## 22. 文件自檢
 
+- **SOP 02／03 更新**：資料表 65（014 新增 7 張）、端點 185（`routes.ts` 的 `R(`／`P(` 行數；SOP 02／03 區塊 33 條）、權限 52（各角色持有數：管理者 52、主管 45、小編 32、團主 10、廠商 7、財務 23，依 `permissions.ts` 規則推算）、有 `forbid_delete` 的表 54、`touch_row` 的表 38、冪等範圍 18、測試 592（以 `it(` 計數：既有 405＋新增 187，30 檔）。§18B 的演算法、目錄與 API 逐項對照 `lib/{selection-score,dd-catalog,trial-catalog,feasibility-calc,decision-risk}.ts`、`modules/{selection,evidence,diligence,trials,feasibility,decision-summary}.ts`、`routes.ts` 與 `migrations/014`；§18B.4 的狀態圖與 SAD §4.5 的流程圖及 §4.2／§7.2 圖的增補**尚未**以 mermaid 重新 render（只目視核對語法）。E2E 項數以 `docs/uat/e2e-results.json` 為準，本文件未重新引用。
 - **SOP 01 更新**：資料表 58、端點 152（`routes.ts` 的 `R(`／`P(` 行數）、權限 49（各角色持有數：管理者 49、主管 42、小編 30、團主 10、廠商 7、財務 22，依 `permissions.ts` 規則推算）、有 `forbid_delete` 的表 47、`touch_row` 的表 31、冪等範圍 16、全套測試 405（20 檔）、E2E 86。§18A 的演算法與 API 逐項對照 `lib/fit-score.ts`、`modules/fit.ts`、`modules/segments.ts`、`routes.ts` 與 `migrations/013`；§18A.4 的序列圖與其餘增補**尚未**以 mermaid 重新 render（只目視核對語法）。其餘計數沿用原基準：
 - **計數類**（以指令重新計算，非引用舊文件）：資料表 53（`CREATE TABLE`）、端點 130（`routes.ts` 的 `R(`／`P(` 與 `API_ENDPOINTS.md` 一致）、權限 43 與各角色持有數（匯入 `permissions.ts` 計算）、測試 245（14 個檔案逐檔 `it(` 計數；`vitest run` 同為 245）、有 `forbid_delete` 的表 42、append-only 的表 4、無刪除保護的表 7、`touch_row` 的表 26、冪等範圍 14、自動化工作 8、事件類型 6、模板步驟 15／階段 8／檔期狀態 14／關卡 5。
 - **規則類**：每個模組都讀過對應的 `modules/*.ts`、相關 migration 與路由登記後才寫；表格中的「權限」欄以 `requirePerm`／`can` 呼叫與 `permissions.ts` 為準。

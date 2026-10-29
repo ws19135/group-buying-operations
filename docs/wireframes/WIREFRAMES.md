@@ -287,7 +287,7 @@
 | 5 | 尚未建立客群分析的團主 | GET /api/fit/overview | 引導到團主頁建立客群分析（流程：新團主建檔 → 客群分析） | — |
 
 ## 19-vendor-diligence
-**廠商詳情：合作資格審查與調查詳情**（SOP 02 首次合作 12 類問題）　現況畫面：`../uat/screens/27-vendor-diligence.png`、`../uat/screens/28-diligence.png`　對應需求：FR-SEL-*（編號待 SRS 定稿）
+**廠商詳情：合作資格審查與調查詳情**（SOP 02 首次合作 12 類問題）　現況畫面：`../uat/screens/27-vendor-diligence.png`、`../uat/screens/28-diligence.png`　對應需求：FR-DD-01～08、FR-EVI-01～03
 
 > 線框上半是廠商詳情新增的「合作資格審查」區塊，下半是調查詳情頁 `/diligence/[id]`。尚未與實際畫面逐項比對的差異見 [AS_BUILT_SCREENS.md](AS_BUILT_SCREENS.md) 的「選品與試用」。
 
@@ -310,7 +310,7 @@
 | 13 | 法務／合規審查標示按鈕 | POST /api/diligence-items/:id/legal | 標示需審任何填報者可做；確認無虞需先附有效的「法務意見」證據；封鎖＝不得合作；自動觸發條件仍成立時不可直接解除 | 確認無虞／封鎖／解除需 product.review |
 
 ## 20-product-selection
-**商品詳情：選品評估、商品試用、商業可行性**（SOP 02／03）　現況畫面：`../uat/screens/29-product-selection.png`、`../uat/screens/32-feasibility.png`　對應需求：FR-SEL-*（編號待 SRS 定稿）
+**商品詳情：選品評估、商品試用、商業可行性**（SOP 02／03）　現況畫面：`../uat/screens/29-product-selection.png`、`../uat/screens/32-feasibility.png`　對應需求：FR-SEL-01～11、FR-TRL-01～09、FR-FEA-01～05
 
 ![商品詳情：選品評估、商品試用、商業可行性](./20-product-selection.svg)
 
@@ -334,7 +334,7 @@
 | 16 | 新增試算對話框（四組輸入＋假設來源） | FeasibilityForm | 規模與價格、成本、服務費與分潤、成本負擔方（金額大於 0 的項目必選負擔方）；沒填＝未知 | 後三組敏感，無權限者看不到也不能填，上一版的值原樣沿用 |
 
 ## 21-campaign-g1-summary
-**檔期：選品與試用（G1 決策摘要）**（SOP 02／03）　現況畫面：`../uat/screens/30-campaign-selection.png`　對應需求：FR-SEL-*（編號待 SRS 定稿）
+**檔期：選品與試用（G1 決策摘要）**（SOP 02／03）　現況畫面：`../uat/screens/30-campaign-selection.png`　對應需求：FR-G1S-01～04
 
 > 這一頁是**唯讀摘要**，`gateImpact` 恆為 `NONE`：不是 G1 的檢查項，不改變 G1 的檢查清單（deps_done、has_confirmed_host、has_products、vendor_info、vendor_ok）、申請與核准結果，不新增核准列、任務或通知。
 
@@ -355,7 +355,7 @@
 | 11 | 「核准與關卡」分頁的 G1 提示列 | 同摘要 | 一行燈號與計數＋連結；不影響申請與核准 | 需 selection.read |
 
 ## 22-trial-detail
-**試用詳情：四大面向檢核、結論與覆核**（SOP 03）　現況畫面：`../uat/screens/31-trial.png`　對應需求：FR-SEL-*（編號待 SRS 定稿）
+**試用詳情：四大面向檢核、結論與覆核**（SOP 03）　現況畫面：`../uat/screens/31-trial.png`　對應需求：FR-TRL-01～09、FR-EVI-01～03
 
 ![試用詳情：四大面向檢核、結論與覆核](./22-trial-detail.svg)
 

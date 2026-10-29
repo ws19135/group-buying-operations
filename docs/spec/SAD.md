@@ -17,9 +17,9 @@
 | 項目 | 現況（✅ 已核對） |
 |---|---|
 | 技術棧 | Next.js 15.5（App Router）、React 19、TypeScript 5.9、PostgreSQL 16、`pg` 8（無 ORM）、zod 3.25、vitest 3、Playwright 1.63（`package.json`） |
-| 規模 | 58 張資料表（13 支 migration，含 013 客群分析與適配的 5 張）、152 個 API 端點（`routes.ts` 的 `R(`／`P(` 計數，含 SOP 01 的 22 條）、6 個角色、49 項權限（含 SOP 01 的 6 項）、14 種檔期狀態、8 個自動化工作 |
-| 使用者介面 | 繁體中文、桌面為主；`src/app` 共 41 個頁面檔（`page.tsx`，含登入頁與首頁導向；SOP 01 新增 `/fit`、`/segments`、`/segments/[id]`，團主、商品、檔期頁另加面板） |
-| 測試 | 20 個測試檔、405 項（含 SOP 01 新增的 3 檔 82 項），使用真實 PostgreSQL；另有 Playwright E2E（`scripts/e2e-smoke.ts` 86 項、`scripts/e2e-aftersales.ts`） |
+| 規模 | 65 張資料表（14 支 migration，含 013 客群分析與適配的 5 張、014 選品與試用的 7 張）、185 個 API 端點（`routes.ts` 的 `R(`／`P(` 計數，含 SOP 01 的 22 條、SOP 02／03 的 33 條）、6 個角色、52 項權限（含 SOP 01 的 6 項、SOP 02／03 的 3 項）、14 種檔期狀態、8 個自動化工作 |
+| 使用者介面 | 繁體中文、桌面為主；`src/app` 共 45 個頁面檔（`page.tsx`，含登入頁與首頁導向；SOP 01 新增 `/fit`、`/segments`、`/segments/[id]`，團主、商品、檔期頁另加面板；SOP 02／03 新增 `/selection`、`/diligence/[id]`、`/trials/[id]`、`/feasibility/[id]`，廠商、商品、檔期頁另加面板） |
+| 測試 | 30 個測試檔、592 項（含 SOP 01 新增的 3 檔 82 項、SOP 02／03 新增的 10 檔 187 項），使用真實 PostgreSQL；另有 Playwright E2E（`scripts/e2e-smoke.ts`，SOP 02／03 另加「選品與試用」區塊；`scripts/e2e-aftersales.ts`） |
 
 ---
 
@@ -27,7 +27,7 @@
 
 | 品質屬性 | 目標 | 現況與證據 | 缺口 |
 |---|---|---|---|
-| **資料正確與可稽核** | 任何資料變更可追溯；資料不可被默默刪除或竄改 | ✅ 47 張表有 `forbid_delete` 觸發器；4 張表（`audit_logs`、`case_events`、`inventory_movements`、`settlement_adjustments`）禁止 UPDATE／DELETE；每個寫入在同一交易寫 `audit_logs`（前後值、原因、requestId）。`database.test.ts` | 7 張系統／暫存表沒有刪除保護（§7.3） |
+| **資料正確與可稽核** | 任何資料變更可追溯；資料不可被默默刪除或竄改 | ✅ 54 張表有 `forbid_delete` 觸發器；4 張表（`audit_logs`、`case_events`、`inventory_movements`、`settlement_adjustments`）禁止 UPDATE／DELETE；每個寫入在同一交易寫 `audit_logs`（前後值、原因、requestId）。`database.test.ts` | 7 張系統／暫存表沒有刪除保護（§7.3） |
 | **安全（授權）** | 後端強制授權，前端隱藏只是體驗 | ✅ 三層：權限 → 資料範圍 → 欄位投影（§8）。`rbac.test.ts`（21 項）、各模組越權測試 | 無 SSO／MFA／密碼重設；cookie 的 `Secure` 旗標只在 `APP_ENV=production` 才加（§8.1） |
 | **一致性與冪等** | 重複送出、重複匯入、重複執行不產生重複資料 | ✅ 14 個 `Idempotency-Key` 範圍、自然鍵部分唯一索引、匯入 checksum、自動化 `(工作, 冪等鍵)` 唯一 | 冪等鍵的範圍是「組織＋範圍＋key」，不含使用者（§8.6） |
 | **可維護性** | 規則集中、可獨立測試 | ✅ 排程／狀態機／KPI／佣金口徑都是純函式或單一來源；服務層與框架無關 | `routes.ts` 單檔 255 行，持續成長 |
@@ -112,7 +112,7 @@ flowchart TB
     end
   end
 
-  DB[("PostgreSQL 16<br/>58 張表 + 觸發器 + 部分唯一索引")]
+  DB[("PostgreSQL 16<br/>65 張表 + 觸發器 + 部分唯一索引")]
   W["scripts/worker.ts<br/>獨立 Node 程序（預設關閉）"]
 
   B1 -->|"HTML／表單／fetch"| P
@@ -159,6 +159,12 @@ flowchart TB
 | `audit-read` | 稽核紀錄查詢 | （唯讀 audit_logs） | — |
 | `segments`（SOP 01） | 客群輪廓、需求與偏好、團主↔客群連結、研究證據；團主客群分析彙整 | customer_segments、segment_preferences、partner_segment_links、segment_evidence（另只讀 hosts、communities、host_communities） | `aftersales`（只借用 `containsPii` 個資偵測函式） |
 | `fit`（SOP 01） | 商品 × 團主適配評估：取資料、保存版本、人工覆核、結案成效回寫、評分設定（`system_settings['fit.scoring']`） | product_fit_assessments；**只讀** orders、attributions、campaigns、campaign_products、campaign_hosts、shipments、fulfillment_batches、service_cases、products、skus、vendors、partner_segment_links、customer_segments、segment_preferences | `aftersales`（`containsPii`）、lib/fit-score、lib/segment-vocab、lib/kpi（`SALES_STATUSES`）、lib/scope（`campaignScope`） |
+| `selection`（SOP 02） | 商品通用選品評估（六項 1–5 分、獨立合規查核、版本、覆核）、選品設定（`system_settings['selection.scoring']`）、`/selection` 總覽；共用的檔期範圍檢查、個資檢查與資料庫錯誤對應 | product_evaluations；**只讀** products、product_fit_assessments（唯讀引用 SOP 01 統計）、campaigns、evidence_items、product_trials、vendor_dd_records | `aftersales`（只借用 `containsPii`）、lib/selection-score、lib/dd-catalog（`evidenceState`） |
+| `evidence`（SOP 02／03） | 證據連結（只存連結與中繼資料）、父層鎖定檢查、敏感證據遮罩 | evidence_items；**只讀** product_assets、vendor_dd_*、product_evaluations、product_trials、trial_checks、feasibility_scenarios | `selection`、lib/dd-catalog |
+| `diligence`（SOP 02） | 廠商首次合作 12 類盡職調查：建立、結構化條款、法務／合規標示、送審、核准、失效判斷 | vendor_dd_records、vendor_dd_items；**只讀** vendors、products、users、evidence_items | `selection`、`evidence`、lib/dd-catalog、lib/idempotency |
+| `trials`（SOP 03） | 商品試用（資格驗證／團主・檔期適配）、四面向檢核、建議結論、覆核、資格沿用與失效、檔期試用清單 | product_trials、trial_checks；**只讀** products、skus、hosts、campaign_products、fulfillment_batches、tasks（唯讀顯示 4 個步驟）、audit_logs | `selection`、`evidence`、lib/trial-catalog、lib/scope、lib/idempotency |
+| `feasibility`（SOP 03） | 商業可行性試算：輸入與假設來源、版本、敏感欄位遮罩、小規模測試團實際回寫 | feasibility_scenarios；**只讀** skus、orders、attributions、service_cases、shipments、fulfillment_batches、campaign_products | `selection`、`evidence`、lib/feasibility-calc、lib/kpi（`SALES_STATUSES`） |
+| `decision-summary`（SOP 02／03） | G1 統一決策摘要（唯讀）：彙整評估、調查、試用、可行性、客群適配統計與風險 | （唯讀）product_evaluations、vendor_dd_*、product_trials、feasibility_scenarios、product_fit_assessments | `selection`、`diligence`、`trials`、`feasibility`、lib/decision-risk |
 
 ```mermaid
 flowchart LR
@@ -187,6 +193,11 @@ flowchart LR
     cc["lib/commission-calc"]
     fs["lib/fit-score（純函式）"]
     sv["lib/segment-vocab（詞彙／別名）"]
+    ss["lib/selection-score（純函式）"]
+    dd["lib/dd-catalog（12 類目錄）"]
+    tc["lib/trial-catalog（純函式）"]
+    fc["lib/feasibility-calc（純函式）"]
+    dr["lib/decision-risk（純函式）"]
   end
   subgraph SOP01["SOP 01 客群分析與適配"]
     segments
@@ -200,6 +211,34 @@ flowchart LR
   segments --> aftersales
   fit --> aftersales
   hosts --> sv
+  subgraph SOP0203["SOP 02／03 選品與試用"]
+    selection
+    evidence
+    diligence
+    trials
+    feasibility
+    summary["decision-summary"]
+  end
+  selection --> ss
+  selection --> dd
+  selection --> aftersales
+  evidence --> selection
+  evidence --> dd
+  diligence --> selection
+  diligence --> evidence
+  diligence --> dd
+  trials --> selection
+  trials --> evidence
+  trials --> tc
+  feasibility --> selection
+  feasibility --> evidence
+  feasibility --> fc
+  feasibility --> kpi
+  summary --> selection
+  summary --> diligence
+  summary --> trials
+  summary --> feasibility
+  summary --> dr
   dashboard --> kpi
   dashboard --> cc
   settlements --> cc
@@ -210,6 +249,8 @@ flowchart LR
 ```
 
 > SOP 01 的 `fit` **只讀** orders、attributions、shipments、service_cases、products、skus 等既有資料；**不 import、也不修改 `gates`、`campaigns`、`workflow/*`**（G1–G5 語意不變，有回歸測試）。`fit` 對 `aftersales` 的相依只是借用 `containsPii` 函式。
+>
+> SOP 02／03 的六個新模組同樣**只讀**既有資料（products、vendors、campaigns、campaign_products、tasks、fulfillment_batches、product_fit_assessments、orders、attributions、service_cases）；**不 import、也不修改 `gates`、`state`、`campaigns`、`tasks`、`products`（審核流程）、`fit`、`segments`、`workflow/*`**（G1–G5 與商品審核語意不變，有回歸測試 `selection-g1`）。新模組之間只有 `evidence`／`diligence`／`trials`／`feasibility`／`decision-summary` → `selection`（共用範圍檢查與設定）的單向相依，沒有循環。
 >
 > 圖中只畫模組之間的 import；所有模組都另外依賴 `lib/`（db、permissions、audit…）。依賴關係由 `grep "from './"` 核對；`dashboard` 與 `finance` 對 `lib/` 的口徑依賴也已核對。
 
@@ -266,6 +307,44 @@ flowchart LR
 | 讀寫 | `fit` 只寫 `product_fit_assessments`（與稽核、`system_settings`）；對其他資料表只讀 |
 | 不做 | 不改檔期狀態、不新增 G1 檢查項、不建立核准列、不寫 `notifications`、不接外部資料或 AI（有回歸測試） |
 | 觸發 | 全部由人按鈕或 API 呼叫；沒有排程、沒有事件監聽（結案回寫是否排進自動化＝待決策 D-20） |
+
+### 4.5 SOP 02／03 資料流（評估與調查 → 試用 → 可行性 → G1 統一決策摘要）
+
+```mermaid
+flowchart LR
+  subgraph IN["人工填報（selection.write）"]
+    EV["product_evaluations<br/>六項 1–5 分＋獨立合規查核<br/>版本化，送出後不可改"]
+    DD["vendor_dd_records／items<br/>12 類結構化條款＋責任方＋負責人<br/>合約版本，法務／合規標示"]
+    TR["product_trials／trial_checks<br/>資格驗證或團主・檔期適配<br/>四面向檢核＋客觀證據"]
+    FZ["feasibility_scenarios<br/>輸入＋假設來源＋版本<br/>敏感欄位 product.cost.read"]
+    EVI["evidence_items<br/>只存連結與有效期"]
+  end
+  EVI --> EV
+  EVI --> DD
+  EVI --> TR
+  EVI --> FZ
+  CFG["system_settings selection.scoring<br/>權重／門檻／有效期（待 Owner 確認，有版本）"] --> EV
+  EV --> RV1["product.review 覆核<br/>只記意見"]
+  DD --> RV2["product.review 核准／退回／撤銷<br/>有效期，到期或證據過期視為失效"]
+  TR --> RV3["系統建議結論→最終建議<br/>不得更樂觀，覆寫需 product.review＋原因"]
+  RV3 --> QUAL["商品資格：180 天＋商品指紋<br/>團主適配試用沿用"]
+  FZ --> ACT["小規模測試團實際回寫<br/>訂單／客訴／出貨例外，不寫利潤"]
+  RV1 --> SUM["decision-summary（唯讀）<br/>風險：阻礙／缺口，燈號"]
+  RV2 --> SUM
+  QUAL --> SUM
+  ACT --> SUM
+  FZ --> SUM
+  SUM --> UI["檔期「選品與試用」分頁／G1 核准區提示"]
+  UI -.->|"gateImpact = NONE，不影響"| GATE["gates.ts G1–G5（既有檢查與核准，語意不變）<br/>products 審核 DRAFT→PENDING_REVIEW→APPROVED／REJECTED"]
+  TR -.->|"只讀顯示"| TASK["tasks：SAMPLE_SHIP／TRIAL_ARRIVAL／TRIAL_FEEDBACK／LAUNCH_APPROVAL"]
+```
+
+| 邊界 | 說明 |
+|---|---|
+| 讀寫 | 六個新模組只寫自己的 7 張表（與稽核、`system_settings`）；對其他資料表只讀 |
+| 不做 | 不改檔期或商品審核狀態、不新增 G1 檢查項、不建立核准列、不新增或修改任務、不寫 `notifications`、不接外部資料或 AI、不上傳檔案（有回歸測試） |
+| 觸發 | 全部由人按鈕或 API 呼叫；沒有排程、沒有事件監聽（到期只在讀取時計算「失效」，不改資料；回收逾期自動化＝待決策 D-34） |
+| 敏感欄位 | 第 10 類（分潤）條款、可行性的成本／費用／分潤／付款方／負擔方與其衍生數字、試用「預估毛利」說明、對應證據：沿用 `product.cost.read`，在服務層投影（見 §8.3） |
 
 ---
 
@@ -339,11 +418,11 @@ flowchart TB
 
 ### 7.1 多租戶
 
-- ✅ 業務資料表帶 `organization_id`（58 張表中 51 張直接帶；`user_scopes`、`sessions`、`workflow_template_steps`、`task_dependencies` 經父表隔離；`organizations`、`roles`、`id_counters` 為全域）。所有查詢帶組織條件；檔期相關資料另經 `campaignScope`（§8.3）。
+- ✅ 業務資料表帶 `organization_id`（65 張表中 58 張直接帶；`user_scopes`、`sessions`、`workflow_template_steps`、`task_dependencies` 經父表隔離；`organizations`、`roles`、`id_counters` 為全域）。所有查詢帶組織條件；檔期相關資料另經 `campaignScope`（§8.3）。
 - 未使用 PostgreSQL Row-Level Security（ADR-003）；隔離靠服務層＋測試（`rbac.test.ts` 有跨組織讀／寫測試）。
 - ❓ `id_counters` 沒有 `organization_id`，業務 ID 的序號在**所有組織間共用**（例如 `VEN-0001` 全域唯一）。單一組織部署不受影響；多組織時序號會跳號但不衝突。
 
-### 7.2 領域分組（58 張表）
+### 7.2 領域分組（65 張表）
 
 | 領域 | migration | 資料表 |
 |---|---|---|
@@ -357,6 +436,7 @@ flowchart TB
 | 售後 | 010 | service_cases、case_events、refund_requests |
 | 財務 | 011 | settlement_adjustments、payments、invoices、expenses |
 | 客群分析與適配（SOP 01） | 013 | customer_segments、segment_evidence、segment_preferences、partner_segment_links、product_fit_assessments；另在 `hosts` 加可空欄位 `partner_type` |
+| 選品、合作資格審查、試用與可行性（SOP 02／03） | 014 | evidence_items、vendor_dd_records、vendor_dd_items、product_evaluations、product_trials、trial_checks、feasibility_scenarios（既有表不改；設定存 `system_settings['selection.scoring']`） |
 
 > `agreements`（合約）只有資料表，**沒有任何服務函式或 API**（以 grep 核對）。完整欄位見 [DATA_DICTIONARY](../generated/DATA_DICTIONARY.md)，關聯見 [ERD](../generated/ERD.md)。
 
@@ -398,21 +478,37 @@ erDiagram
   PRODUCTS ||--o{ PRODUCT_FIT_ASSESSMENTS : "assessed"
   HOSTS ||--o{ PRODUCT_FIT_ASSESSMENTS : "candidate"
   CAMPAIGNS ||--o{ PRODUCT_FIT_ASSESSMENTS : "context (optional)"
+  VENDORS ||--o{ VENDOR_DD_RECORDS : "contract version"
+  PRODUCTS ||--o{ VENDOR_DD_RECORDS : "optional scope"
+  VENDOR_DD_RECORDS ||--|{ VENDOR_DD_ITEMS : "12 categories"
+  PRODUCTS ||--o{ PRODUCT_EVALUATIONS : "versions"
+  PRODUCTS ||--o{ PRODUCT_TRIALS : "many trials"
+  PRODUCT_TRIALS ||--|{ TRIAL_CHECKS : "four dimensions"
+  PRODUCT_TRIALS ||--o| PRODUCT_TRIALS : "reuses qualification"
+  CAMPAIGNS ||--o{ PRODUCT_TRIALS : "optional"
+  PRODUCTS ||--o{ FEASIBILITY_SCENARIOS : "versions"
+  CAMPAIGNS ||--o{ FEASIBILITY_SCENARIOS : "optional"
+  PRODUCT_ASSETS ||--o{ EVIDENCE_ITEMS : "optional reuse"
 ```
 
 ### 7.3 資料保證（資料庫層，✅ 逐支 migration 核對）
 
 | 保證 | 做法 | 範圍 |
 |---|---|---|
-| 不實體刪除 | `forbid_delete()` 觸發器（`restrict_violation`）；以 `deleted_at` 或狀態欄軟刪除 | 58 張表中 **47 張**（013 的 5 張皆有） |
+| 不實體刪除 | `forbid_delete()` 觸發器（`restrict_violation`）；以 `deleted_at` 或狀態欄軟刪除 | 65 張表中 **54 張**（013 的 5 張、014 的 7 張皆有） |
 | 不可改不可刪（append-only） | `forbid_modify()` 觸發器（UPDATE／DELETE 皆擋） | `audit_logs`、`case_events`、`inventory_movements`、`settlement_adjustments` |
-| 版本與更新時間 | `touch_row()`：UPDATE 時 `version+1`、`updated_at=now()`（樂觀鎖用） | 31 張表 |
+| 版本與更新時間 | `touch_row()`：UPDATE 時 `version+1`、`updated_at=now()`（樂觀鎖用） | 38 張表（014 的 7 張皆有） |
 | 防重複 | 部分唯一索引（`WHERE deleted_at IS NULL` 等）：正規化名稱、統編、檔期自然鍵、追蹤碼、發票號碼、同檔期同時只有一份有效結算… | 見各模組 |
 | 結算鎖定 | `settlements_guard()`、`settlement_children_guard()`：非草稿的結算，其項目與調整項不可新增／修改；VOID 為終態 | 011 |
 | 業務 ID | 資料庫計數器原子遞增（`INSERT … ON CONFLICT DO UPDATE n=n+1 RETURNING`），格式見 `lib/ids.ts` | 全部業務實體 |
 | 評估內容不可改（SOP 01） | `product_fit_guard()`（BEFORE UPDATE）：`product_fit_assessments` 的組織、商品、團主、檔期、設定版本與快照、`input_hash`、分數、完整度、信心、建議、維度、硬性檢查、理由、來源、評估人與時間一律不可改（`restrict_violation`）；只允許補寫「覆核」「被取代」「成效回寫」三組欄位；已被取代者不可還原 | 013 |
 | 事實需來源（SOP 01） | `segment_evidence` 的 CHECK：`basis<>'FACT' OR source_label IS NOT NULL OR source_url IS NOT NULL`；覆核 CHECK：有決定就要有覆核人與時間，非 ACCEPTED 必有原因；通路偏好 CHECK 限平台代碼 | 013 |
 | 現行評估唯一（SOP 01） | 部分唯一索引 `product_fit_current_uq (product_id, host_id, COALESCE(campaign_id,'')) WHERE superseded_at IS NULL`；`partner_segment_links_uq (host_id, segment_id) WHERE ended_at IS NULL`；`segment_preferences_uq`、`customer_segments_name_uq`（皆 `WHERE deleted_at IS NULL`） | 013 |
+| 選品評估內容不可改（SOP 02） | `product_evaluations_guard()`（BEFORE UPDATE）：已送出（SUBMITTED）的評估，其商品、版本號、狀態、分數、合規、設定版本與快照、總分、完整度、信心、建議、缺證據項目、評估人與評估日一律不可改；已被取代者不可再改取代時間（`restrict_violation`）；只允許補寫覆核與被取代欄位。CHECK：送出必有送出時間、建議、評估人與評估日；覆核必有覆核人與時間，非 ACCEPTED 必有原因 | 014 |
+| 試用結論與檢核項鎖定（SOP 03） | `product_trials_guard()`：已結論（CONCLUDED）的試用，其結論、建議結論、結論說明、覆寫原因、結論人與時間、商品、規格、團主、檔期、層級、類型、有效期、商品指紋、狀態不可改（物流、日期、回收仍可補寫）；`trial_checks_guard()`（BEFORE INSERT OR UPDATE）：父層試用不是進行中（OPEN）就不可新增或修改檢核項。CHECK：日期依序、指定團主必有團主、小規模測試團必有檔期、資格驗證不可有沿用資格、取消必有原因、結論必有結論人與說明、需回收與回收狀態一致；檢核項「通過」必有客觀證據、有缺陷必有說明、「不通過」必有缺陷或風險說明 | 014 |
+| 可行性不可改（SOP 03） | `feasibility_scenarios_guard()`：輸入、來源、結果、商品、檔期、團主、版本號建立後不可改；只允許補寫實際回寫（`actuals`、`actuals_at`） | 014 |
+| 調查規則（SOP 02） | `vendor_dd_items`：`UNIQUE (record_id, category_key)`、12 類 `category_key` CHECK；「不適用」必有原因、「有風險」必有說明、法務「確認無虞」必有確認人、時間與說明（CHECK）；`vendor_dd_records`：核准必有有效期、審核人與時間，退回必有原因；證據 `valid_until ≥ valid_from` | 014 |
+| 進行中／現行唯一（SOP 02／03） | 部分唯一索引 `product_evaluations_draft_uq (product_id) WHERE status='DRAFT'`（同商品一份草稿）、`product_trials_open_uq (product_id, COALESCE(sku_id,''), COALESCE(host_id,''), COALESCE(campaign_id,''), trial_type, level) WHERE status='OPEN'`（進行中的相同組合只能一筆）、`vendor_dd_records_uq (vendor_id, COALESCE(product_id,''), contract_version) WHERE deleted_at IS NULL`、`feasibility_scenarios_uq (product_id, COALESCE(campaign_id,''), COALESCE(host_id,''), version_no)`、`UNIQUE (product_id, version_no)` | 014 |
 | Migration | 依檔名排序套用；已套用的檔案以 sha256 驗證不可修改，被改動即拒絕啟動 | `lib/migrate.ts` |
 
 > ❓ 沒有刪除保護的 7 張表：`organizations`、`roles`、`sessions`、`id_counters`、`idempotency_keys`、`system_settings`、`automation_settings`。ADR-007 只提到 `sessions`、`idempotency_keys` 允許刪除，其餘 5 張未說明（多為系統設定／計數資料）。
@@ -465,6 +561,7 @@ flowchart LR
 | ③ 欄位投影（舉例，✅） | 規則 |
 |---|---|
 | 檔期 `targetRevenue` | 需 `campaign.sensitive.read`（管理者、主管、財務） |
+| 調查第 10 類（分潤）條款、可行性的成本／費用／分潤／付款方／負擔方與衍生的收入與利潤、試用「預估毛利」說明、對應證據（SOP 02／03） | 需 `product.cost.read`；無權限者讀取為空／null 並標 `restricted`，寫入 403（`maskTerms`、`maskInputs`、`maskResults`、`maskEvidenceList`） |
 | 檔期／廠商／團主 `internalNote` | 只給內部角色（`isInternal`） |
 | SKU `costPrice` | 需 `product.cost.read`（管理者、主管、財務） |
 | 履約 `note`、售後 `internalNote`／`description`／`buyerRef`／內部紀錄 | 外部角色看不到（`project`／`EXTERNAL_FIELDS`） |
@@ -475,10 +572,13 @@ flowchart LR
 
 **SOP 01 的授權（✅ `permissions.ts`）**：新增 6 項權限 `segment.read`、`segment.write`、`fit.read`、`fit.assess`、`fit.review`、`fit.config`。系統管理者與營運主管全有；**營運小編**有 `segment.read／write`、`fit.read／assess`（不能覆核、不能改評分設定）；**財務、團主、廠商完全沒有**（客群分析與評估含內部判斷與其他團主的比較資訊，無外部入口；團主詳情與團主清單對無 `segment.read` 者移除 `partnerType`、`segmentCount`）。商品／團主層級的評估屬主檔分析，內部角色同範圍；**檔期層級**（`/campaigns/:id/fit`、結案回寫、評估明細、覆核、總覽清單中帶檔期者）一律經 `campaignScope`，營運小編只看自己負責的檔期，範圍外回 404。
 
+**SOP 02／03 的授權（✅ `permissions.ts`）**：新增 3 項權限 `selection.read`、`selection.write`、`selection.config`。系統管理者與營運主管全有；**營運小編**有 `selection.read／write`（可填報，不能改設定）；**財務**只有 `selection.read`；**團主、廠商完全沒有**。覆核評估與試用、核准調查、確認法務無虞、覆寫試用建議，**沿用既有 `product.review`**（只有管理者與營運主管）；成本、分潤與利潤欄位**沿用既有 `product.cost.read`**（營運小編沒有）。檔期層級的資料（關聯檔期的試用與可行性、檔期試用清單、G1 摘要）一律經 `campaignScope`，別人負責的檔期回 404；商品、廠商層級屬主檔資料，內部角色可見。證據連結只接受 http(s)、不得內嵌帳密、可設網域白名單（`evidenceHostAllowed`）。
+
 完整的角色 × 權限矩陣見 SDD §1（由 `permissions.ts` 直接產生）。
 
 ### 8.4 稽核
 
+- ✅ SOP 02／03 的稽核動作皆以 `selection.*` 為前綴（如 `selection.evaluation.submit`、`selection.dd.approve`、`selection.trial.conclude`、`selection.feasibility.create`、`selection.evidence.add`），前後值保留；**敏感內容不進稽核**：第 10 類條款、可行性成本與分潤只記「已變更的敏感欄位個數」、「預估毛利」檢核項文字與敏感證據標題記為「[敏感]」。
 - ✅ `audit_logs`：操作者、角色、來源（`WEB`／`API`／`WORKER`／`SEED`／`IMPORT`／`TEST`）、動作、實體、檔期、前後值（敏感欄位 `password_hash`、`token_hash` 以 `[REDACTED]` 取代）、原因、`requestId`、IP。
 - ✅ 每個寫入與稽核在**同一個交易**；交易失敗兩者一起回滾。
 - ❓ 財務角色（`audit.read`）查稽核時，只看得到 `FINANCE_ENTITIES = order、import_batch、import_error、commission_rule、settlement`（`audit-read.ts`）。Phase 2 新增的 `settlement_item`、`settlement_adjustment`、`payment`、`invoice`、`expense`、`refund_request`、`shipment` 等實體**不在清單內**，財務角色看不到自己操作的這些紀錄（管理者與主管不受影響）。
@@ -488,6 +588,7 @@ flowchart LR
 
 - ✅ 訂單只存去識別化購買人代號 `buyer_ref`（不存姓名、電話、地址）；售後案件的描述、備註、退款原因會做「手機號碼／Email」盡力偵測並拒絕（`containsPii`，不是完整的個資偵測）。
 - ✅ SOP 01 客群分析只記錄**群體特徵**，不記錄個人資料：客群名稱、說明、偏好項目、證據摘要與來源說明、連結備註、覆核意見都沿用 `containsPii`（手機號碼、Email）檢查並拒絕；仍是盡力而為的防呆，不是完整的個資偵測。
+- ✅ SOP 02／03 的評分理由、合規說明、調查備註與條款文字、試用備註與客觀證據、證據標題與備註、可行性標籤與來源說明同樣沿用 `containsPii` 檢查並拒絕電話與 Email；證據只存連結、不存檔案，真實合約、檢驗報告與價格機密不應貼入文字欄位（貼連結即可）。
 - ✅ 發票抬頭／統編欄位（`title_text`、`tax_id_text`）與入帳參考號註明請用佔位字，不接銀行、電子發票。
 
 ### 8.6 冪等
@@ -580,6 +681,7 @@ flowchart LR
 | 伺服器元件直呼服務層、純 CSS | 授權只有一份；少依賴 | 017 |
 | 真實 PostgreSQL 整合測試 | 約束與觸發器才測得到；mock 會漏 | 018 |
 | 不與招財兔系統連線 | 不碰正式資料；只對照 | 019 |
+| SOP 02／03 選品評分、試用建議、可行性試算、G1 風險規則皆為純函式（`lib/selection-score.ts`、`lib/trial-catalog.ts`、`lib/feasibility-calc.ts`、`lib/decision-risk.ts`）、可解釋、不用 AI 或外部資料；摘要唯讀、`gateImpact` 恆為 `NONE` | 分數與風險都能追溯到系統內的資料列與規則；權重／門檻／有效期可設定且有版本；缺資料一律「未知」不當 0；不碰 G1–G5、商品審核與分潤／財務／發票模組，可用單元測試與突變驗證保護 | 新增 ADR 草案（見 §13 #18）；D-25～D-36 |
 | SOP 01 適配評分採可解釋規則、純函式（`lib/fit-score.ts`）、不用 AI 或外部資料 | 每個分數都能追溯到系統內的資料列與規則；權重／門檻可設定且有版本，評估保存設定快照；純函式可用單元測試與突變驗證保護；未知資料不當 0 分、硬性檢查不被總分抵銷 | 待新增 ADR（見 §13 #15） |
 
 ---
@@ -607,6 +709,12 @@ flowchart LR
 | 🟡 | **新（SOP 01）**：評分權重（30/20/15/20/15）、門檻（80／65）、供應履約切點是「建議值，待 Owner 確認」 | 數字不是正式規則；介面標示待確認 | D-18、D-23 |
 | 🟡 | **新（SOP 01）**：「資料已更新」（stale）判斷只看商品、規格、廠商、客群、偏好、連結的更新時間，**不含訂單與出貨／售後的變動** | 歷史績效與供應履約的新資料不會讓舊評估標示過期，需人工重新評估 | SEGMENT_FIT §9 |
 | 🟡 | **新（SOP 01）**：歷史績效樣本少（同類別／全部檔期不足 `minHistoryCampaigns`、全體基準少於 3 筆）時為未知；供應履約只看出貨與案件，不含品質檢驗結果 | 完整度偏低，信心下降 | SEGMENT_FIT §9 |
+| 🟡 | **新（SOP 02／03）**：選品權重（25/25/20/15/10/5）、門檻（80／65）、有效期（365／180 天）、必附證據的類別（1、7、8、9、10、11）是「建議值，待 Owner 確認」 | 數字不是正式規則；介面標示待確認 | D-25、D-27、D-35 |
+| 🟡 | **新（SOP 02／03）**：「疑似受規範品類」是關鍵字比對，會漏判也會誤判；系統不判斷法規是否合法，只管理「有沒有被審、誰審的」 | 可能漏標需法務審查的商品；仍依賴人工填寫「受規範品類」 | D-29、PRODUCT_SELECTION_TRIAL §15 |
+| 🟡 | **新（SOP 02／03）**：可行性只支援單一費率＋固定費，口徑沿用 biz-model 提案；商品成本以預估訂單計、不扣退貨回收；結果標「試算」 | 數字僅供討論，不是財務或分潤依據 | D-31 |
+| 🟡 | **新（SOP 02／03）**：證據只存連結，連結失效或內容被改不會被偵測；網域白名單預設不限制 | 證據可能失效而系統不知道 | D-32 |
+| 🟢 | **新（SOP 02／03）**：商品指紋不含價格（價格變動不使商品資格失效）；調查／資格的「失效」只在讀取時計算，不改資料、不通知 | 到期前沒有提醒（總覽列出 30 天內到期的證據） | PRODUCT_SELECTION_TRIAL §15、D-27 |
+| 🟢 | **新（SOP 02／03）**：評估與調查沒有納入 G1 檢查，核准者可在紅燈下照常核准；試用品回收逾期只記錄 | 靠核准者查閱與判斷 | D-26、D-34 |
 | 🟢 | **新（SOP 01）**：結案成效回寫沒有排進自動化，需人按鈕（`POST /api/campaigns/:id/fit/outcome`） | 可能忘記回寫；不影響評分 | D-20 |
 
 ---
@@ -633,12 +741,15 @@ flowchart LR
 | 14 | 環境判斷不一致 | 文件統稱「production 拒絕重設」 | `resetDatabase()`（`lib/migrate.ts`）只看 `process.env.APP_ENV === 'production'`；其他守門使用 `appEnv()`（`APP_ENV ?? NODE_ENV`）。若某環境只設了 `NODE_ENV=production` 而沒設 `APP_ENV`，`db:reset` 不會拒絕 | 統一改用 `appEnv()`（小改動，屬程式修正，需 Owner 同意再做） |
 | 15 | SOP 01 客群分析與適配（013） | 本文件基準 `3be9a94` 之前沒有此功能；ADR 也沒有對應紀錄 | 已實作 5 張表、2 個服務模組、1 個純函式評分引擎、22 條路由、6 項權限；**未修改** gates／campaigns／workflow | 新增 ADR 記錄「可解釋規則、不用 AI」與 D-18～D-24（見 `docs/phase2/SEGMENT_FIT.md` §9） |
 | 16 | `docs/ARCHITECTURE.md`、ERD／資料字典對 SOP 01 | 尚未涵蓋 58 張表與新模組 | `npm run docs:gen` 可重新產生資料字典／ERD／API 清單 | 重新產生並更新 ARCHITECTURE.md |
-| 17 | 本文件 §1 的規模與測試數字 | 已更新為 58 表、152 端點、49 權限、20 檔 405 項（以 `routes.ts` 計數與全套 vitest 重跑結果為準） | 其餘章節的 53／43／245 等舊數字僅出現在 §13 #1 的歷史描述與 §14 的舊計算說明 | 下次全面重核時一併更新 |
+| 17 | 本文件 §1 的規模與測試數字 | 已更新為 65 表、185 端點、52 權限、30 檔 592 項（以 `routes.ts` 計數與各測試檔 `it(` 計數為準；SOP 02／03 部分的全套重跑結果見 `docs/TEST_REPORT.md`） | 其餘章節的 53／43／245 等舊數字僅出現在 §13 #1 的歷史描述與 §14 的舊計算說明 | 下次全面重核時一併更新 |
+| 18 | SOP 02／03 選品評估、合作資格審查、試用與可行性（014） | 本文件基準 `3be9a94` 之前沒有此功能；ADR 也沒有對應紀錄；`docs/biz-model` 曾提案把 migration 014～018 留給合作案與費用規則（尚未實作） | 已實作 7 張表、6 個服務模組、4 個純函式庫＋1 個目錄、33 條路由、3 項權限；**未修改** gates／state／campaigns／tasks／products 審核流程；**本功能取用 014，biz-model 提案的 migration 編號順延**（屬提案，不影響已核准規格） | 新增 ADR 記錄「可解釋規則、不用 AI、只查閱不阻擋 G1」與 D-25～D-36；biz-model 的編號改為 015 起 |
+| 19 | SOP 02／03 路由數 | 開發任務的規劃階段估計約 34 條路由 | `routes.ts` SOP 02／03 區塊實為 33 條（`R(` 計數；總數 152→185） | 以程式為準（33） |
+| 20 | `docs/ARCHITECTURE.md`、ERD／資料字典對 SOP 02／03 | 尚未涵蓋 65 張表與新模組 | `npm run docs:gen` 可重新產生資料字典／ERD／API 清單 | 重新產生並更新 ARCHITECTURE.md |
 
 ---
 
 ## 14. 文件自檢
 
-- 本次（SOP 01）更新後的數字（58 表、152 端點、49 權限、405 測試）以相同方法計算：`routes.ts` 的 `R(`／`P(` 行數為 152、`migrations/013` 為 5 張新表、`permissions.ts` 為 49 項、全套 vitest 為 20 檔 405 項；原基準的數字（53 表、130 端點、43 權限、245 測試）皆以指令重新計算：`CREATE TABLE` 計數、`routes.ts` 的 `R(`／`P(` 計數（與 `API_ENDPOINTS.md` 一致）、`permissions.ts` 匯入計算、`vitest` 各檔 `it(` 計數。
+- 本次（SOP 02／03）更新後的數字（65 表、185 端點、52 權限、592 測試：`routes.ts` 的 `R(`／`P(` 行數 185、`migrations/014` 7 張新表、`permissions.ts` 52 項、新增測試檔以 `it(` 計數 187）以相同方法計算；上一次（SOP 01）的數字（58 表、152 端點、49 權限、405 測試）以相同方法計算：`routes.ts` 的 `R(`／`P(` 行數為 152、`migrations/013` 為 5 張新表、`permissions.ts` 為 49 項、全套 vitest 為 20 檔 405 項；原基準的數字（53 表、130 端點、43 權限、245 測試）皆以指令重新計算：`CREATE TABLE` 計數、`routes.ts` 的 `R(`／`P(` 計數（與 `API_ENDPOINTS.md` 一致）、`permissions.ts` 匯入計算、`vitest` 各檔 `it(` 計數。
 - 模組相依圖由 `grep "from './"` 產生，非憑印象繪製。
-- 本文件原有 8 張 Mermaid 圖已用 mermaid 11.4.1 在 headless Chromium 逐一 `parse` 與 `render`，無錯誤（細節見 SDD §22）；SOP 01 新增的 §4.4 流程圖與 §4.2／§7.2 圖的增補**尚未**用 mermaid 重新 render，只以語法目視核對。
+- 本文件原有 8 張 Mermaid 圖已用 mermaid 11.4.1 在 headless Chromium 逐一 `parse` 與 `render`，無錯誤（細節見 SDD §22）；SOP 01 新增的 §4.4 流程圖與 §4.2／§7.2 圖的增補，以及 SOP 02／03 新增的 §4.5 流程圖與 §4.2／§7.2 圖的增補，**尚未**用 mermaid 重新 render，只以語法目視核對。
