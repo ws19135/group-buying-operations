@@ -28,7 +28,7 @@
 
 ```mermaid
 flowchart LR
-    DEC1[Owner 決策：B-16 B-17 B-09] --> PA
+    DEC1[Owner 決策：B-28 B-17 B-09] --> PA
     PA[P-A 模式分類與合作案] --> PB
     DEC2[Owner 決策：B-01~B-03 B-12 金額口徑] --> PB
     PB[P-B 費用規則與品牌端／團主端結算] --> PC
@@ -63,9 +63,9 @@ flowchart LR
 | 項目 | 內容 |
 |---|---|
 | 目標 | 把「公司 × 品牌」的合作案與五維度（[02](02-MODEL_AND_RESPONSIBILITY.md) §2）建進系統；檔期可歸屬到合作案；每檔有可推導的模式標籤與主模式；找得出「未分類」檔期 |
-| 做 | migration **014**（`engagements`、`vendors.party_type`、`hosts.partner_type` 加 KOC、`agreements` 擴欄與 CRUD、`campaigns` 與 `campaign_hosts` 新欄位）；合作案 CRUD、狀態轉換（LEAD→NEGOTIATING→ACTIVE⇄ON_HOLD→ENDED／DROPPED）；檔期選擇合作案；邀請團主時選角色、歸因方式、分潤付款方、是否需揭露；責任矩陣預設值帶入與覆寫；`primary_mode` **手動指定＋標籤提示**（P-B 之後改為依費用規則推導，允許主管覆寫並留稽核，B-16）；「未分類檔期」清單；DEMO 種子（三種模式與三種重疊情境 S1、S3、S5） |
+| 做 | migration **014**（`engagements`、`vendors.party_type`、`hosts.partner_type` 加 KOC、`agreements` 擴欄與 CRUD、`campaigns` 與 `campaign_hosts` 新欄位）；合作案 CRUD、狀態轉換（LEAD→NEGOTIATING→ACTIVE⇄ON_HOLD→ENDED／DROPPED）；檔期選擇合作案；邀請團主時選角色、歸因方式、分潤付款方、是否需揭露；責任矩陣預設值帶入與覆寫；`primary_mode` **手動指定＋標籤提示**（P-B 之後改為依費用規則推導，允許主管覆寫並留稽核，B-28）；「未分類檔期」清單；DEMO 種子（三種模式與三種重疊情境 S1、S3、S5） |
 | 不做 | 費用規則、結算、KPI 看板、關卡新檢查、CRM、自營進貨（PRINCIPAL 只保留值、不開放） |
-| 前置決策 | B-16（主模式規則）、B-17（責任預設值）、B-09（分潤付款方預設）；`【假設 A-02】`模式由檔期團主合約推導；`【假設 A-30】`品牌與供應商共用 `vendors` |
+| 前置決策 | B-28（主模式規則）、B-17（責任預設值）、B-09（分潤付款方預設）；`【假設 A-02】`模式由檔期團主合約推導；`【假設 A-30】`品牌與供應商共用 `vendors` |
 | API／頁面 | `/engagements`（列表、詳情、新增）、檔期詳情「合作案」區、邀請團主表單擴欄、`/campaigns?mode=` 篩選、`GET/POST/PATCH /api/engagements…` |
 | 權限 | 新增 `engagement.read`、`engagement.write`（[05](05-DATA_MODEL_GAP.md) §9.2） |
 | 人工核准點 | 合作案 `ACTIVE`／`ENDED` 轉換（主管）；主模式手動覆寫（主管＋原因） |
@@ -343,4 +343,4 @@ flowchart LR
 | B-46 | 對外可見報表（品牌對帳單、團主分潤單）的形式與時機 | A) 僅內部預覽　B) 提供給團主查看（登入後）　C) 對品牌提供 | A（B、C 涉及對外存取與廠商入口，需另行核准） |
 | B-47 | 實作順序 | A) A→B→C→D→E→F　B) A→D1→B→C→D2→E→F | B |
 
-引用既有決策：B-01～B-09、B-12、B-13（[04](04-FINANCE_AND_COMMISSION.md)）、B-16、B-17（[02](02-MODEL_AND_RESPONSIBILITY.md)）、B-26～B-35（[03](03-KPI_DICTIONARY.md)）、B-38（[05](05-DATA_MODEL_GAP.md)）。
+引用既有決策：B-01～B-09、B-12、B-13（[04](04-FINANCE_AND_COMMISSION.md)）、B-28、B-17（[02](02-MODEL_AND_RESPONSIBILITY.md)）、B-26～B-35（[03](03-KPI_DICTIONARY.md)）、B-38（[05](05-DATA_MODEL_GAP.md)）。

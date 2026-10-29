@@ -14,7 +14,7 @@
 | 5 | ERP 資料模型差異分析 | [05-DATA_MODEL_GAP.md](05-DATA_MODEL_GAP.md) | 逐表盤點；9 張新表、9 張既有表的非破壞性變更；migration 014～018；與核准規格的衝突檢查 |
 | 6 | 管理看板 Wireframe | [06-DASHBOARD_WIREFRAMES.md](06-DASHBOARD_WIREFRAMES.md)、[wireframes/](wireframes/) | L1／L2／L3 三張 SVG 與區塊對照 |
 | 7 | 功能開發與驗收路線圖 | [07-ROADMAP.md](07-ROADMAP.md) | 六個 Phase、測試案例與驗收條件、人工核准點、自動化與報表、不做清單 |
-| 8 | 風險、缺口與 Owner 決策清單 | [08-RISKS_GAPS_DECISIONS.md](08-RISKS_GAPS_DECISIONS.md) | 17 項風險、16 項缺口、52 項決策**一次列出**、尚未完成清單 |
+| 8 | 風險、缺口與 Owner 決策清單 | [08-RISKS_GAPS_DECISIONS.md](08-RISKS_GAPS_DECISIONS.md) | 17 項風險、16 項缺口、51 項決策（B-01～B-52，B-16 已併入 B-28）**一次列出**、尚未完成清單 |
 
 ## 先看這三個結論
 
@@ -29,6 +29,8 @@
 | 離線財務原型 `npm run verify:biz-model`（`prototype/`） | 28 項算例通過：六種合作方式、取消／部分／全額退款、跨期更正（累計＝一次算完、冪等）、保底下限、多團主分攤加總、追溯加總、公司收入≠GMV、代營運現金帳 |
 | 突變驗證 | 故意改壞「更正不扣已確認金額」「保底抵佣變相加」「取消訂單也計入」，算例全部轉紅，還原後全綠 |
 | 現況對照 | 各文件的「現況」欄均依讀到的程式與 migration 為準（例如已核對 `settlements_campaign_live_uq`、`commission_rules` 只有單一費率） |
+| Mermaid | 12 張圖以 Mermaid 10 在 Chromium 解析，語法全部通過；4 張 SVG 看板線框圖為 well-formed XML 並經轉圖目視檢查 |
+| 文件一致性 | 所有表格欄數一致；各文件引用的決策編號都能在 08 找到（B-16 已併入 B-28） |
 | 型別與 lint | `tsc --noEmit`、`eslint` 乾淨（原型納入專案檢查） |
 
 ## 沒有驗證／尚未完成

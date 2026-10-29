@@ -109,7 +109,7 @@
 | 可直接沿用 | 狀態機、關卡、任務、排程、衝突偵測、曝光安排、目標 |
 | 缺口 | 無 `engagement_id`；無 `primary_mode`；金流／履約模式沒有檔期層級的覆寫；團主在該檔的**角色**、**歸因方式**、**分潤付款方**、**是否需揭露**沒有欄位；`commission_rule_id` 沒有 FK，無法保證指向存在的規則 |
 | 最小變更 | `campaigns.engagement_id text NULL REFERENCES engagements(id)`；`campaigns.primary_mode text NULL CHECK IN ('AGENCY','KOL_CPS','MOM_GROUP')`；`campaigns.cash_flow_mode`、`campaigns.fulfillment_mode`（可空，空＝沿用合作案）；`campaign_hosts.role_type text NULL CHECK IN ('KOL','KOC','GROUP_MOM','COMMUNITY_OWNER','OTHER')`（空＝沿用 `hosts.partner_type`）、`campaign_hosts.attribution_method text NULL CHECK IN ('CODE','LINK','MANUAL','NONE')`、`campaign_hosts.commission_payer text NULL CHECK IN ('COMPANY','BRAND','HOST_KEEPS')`、`campaign_hosts.disclosure_required boolean NOT NULL DEFAULT false`。`campaign_type` 不再擴用、不遷移（保留相容；看板不依賴它） |
-| 模式標籤如何產生 | **不存標籤**，由服務層依 `fee_rule_bindings`＋`role_type` 推導（[02](02-MODEL_AND_RESPONSIBILITY.md) §2.1）；只把 `primary_mode` 當快取存下來，規則變動時重算，允許主管覆寫並留稽核（B-16）。`UNCLASSIFIED` 以 `primary_mode IS NULL` 且已有訂單表示，看板列出 |
+| 模式標籤如何產生 | **不存標籤**，由服務層依 `fee_rule_bindings`＋`role_type` 推導（[02](02-MODEL_AND_RESPONSIBILITY.md) §2.1）；只把 `primary_mode` 當快取存下來，規則變動時重算，允許主管覆寫並留稽核（B-28）。`UNCLASSIFIED` 以 `primary_mode IS NULL` 且已有訂單表示，看板列出 |
 | 與核准規格衝突 | 低：新增可空欄位，`getCampaign` 欄位投影需補 `engagementId`、`primaryMode` 與（財務敏感）規則摘要，對應 SDD §7.2；`campaign_hosts.commission_rule_id` 補 FK 屬資料修補（須先檢查既有資料），列為 P-B 的選配項，不是必要條件 |
 
 ### 3.5 商品與 SKU
@@ -328,7 +328,7 @@ erDiagram
 
 | 批 | 檔名（建議） | 內容 | 前置決策 | 回退方式 |
 |---|---|---|---|---|
-| 014 | `014_engagements_modes.sql` | `engagements`；`vendors.party_type`；`hosts.partner_type` 加 KOC；`agreements.engagement_id/kind`；`campaigns.engagement_id/primary_mode/cash_flow_mode/fulfillment_mode`；`campaign_hosts` 4 欄 | B-16、B-17、B-09 | 欄位皆可空；不使用即回到現狀 |
+| 014 | `014_engagements_modes.sql` | `engagements`；`vendors.party_type`；`hosts.partner_type` 加 KOC；`agreements.engagement_id/kind`；`campaigns.engagement_id/primary_mode/cash_flow_mode/fulfillment_mode`；`campaign_hosts` 4 欄 | B-28、B-17、B-09 | 欄位皆可空；不使用即回到現狀 |
 | 015 | `015_fee_rules.sql` | `fee_rules`、`fee_rule_components`、`fee_rule_tiers`、`fee_rule_bindings`＋不可變觸發器 | B-01～B-03、B-12 | 新表為空時可整批 `DROP`；舊 `commission_rules` 完全不動 |
 | 016 | `016_refund_events_settlement_trace.sql` | `refund_events`（含歷史回填）；`orders.payment_method`；`settlements.kind`＋重建唯一索引；`settlement_items` 擴欄；`settlement_adjustments` 擴欄；`settlement_item_lines`、`settlement_item_sources`＋鎖定觸發器；`service_cases.responsible_party`（選配） | B-04～B-08、B-13 | 唯一索引重建前先驗證現有資料；擴欄皆有預設或可空 |
 | 017 | `017_kpi_snapshots.sql` | `kpi_snapshots` | B-26～B-35（見 03） | 衍生資料，可 `TRUNCATE` 後重建或 `DROP` |
@@ -414,4 +414,4 @@ erDiagram
 
 假設：**A-30** 品牌與供應商共用 `vendors`，以 `party_type` 區分｜**A-31** 歷史退款日期可以訂單日推估，只影響歸期｜**A-32** 現有 DEMO 規則可無損轉為 `fee_rules`，且真實資料尚不存在（無需資料遷移）｜**A-33** 15 步任務可作為三模式共同骨架，模式差異以檢查條件表達。
 
-決策：**B-38** 看板的退款期間口徑：以「下單時間」（現行）、「退款事件發生期」或兩者並列（建議並列，預設維持下單時間）｜引用 B-01～B-09、B-12、B-13、B-16、B-17（[04](04-FINANCE_AND_COMMISSION.md)、[02](02-MODEL_AND_RESPONSIBILITY.md)）。本文提出的其他選擇（是否補 `commission_rule_id` 外鍵、是否建 `crm_activities`、是否把模式檢查納入 G1～G5）分別歸入 [07](07-ROADMAP.md) 的 B-39～B-47。
+決策：**B-38** 看板的退款期間口徑：以「下單時間」（現行）、「退款事件發生期」或兩者並列（建議並列，預設維持下單時間）｜引用 B-01～B-09、B-12、B-13、B-28、B-17（[04](04-FINANCE_AND_COMMISSION.md)、[02](02-MODEL_AND_RESPONSIBILITY.md)）。本文提出的其他選擇（是否補 `commission_rule_id` 外鍵、是否建 `crm_activities`、是否把模式檢查納入 G1～G5）分別歸入 [07](07-ROADMAP.md) 的 B-39～B-47。
