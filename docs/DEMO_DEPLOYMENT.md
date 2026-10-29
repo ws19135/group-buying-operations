@@ -18,7 +18,7 @@
 ## 步驟（約 15 分鐘，要用你的帳號操作）
 
 1. 到 https://render.com 用 GitHub 登入，授權它讀取 `ws19135/group-buying-operations`（私人 repo 也可以）。
-2. **New → Blueprint** → 選這個 repo、分支 `feat/erp-mvp-phase1`（合併後改選 `main`）。Render 會讀到 `render.yaml`。
+2. **New → Blueprint** → 選這個 repo、分支 `main`。Render 會讀到 `render.yaml`。
 3. 畫面會要你填三個值（只存在 Render，不會進 GitHub）：
    - `ADMIN_EMAIL`：你的管理者信箱
    - `ADMIN_INITIAL_PASSWORD`：管理者密碼（至少 10 字元，含英文字母與數字）

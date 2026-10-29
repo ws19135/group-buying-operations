@@ -1,0 +1,81 @@
+name: Snapshot site (GitHub Pages)
+
+# 把示範環境擷取成「唯讀靜態快照」發布到 GitHub Pages（固定網址、不需要主機）。
+# 只在 repository variable ENABLE_PAGES=true 時才會在 push main 自動執行；也可手動執行（workflow_dispatch）。
+# 啟用步驟見 docs/SNAPSHOT_SITE.md。快照只含虛構 DEMO 資料；密碼每次執行隨機產生，不寫入任何檔案。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    if: ${{ vars.ENABLE_PAGES == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: erp
+          POSTGRES_PASSWORD: erp_ci_pw
+          POSTGRES_DB: erp_snapshot
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U erp -d erp_snapshot"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: development
+      DATABASE_URL: postgres://erp:erp_ci_pw@127.0.0.1:5432/erp_snapshot
+      ALLOW_DEMO_IN_PRODUCTION: 'yes'
+      NOTIFY_ADAPTER: test
+      AUTOMATION_ENABLED: 'off'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 產生一次性的示範密碼（只存在這次執行）
+        run: |
+          pw="$(openssl rand -hex 12)Aa1"
+          echo "::add-mask::$pw"
+          echo "ADMIN_EMAIL=snapshot-admin@example.invalid" >> "$GITHUB_ENV"
+          echo "ADMIN_INITIAL_PASSWORD=$pw" >> "$GITHUB_ENV"
+          echo "DEMO_PASSWORD=$pw" >> "$GITHUB_ENV"
+          echo "SNAPSHOT_PASSWORD=$pw" >> "$GITHUB_ENV"
+      - run: npm run build
+      - run: npm run bootstrap:demo
+      - name: 啟動示範站
+        run: |
+          npm start -- -p 3100 > server.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:3100/api/health && exit 0
+            sleep 2
+          done
+          cat server.log; exit 1
+      - run: npx playwright install --with-deps chromium
+      - name: 產生快照
+        run: npm run snapshot
+        env:
+          BASE_URL: http://127.0.0.1:3100
+          SNAPSHOT_BASE: /${{ github.event.repository.name }}/
+          SNAPSHOT_OUT: site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
