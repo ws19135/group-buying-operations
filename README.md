@@ -25,6 +25,12 @@ npm run dev                    # http://localhost:3000
 
 完整步驟、還原與環境變數：[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。驗證：`npm run typecheck && npm run lint && npm test && npm run build`。
 
+## 線上預覽（唯讀、免登入）
+
+各角色登入後的介面，整理在**一個公開頁面**（頂端切換角色）：<https://ws19135.github.io/group-buying-operations/>
+
+> 需要先在倉庫設定啟用 GitHub Pages（步驟見 [docs/SNAPSHOT_SITE.md](docs/SNAPSHOT_SITE.md)）；未啟用前這個網址打不開。內容是唯讀快照，資料皆為虛構，按鈕與表單不會動作。
+
 ## 一圖看懂
 
 ### 系統架構
