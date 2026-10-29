@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1300" viewBox="0 0 1200 1300" font-family="-apple-system, 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1520" viewBox="0 0 1200 1520" font-family="-apple-system, 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif">
   <title>L1 公司經營總覽（三層管理看板）</title>
-  <rect x="0" y="0" width="1200" height="1300" fill="#f4f4f4"/>
-  <rect x="0" y="0" width="200" height="1300" rx="0" fill="#e9e9e9" stroke="#bdbdbd" stroke-width="1"/>
+  <rect x="0" y="0" width="1200" height="1520" fill="#f4f4f4"/>
+  <rect x="0" y="0" width="200" height="1520" rx="0" fill="#e9e9e9" stroke="#bdbdbd" stroke-width="1"/>
   <text x="18" y="34" font-size="15" text-anchor="start" font-weight="bold" fill="#333333">團購 ERP</text>
   <text x="18" y="64" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">營運</text>
   <text x="24" y="84" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">總覽</text>
@@ -50,322 +50,329 @@
   <circle cx="750" cy="89" r="11" fill="#111111"/><text x="750" y="93" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">1</text>
   <rect x="216" y="112" width="960" height="34" rx="4" fill="#e6e6e6" stroke="#6b6b6b" stroke-width="1"/>
   <text x="230" y="133.0" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">⚠️ DEMO 資料：以下全為虛構示範數字，不是真實營運數字（DQ-DEMO）</text>
-  <circle cx="206" cy="129" r="11" fill="#111111"/><text x="206" y="133" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">2</text>
+  <circle cx="203" cy="129" r="11" fill="#111111"/><text x="203" y="133" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">2</text>
   <rect x="216" y="154" width="960" height="44" rx="4" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
   <text x="228" y="172" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">資料品質：DEMO　最近匯入 IMP-20261103-0001（DEMO_GENERATOR，完成）　未處理匯入錯誤 2 筆　⚠️ 3 個檔期尚未設定品牌端費用規則</text>
   <text x="228" y="189" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">「—」代表沒有資料或分母為 0（待串接），不是 0；金額旁的 ⓘ 可展開來源與公式（DQ-NULL／DQ-TRACE）</text>
-  <circle cx="206" cy="176" r="11" fill="#111111"/><text x="206" y="180" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">3</text>
+  <circle cx="203" cy="176" r="11" fill="#111111"/><text x="203" y="180" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">3</text>
   <text x="216" y="222" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">品牌交易額</text>
   <rect x="298.0" y="207" width="76.0" height="18" rx="10" fill="#fff" stroke="#b00020" stroke-width="1"/>
   <text x="336.0" y="219.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#b00020">不是公司收入</text>
   <text x="382.0" y="222" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">品牌的錢（代理人角度），逐單只算一次；</text>
-  <circle cx="206" cy="217" r="11" fill="#111111"/><text x="206" y="221" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">4</text>
-  <rect x="216" y="234" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <circle cx="203" cy="217" r="11" fill="#111111"/><text x="203" y="221" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">4</text>
+  <rect x="216" y="234" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
   <text x="226" y="250" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">品牌 GMV</text>
   <rect x="348" y="239" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
   <text x="354" y="248" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="226" y="292" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 450,000</text>
-  <text x="226" y="307" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">計入銷售訂單的消費者支付總</text>
-  <text x="226" y="319" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">額</text>
-  <text x="226" y="327" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-01</text>
-  <text x="358" y="327" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <text x="226" y="290" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 450,000</text>
+  <text x="226" y="305" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">計入銷售訂單的消費者支付總</text>
+  <text x="226" y="317" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">額</text>
+  <text x="226" y="339" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-01</text>
+  <text x="358" y="339" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
   <rect x="294.0" y="256" width="66.0" height="14" rx="10" fill="#fff" stroke="#b00020" stroke-width="1"/>
   <text x="327.0" y="266.24" font-size="9" text-anchor="middle" font-weight="normal" fill="#b00020">不是公司收入</text>
-  <rect x="378" y="234" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <rect x="378" y="234" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
   <text x="388" y="250" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">退款金額</text>
   <rect x="510" y="239" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
   <text x="516" y="248" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="388" y="292" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 30,000</text>
-  <text x="388" y="307" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">回溯到原訂單所屬期間</text>
-  <text x="388" y="327" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-02</text>
-  <text x="520" y="327" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
-  <rect x="540" y="234" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="388" y="290" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 30,000</text>
+  <text x="388" y="305" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">回溯到原訂單所屬期間</text>
+  <text x="388" y="339" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-02</text>
+  <text x="520" y="339" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <rect x="540" y="234" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
   <text x="550" y="250" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">有效淨銷售額（NSV）</text>
   <rect x="672" y="239" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
   <text x="678" y="248" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="550" y="292" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 420,000</text>
-  <text x="550" y="307" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">GMV − 退款；分潤基礎候選</text>
-  <text x="550" y="327" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-03</text>
-  <text x="682" y="327" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
-  <rect x="702" y="234" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="550" y="290" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 420,000</text>
+  <text x="550" y="305" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">GMV − 退款；分潤基礎候選</text>
+  <text x="550" y="339" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-03</text>
+  <text x="682" y="339" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <rect x="702" y="234" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
   <text x="712" y="250" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">有效訂單數</text>
   <rect x="834" y="239" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
   <text x="840" y="248" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="712" y="292" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">312</text>
-  <text x="712" y="307" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">全額退款不算</text>
-  <text x="712" y="327" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-04</text>
-  <text x="844" y="327" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
-  <rect x="864" y="234" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="712" y="290" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">312</text>
+  <text x="712" y="305" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">全額退款不算</text>
+  <text x="712" y="339" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-04</text>
+  <text x="844" y="339" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <rect x="864" y="234" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
   <text x="874" y="250" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">客單價 AOV</text>
   <rect x="996" y="239" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
   <text x="1002" y="248" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="874" y="292" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 1,346</text>
-  <text x="874" y="307" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">NSV ÷ 有效訂單數</text>
-  <text x="874" y="327" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-05</text>
-  <text x="1006" y="327" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
-  <rect x="1026" y="234" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="874" y="290" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 1,346</text>
+  <text x="874" y="305" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">NSV ÷ 有效訂單數</text>
+  <text x="874" y="339" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-05</text>
+  <text x="1006" y="339" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <rect x="1026" y="234" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
   <text x="1036" y="250" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">退款率</text>
   <rect x="1158" y="239" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
   <text x="1164" y="248" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="1036" y="292" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">6.2%</text>
-  <text x="1036" y="307" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">有退款訂單 ÷ 計入銷售訂單</text>
-  <text x="1036" y="327" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-06</text>
-  <text x="1168" y="327" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
-  <text x="216" y="362" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">公司損益</text>
-  <rect x="284.0" y="347" width="90.6" height="18" rx="10" fill="#fff" stroke="#b00020" stroke-width="1"/>
-  <text x="329.3" y="359.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#b00020">需 finance.read</text>
-  <text x="382.6" y="362" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">代理人淨額法：只認服務費／分潤，GMV、NSV、代收款都不是公司收入　</text>
-  <circle cx="206" cy="357" r="11" fill="#111111"/><text x="206" y="361" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">5</text>
-  <rect x="216" y="374" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="226" y="390" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">公司營業收入</text>
-  <rect x="348" y="379" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="354" y="388" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="226" y="432" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 57,500</text>
-  <text x="226" y="447" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">品牌端服務費／分潤（本期確</text>
-  <text x="226" y="459" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">認）</text>
-  <text x="226" y="467" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-08</text>
-  <text x="358" y="467" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">結算確認</text>
-  <rect x="378" y="374" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="388" y="390" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">抽成率（Take rate）</text>
-  <rect x="510" y="379" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="516" y="388" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="388" y="432" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">13.69%</text>
-  <text x="388" y="447" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">營業收入 ÷ 同檔 NSV</text>
-  <text x="388" y="467" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-09</text>
-  <text x="520" y="467" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
-  <rect x="540" y="374" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="550" y="390" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">應付團主分潤（公司負擔</text>
-  <text x="550" y="403" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">）</text>
-  <rect x="672" y="379" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="678" y="388" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="550" y="432" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 30,600</text>
-  <text x="550" y="447" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">付款方＝公司者；品牌直付不</text>
-  <text x="550" y="459" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">計</text>
-  <text x="550" y="467" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-10</text>
-  <text x="682" y="467" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">結算確認</text>
-  <rect x="702" y="374" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="712" y="390" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">直接變動成本</text>
-  <rect x="834" y="379" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="840" y="388" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="712" y="432" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 6,500</text>
-  <text x="712" y="447" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">運費、行銷、樣品、金流費…</text>
-  <text x="712" y="467" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-11</text>
-  <text x="844" y="467" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">人工填寫</text>
-  <rect x="864" y="374" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="874" y="390" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">貢獻利潤</text>
-  <rect x="996" y="379" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="1002" y="388" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="874" y="432" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 20,400</text>
-  <text x="874" y="447" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">營業收入 − 分潤 − 變動成本</text>
-  <text x="874" y="467" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-12</text>
-  <text x="1006" y="467" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
-  <rect x="1026" y="374" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="1036" y="390" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">貢獻利潤率</text>
-  <rect x="1158" y="379" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="1164" y="388" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="1036" y="432" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">35.48%</text>
-  <text x="1036" y="447" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">貢獻利潤 ÷ 營業收入</text>
-  <text x="1036" y="467" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-13</text>
-  <text x="1168" y="467" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
-  <text x="216" y="488" font-size="11" text-anchor="start" font-weight="normal" fill="#b00020">GMV 450,000 ≠ 公司營業收入 57,500。任一組成為「—」時，貢獻利潤整體顯示「—」（DQ-NULL）。</text>
-  <text x="216" y="514" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">現金與帳務</text>
-  <text x="298.0" y="514" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">試算與確認分開；尚未串接的顯示「—」</text>
-  <circle cx="206" cy="509" r="11" fill="#111111"/><text x="206" y="513" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">6</text>
-  <rect x="216" y="526" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="226" y="542" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">預估佣金（團主端試算）</text>
-  <rect x="348" y="531" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="354" y="540" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="226" y="584" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 33,000</text>
-  <text x="226" y="599" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">另有 1 筆尚未設定費率</text>
-  <text x="226" y="619" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-14</text>
-  <text x="358" y="619" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
-  <rect x="330.0" y="548" width="30.0" height="14" rx="10" fill="#fff" stroke="#b00020" stroke-width="1"/>
-  <text x="345.0" y="558.24" font-size="9" text-anchor="middle" font-weight="normal" fill="#b00020">預估</text>
-  <rect x="378" y="526" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="388" y="542" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">已確認佣金</text>
-  <rect x="510" y="531" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="516" y="540" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="388" y="584" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 21,600</text>
-  <text x="388" y="599" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">本期結算確認；2 項</text>
-  <text x="388" y="619" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-15</text>
-  <text x="520" y="619" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">結算確認</text>
-  <rect x="540" y="526" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="550" y="542" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">已收款金額</text>
-  <rect x="672" y="531" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="678" y="540" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="550" y="584" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 40,500</text>
-  <text x="550" y="599" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">入帳日歸期</text>
-  <text x="550" y="619" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-16</text>
-  <text x="682" y="619" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">人工填寫</text>
-  <rect x="702" y="526" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
-  <text x="712" y="542" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">代收款餘額（應付品牌）</text>
-  <rect x="834" y="531" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="840" y="540" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="712" y="584" font-size="18" text-anchor="start" font-weight="bold" fill="#999999">—</text>
-  <text x="712" y="599" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">待串接：尚無金流模式與代收</text>
-  <text x="712" y="611" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">紀錄</text>
-  <text x="712" y="619" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-17</text>
-  <text x="844" y="619" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
-  <rect x="864" y="526" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
-  <text x="874" y="542" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">應收品牌服務費帳齡</text>
-  <rect x="996" y="531" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="1002" y="540" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="874" y="584" font-size="18" text-anchor="start" font-weight="bold" fill="#999999">—</text>
-  <text x="874" y="599" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">待串接：尚無品牌端結算</text>
-  <text x="874" y="619" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-24</text>
-  <text x="1006" y="619" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
-  <rect x="1026" y="526" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="1036" y="542" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">分潤更正金額與更正率</text>
-  <rect x="1158" y="531" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="1164" y="540" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="1036" y="584" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">−NT$ 4,800</text>
-  <text x="1036" y="599" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">更正登記於當期，舊結算不改</text>
-  <text x="1036" y="619" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-25</text>
-  <text x="1168" y="619" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">結算確認</text>
-  <text x="216" y="654" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">營運健康</text>
-  <text x="284.0" y="654" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">沿用現有營運總覽的區塊（K1-18～K1-23）</text>
-  <circle cx="206" cy="649" r="11" fill="#111111"/><text x="206" y="653" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">7</text>
-  <rect x="216" y="666" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="226" y="682" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">進行中檔期數／參與團主</text>
-  <text x="226" y="695" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">數</text>
-  <rect x="348" y="671" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="354" y="680" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="226" y="724" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">3／3</text>
-  <text x="226" y="739" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">已排程至待結算</text>
-  <text x="226" y="759" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-18</text>
-  <text x="358" y="759" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
-  <rect x="378" y="666" width="312" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="388" y="682" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">檔期管線</text>
-  <rect x="388" y="738" width="38" height="8" rx="2" fill="#ececec" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="407" y="733" font-size="10" text-anchor="middle" font-weight="normal" fill="#333333">0</text>
-  <text x="407" y="758" font-size="9" text-anchor="middle" font-weight="normal" fill="#777777">草稿</text>
-  <rect x="439" y="712" width="38" height="34" rx="2" fill="#bdbdbd" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="458" y="707" font-size="10" text-anchor="middle" font-weight="normal" fill="#333333">1</text>
-  <text x="458" y="758" font-size="9" text-anchor="middle" font-weight="normal" fill="#777777">評估中</text>
-  <rect x="490" y="738" width="38" height="8" rx="2" fill="#ececec" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="509" y="733" font-size="10" text-anchor="middle" font-weight="normal" fill="#333333">0</text>
-  <text x="509" y="758" font-size="9" text-anchor="middle" font-weight="normal" fill="#777777">籌備</text>
-  <rect x="541" y="712" width="38" height="34" rx="2" fill="#bdbdbd" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="560" y="707" font-size="10" text-anchor="middle" font-weight="normal" fill="#333333">1</text>
-  <text x="560" y="758" font-size="9" text-anchor="middle" font-weight="normal" fill="#777777">已排程</text>
-  <rect x="592" y="712" width="38" height="34" rx="2" fill="#bdbdbd" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="611" y="707" font-size="10" text-anchor="middle" font-weight="normal" fill="#333333">1</text>
-  <text x="611" y="758" font-size="9" text-anchor="middle" font-weight="normal" fill="#777777">進行中</text>
-  <rect x="643" y="712" width="38" height="34" rx="2" fill="#bdbdbd" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="662" y="707" font-size="10" text-anchor="middle" font-weight="normal" fill="#333333">1</text>
-  <text x="662" y="758" font-size="9" text-anchor="middle" font-weight="normal" fill="#777777">待結單</text>
-  <text x="388" y="763" font-size="9" text-anchor="start" font-weight="normal" fill="#333333"></text>
-  <text x="682" y="682" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">K1-19</text>
-  <rect x="702" y="666" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="712" y="682" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">逾期任務數</text>
-  <rect x="834" y="671" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="840" y="680" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="712" y="724" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">2</text>
-  <text x="712" y="739" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">點進任務清單</text>
-  <text x="712" y="759" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-20</text>
-  <text x="844" y="759" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
-  <rect x="864" y="666" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="874" y="682" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">待核准數</text>
-  <rect x="996" y="671" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="1002" y="680" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="874" y="724" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">1</text>
-  <text x="874" y="739" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">G1～G5</text>
-  <text x="874" y="759" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-21</text>
-  <text x="1006" y="759" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
-  <rect x="1026" y="666" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="1036" y="682" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">未結例外</text>
-  <rect x="1158" y="671" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="1164" y="680" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="1036" y="724" font-size="15" text-anchor="start" font-weight="bold" fill="#222222">高 1｜中 2｜低 0</text>
-  <text x="1036" y="759" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-22</text>
-  <text x="1168" y="759" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
-  <rect x="216" y="778" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="226" y="794" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">售後處理中／逾期案件數</text>
-  <rect x="348" y="783" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="354" y="792" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="226" y="836" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">4／1</text>
-  <text x="226" y="851" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">案件 4 件，逾期 1 件</text>
-  <text x="226" y="871" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-23</text>
-  <text x="358" y="871" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
-  <text x="378" y="792" font-size="11" text-anchor="start" font-weight="bold" fill="#555555">模式與分類（連到 L2）</text>
-  <circle cx="368" cy="788" r="11" fill="#111111"/><text x="368" y="792" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">8</text>
-  <rect x="378" y="778" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="388" y="794" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">未分類檔期數／比例</text>
-  <rect x="510" y="783" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="516" y="792" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="388" y="836" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">0 檔／0%</text>
-  <text x="388" y="851" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">無模式標籤的檔期要單獨列出</text>
-  <text x="388" y="871" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-26</text>
-  <text x="520" y="871" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
-  <rect x="540" y="778" width="150" height="100" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="550" y="794" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">模式重疊檔期比例</text>
-  <rect x="672" y="783" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="678" y="792" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
-  <text x="550" y="836" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">67%</text>
-  <text x="550" y="851" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">2／3 檔含 2 種以上模式</text>
-  <text x="550" y="871" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-27</text>
-  <text x="682" y="871" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
-  <rect x="702" y="778" width="474" height="100" rx="6" fill="#f4f4f4" stroke="#9a9a9a" stroke-width="1" stroke-dasharray="4 3"/>
-  <text x="714" y="800" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">→ 到 L2「經營模式績效」看三種模式的可加總視圖與不可加總視圖，並可下鑽到 L3 明細。</text>
-  <rect x="714" y="840" width="120" height="26" rx="5" fill="#d9d9d9" stroke="#6b6b6b" stroke-width="1"/>
-  <text x="774" y="857" font-size="12" text-anchor="middle" font-weight="bold" fill="#333333">前往 L2 →</text>
-  <text x="216" y="906" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">資料來源與同步</text>
-  <text x="326.0" y="906" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">K1-28、K1-29：資料品質狀態與最近同步</text>
-  <circle cx="206" cy="901" r="11" fill="#111111"/><text x="206" y="905" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">9</text>
-  <rect x="216" y="916" width="960" height="92" rx="4" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
-  <rect x="216" y="916" width="960" height="32" rx="4" fill="#e9e9e9" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="224" y="936.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">來源系統</text>
-  <text x="444" y="936.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">資料性質</text>
-  <text x="648" y="936.0" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">訂單數</text>
-  <text x="664" y="936.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">最近同步</text>
-  <text x="854" y="936.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">最近訂單時間</text>
-  <text x="1044" y="936.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">狀態</text>
-  <line x1="216" y1="948" x2="1176" y2="948" stroke="#bdbdbd"/>
-  <text x="224" y="967.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">DEMO_GENERATOR</text>
-  <text x="444" y="967.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">DEMO</text>
-  <text x="648" y="967.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">312</text>
-  <text x="664" y="967.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">2026-11-03 09:00</text>
-  <text x="854" y="967.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">2026-11-03 08:41</text>
-  <text x="1044" y="967.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">完成</text>
-  <line x1="216" y1="978" x2="1176" y2="978" stroke="#bdbdbd"/>
-  <text x="224" y="997.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">SHOP_CSV（待串接）</text>
-  <text x="444" y="997.0" font-size="11" text-anchor="start" font-weight="normal" fill="#999999">—</text>
-  <text x="648" y="997.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
-  <text x="664" y="997.0" font-size="11" text-anchor="start" font-weight="normal" fill="#999999">—</text>
-  <text x="854" y="997.0" font-size="11" text-anchor="start" font-weight="normal" fill="#999999">—</text>
-  <text x="1044" y="997.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">尚未匯入</text>
-  <text x="216" y="1036" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">角色可見性（同一頁，依權限收合）</text>
-  <text x="452.0" y="1036" font-size="11" text-anchor="start" font-weight="normal" fill="#777777"></text>
-  <circle cx="206" cy="1031" r="11" fill="#111111"/><text x="206" y="1035" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">10</text>
-  <rect x="216" y="1050" width="308" height="190" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="228" y="1070" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">營運主管／財務／系統管理者</text>
-  <rect x="228" y="1090" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="238" y="1107" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">品牌交易額（K1-01～06）</text>
-  <rect x="228" y="1122" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="238" y="1139" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">公司損益（K1-08～13）</text>
-  <rect x="228" y="1154" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="238" y="1171" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">現金與帳務（K1-14～25）</text>
-  <rect x="228" y="1186" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="238" y="1203" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">營運健康、模式分類</text>
-  <rect x="542" y="1050" width="308" height="190" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="554" y="1070" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">營運小編（只看自己負責的檔期）</text>
-  <rect x="554" y="1090" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="564" y="1107" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">品牌交易額（範圍內，標「範圍內」）</text>
-  <rect x="554" y="1122" width="284" height="26" rx="4" fill="#e6e6e6" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
-  <text x="564" y="1139" font-size="11" text-anchor="start" font-weight="normal" fill="#888888">🔒 公司損益：無權限</text>
-  <rect x="554" y="1154" width="284" height="26" rx="4" fill="#e6e6e6" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
-  <text x="564" y="1171" font-size="11" text-anchor="start" font-weight="normal" fill="#888888">🔒 現金與帳務：無權限</text>
-  <rect x="554" y="1186" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="564" y="1203" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">營運健康（範圍內）</text>
-  <rect x="868" y="1050" width="308" height="190" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
-  <text x="880" y="1070" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">團主／廠商</text>
-  <rect x="880" y="1090" width="284" height="26" rx="4" fill="#e6e6e6" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
-  <text x="890" y="1107" font-size="11" text-anchor="start" font-weight="normal" fill="#888888">🔒 沒有此頁（導向各自的看板）</text>
-  <rect x="880" y="1122" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
-  <text x="890" y="1139" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">團主：只看自己的歸因與佣金</text>
-  <rect x="880" y="1154" width="284" height="26" rx="4" fill="#e6e6e6" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
-  <text x="890" y="1171" font-size="11" text-anchor="start" font-weight="normal" fill="#888888">🔒 廠商：目前沒有看板入口</text>
-  <rect x="880" y="1186" width="284" height="26" rx="4" fill="#e6e6e6" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
-  <text x="890" y="1203" font-size="11" text-anchor="start" font-weight="normal" fill="#888888">🔒 公司營業收入、貢獻利潤：永遠看不到</text>
-  <text x="216" y="1264" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">依據：03 §5 角色可見性矩陣；公司收入與貢獻利潤只給有 finance.read 的內部角色。口徑 ⓘ 與「看明細 →」對所有可見指標一致。</text>
+  <text x="1036" y="290" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">6.2%</text>
+  <text x="1036" y="305" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">有退款訂單 ÷ 計入銷售訂單</text>
+  <text x="1036" y="339" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-06</text>
+  <text x="1168" y="339" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <text x="216" y="374" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">公司損益</text>
+  <rect x="284.0" y="359" width="90.6" height="18" rx="10" fill="#fff" stroke="#b00020" stroke-width="1"/>
+  <text x="329.3" y="371.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#b00020">需 finance.read</text>
+  <text x="382.6" y="374" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">代理人淨額法：只認服務費／分潤，GMV、NSV、代收款都不是公司收入　</text>
+  <circle cx="203" cy="369" r="11" fill="#111111"/><text x="203" y="373" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">5</text>
+  <rect x="216" y="386" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="226" y="402" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">公司營業收入</text>
+  <rect x="348" y="391" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="354" y="400" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="226" y="442" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 57,500</text>
+  <text x="226" y="457" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">品牌端服務費／分潤（本期確</text>
+  <text x="226" y="469" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">認）</text>
+  <text x="226" y="491" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-08</text>
+  <text x="358" y="491" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">結算確認</text>
+  <rect x="378" y="386" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="388" y="402" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">抽成率（Take rate）</text>
+  <rect x="510" y="391" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="516" y="400" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="388" y="442" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">13.69%</text>
+  <text x="388" y="457" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">營業收入 ÷ 同檔 NSV</text>
+  <text x="388" y="491" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-09</text>
+  <text x="520" y="491" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <rect x="540" y="386" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="550" y="402" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">應付團主分潤（公司負</text>
+  <text x="550" y="415" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">擔）</text>
+  <rect x="672" y="391" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="678" y="400" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="550" y="442" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 30,600</text>
+  <text x="550" y="457" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">付款方＝公司者；品牌直付不</text>
+  <text x="550" y="469" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">計</text>
+  <text x="550" y="491" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-10</text>
+  <text x="682" y="491" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">結算確認</text>
+  <rect x="702" y="386" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="712" y="402" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">直接變動成本</text>
+  <rect x="834" y="391" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="840" y="400" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="712" y="442" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 6,500</text>
+  <text x="712" y="457" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">運費、行銷、樣品、金流費…</text>
+  <text x="712" y="491" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-11</text>
+  <text x="844" y="491" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">人工填寫</text>
+  <rect x="864" y="386" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="874" y="402" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">貢獻利潤</text>
+  <rect x="996" y="391" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="1002" y="400" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="874" y="442" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 20,400</text>
+  <text x="874" y="457" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">營業收入 − 分潤 − 變動成本</text>
+  <text x="874" y="491" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-12</text>
+  <text x="1006" y="491" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <rect x="1026" y="386" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="1036" y="402" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">貢獻利潤率</text>
+  <rect x="1158" y="391" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="1164" y="400" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="1036" y="442" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">35.48%</text>
+  <text x="1036" y="457" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">貢獻利潤 ÷ 營業收入</text>
+  <text x="1036" y="491" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-13</text>
+  <text x="1168" y="491" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <text x="216" y="512" font-size="11" text-anchor="start" font-weight="normal" fill="#b00020">GMV 450,000 ≠ 公司營業收入 57,500。任一組成為「—」時，貢獻利潤整體顯示「—」（DQ-NULL）。</text>
+  <text x="216" y="538" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">現金與帳務</text>
+  <text x="298.0" y="538" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">試算與確認分開；尚未串接的顯示「—」</text>
+  <circle cx="203" cy="533" r="11" fill="#111111"/><text x="203" y="537" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">6</text>
+  <rect x="216" y="550" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="226" y="566" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">預估佣金（團主端試算</text>
+  <text x="226" y="579" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">）</text>
+  <rect x="348" y="555" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="354" y="564" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="226" y="606" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 33,000</text>
+  <text x="226" y="621" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">另有 1 筆尚未設定費率</text>
+  <text x="226" y="655" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-14</text>
+  <text x="358" y="655" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <rect x="330.0" y="572" width="30.0" height="14" rx="10" fill="#fff" stroke="#b00020" stroke-width="1"/>
+  <text x="345.0" y="582.24" font-size="9" text-anchor="middle" font-weight="normal" fill="#b00020">預估</text>
+  <rect x="378" y="550" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="388" y="566" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">已確認佣金</text>
+  <rect x="510" y="555" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="516" y="564" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="388" y="606" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 21,600</text>
+  <text x="388" y="621" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">本期結算確認；2 項</text>
+  <text x="388" y="655" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-15</text>
+  <text x="520" y="655" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">結算確認</text>
+  <rect x="540" y="550" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="550" y="566" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">已收款金額</text>
+  <rect x="672" y="555" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="678" y="564" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="550" y="606" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">NT$ 40,500</text>
+  <text x="550" y="621" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">入帳日歸期</text>
+  <text x="550" y="655" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-16</text>
+  <text x="682" y="655" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">人工填寫</text>
+  <rect x="702" y="550" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="712" y="566" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">代收款餘額（應付品牌</text>
+  <text x="712" y="579" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">）</text>
+  <rect x="834" y="555" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="840" y="564" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="712" y="606" font-size="18" text-anchor="start" font-weight="bold" fill="#999999">—</text>
+  <text x="712" y="621" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">待串接：尚無金流模式與代收</text>
+  <text x="712" y="633" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">紀錄</text>
+  <text x="712" y="655" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-17</text>
+  <text x="844" y="655" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <rect x="864" y="550" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="874" y="566" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">應收品牌服務費帳齡</text>
+  <rect x="996" y="555" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="1002" y="564" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="874" y="606" font-size="18" text-anchor="start" font-weight="bold" fill="#999999">—</text>
+  <text x="874" y="621" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">待串接：尚無品牌端結算</text>
+  <text x="874" y="655" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-24</text>
+  <text x="1006" y="655" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <rect x="1026" y="550" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="1036" y="566" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">分潤更正金額與更正率</text>
+  <rect x="1158" y="555" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="1164" y="564" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="1036" y="606" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">−NT$ 4,800</text>
+  <text x="1036" y="621" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">更正登記於當期，舊結算不改</text>
+  <text x="1036" y="655" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-25</text>
+  <text x="1168" y="655" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">結算確認</text>
+  <text x="216" y="690" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">營運健康</text>
+  <text x="284.0" y="690" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">沿用現有營運總覽的區塊（K1-18～K1-23）</text>
+  <circle cx="203" cy="685" r="11" fill="#111111"/><text x="203" y="689" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">7</text>
+  <rect x="216" y="702" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="226" y="718" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">進行中檔期數／參與團</text>
+  <text x="226" y="731" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">主數</text>
+  <rect x="348" y="707" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="354" y="716" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="226" y="758" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">3／3</text>
+  <text x="226" y="773" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">已排程至待結算</text>
+  <text x="226" y="807" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-18</text>
+  <text x="358" y="807" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <rect x="378" y="702" width="312" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="388" y="718" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">檔期管線</text>
+  <rect x="388" y="774" width="38" height="8" rx="2" fill="#ececec" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="407" y="769" font-size="10" text-anchor="middle" font-weight="normal" fill="#333333">0</text>
+  <text x="407" y="794" font-size="9" text-anchor="middle" font-weight="normal" fill="#777777">草稿</text>
+  <rect x="439" y="748" width="38" height="34" rx="2" fill="#bdbdbd" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="458" y="743" font-size="10" text-anchor="middle" font-weight="normal" fill="#333333">1</text>
+  <text x="458" y="794" font-size="9" text-anchor="middle" font-weight="normal" fill="#777777">評估中</text>
+  <rect x="490" y="774" width="38" height="8" rx="2" fill="#ececec" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="509" y="769" font-size="10" text-anchor="middle" font-weight="normal" fill="#333333">0</text>
+  <text x="509" y="794" font-size="9" text-anchor="middle" font-weight="normal" fill="#777777">籌備</text>
+  <rect x="541" y="748" width="38" height="34" rx="2" fill="#bdbdbd" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="560" y="743" font-size="10" text-anchor="middle" font-weight="normal" fill="#333333">1</text>
+  <text x="560" y="794" font-size="9" text-anchor="middle" font-weight="normal" fill="#777777">已排程</text>
+  <rect x="592" y="748" width="38" height="34" rx="2" fill="#bdbdbd" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="611" y="743" font-size="10" text-anchor="middle" font-weight="normal" fill="#333333">1</text>
+  <text x="611" y="794" font-size="9" text-anchor="middle" font-weight="normal" fill="#777777">進行中</text>
+  <rect x="643" y="748" width="38" height="34" rx="2" fill="#bdbdbd" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="662" y="743" font-size="10" text-anchor="middle" font-weight="normal" fill="#333333">1</text>
+  <text x="662" y="794" font-size="9" text-anchor="middle" font-weight="normal" fill="#777777">待結單</text>
+  <text x="388" y="811" font-size="9" text-anchor="start" font-weight="normal" fill="#333333"></text>
+  <text x="682" y="718" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">K1-19</text>
+  <rect x="702" y="702" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="712" y="718" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">逾期任務數</text>
+  <rect x="834" y="707" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="840" y="716" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="712" y="758" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">2</text>
+  <text x="712" y="773" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">點進任務清單</text>
+  <text x="712" y="807" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-20</text>
+  <text x="844" y="807" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <rect x="864" y="702" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="874" y="718" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">待核准數</text>
+  <rect x="996" y="707" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="1002" y="716" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="874" y="758" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">1</text>
+  <text x="874" y="773" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">G1～G5</text>
+  <text x="874" y="807" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-21</text>
+  <text x="1006" y="807" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <rect x="1026" y="702" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="1036" y="718" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">未結例外</text>
+  <rect x="1158" y="707" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="1164" y="716" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="1036" y="758" font-size="15" text-anchor="start" font-weight="bold" fill="#222222">高 1｜中 2｜低 0</text>
+  <text x="1036" y="807" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-22</text>
+  <text x="1168" y="807" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <rect x="216" y="826" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="226" y="842" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">售後處理中／逾期案件</text>
+  <text x="226" y="855" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">數</text>
+  <rect x="348" y="831" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="354" y="840" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="226" y="882" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">4／1</text>
+  <text x="226" y="897" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">案件 4 件，逾期 1 件</text>
+  <text x="226" y="931" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-23</text>
+  <text x="358" y="931" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <rect x="378" y="826" width="798" height="112" rx="6" fill="#f4f4f4" stroke="#9a9a9a" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="392" y="852" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">營運健康區塊沿用現有「營運總覽」（/dashboard）的待辦、檔期管線與異常，點進去是任務、核准、例外、售後清單；本頁不重做，只在 L1 保留一排摘要</text>
+  <text x="392" y="867" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">。</text>
+  <text x="216" y="966" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">模式與分類</text>
+  <text x="298.0" y="966" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">連到 L2：三種模式可重疊，沒有標籤的檔期要單獨列出</text>
+  <circle cx="203" cy="961" r="11" fill="#111111"/><text x="203" y="965" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">8</text>
+  <rect x="216" y="978" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="226" y="994" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">未分類檔期數／比例</text>
+  <rect x="348" y="983" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="354" y="992" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="226" y="1034" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">0 檔／0%</text>
+  <text x="226" y="1049" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">無模式標籤的檔期單獨列出</text>
+  <text x="226" y="1083" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-26</text>
+  <text x="358" y="1083" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <rect x="378" y="978" width="150" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="388" y="994" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">模式重疊檔期比例</text>
+  <rect x="510" y="983" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="516" y="992" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="388" y="1034" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">67%</text>
+  <text x="388" y="1049" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">2／3 檔含 2 種以上模式</text>
+  <text x="388" y="1083" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K1-27</text>
+  <text x="520" y="1083" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <rect x="540" y="978" width="636" height="112" rx="6" fill="#f4f4f4" stroke="#9a9a9a" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="554" y="1004" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">→ 到 L2「經營模式績效」看三種模式的可加總視圖（主模式）與不可加總視圖（參與模式），並可下鑽到 L3 明細。</text>
+  <rect x="554" y="1044" width="120" height="28" rx="5" fill="#d9d9d9" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="614" y="1063" font-size="12" text-anchor="middle" font-weight="bold" fill="#333333">前往 L2 →</text>
+  <text x="216" y="1118" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">資料來源與同步</text>
+  <text x="326.0" y="1118" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">K1-28、K1-29：資料品質狀態與最近同步</text>
+  <circle cx="203" cy="1113" r="11" fill="#111111"/><text x="203" y="1117" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">9</text>
+  <rect x="216" y="1128" width="960" height="92" rx="4" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <rect x="216" y="1128" width="960" height="32" rx="4" fill="#e9e9e9" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="224" y="1148.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">來源系統</text>
+  <text x="444" y="1148.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">資料性質</text>
+  <text x="648" y="1148.0" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">訂單數</text>
+  <text x="664" y="1148.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">最近同步</text>
+  <text x="854" y="1148.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">最近訂單時間</text>
+  <text x="1044" y="1148.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">狀態</text>
+  <line x1="216" y1="1160" x2="1176" y2="1160" stroke="#bdbdbd"/>
+  <text x="224" y="1179.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">DEMO_GENERATOR</text>
+  <text x="444" y="1179.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">DEMO</text>
+  <text x="648" y="1179.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">312</text>
+  <text x="664" y="1179.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">2026-11-03 09:00</text>
+  <text x="854" y="1179.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">2026-11-03 08:41</text>
+  <text x="1044" y="1179.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">完成</text>
+  <line x1="216" y1="1190" x2="1176" y2="1190" stroke="#bdbdbd"/>
+  <text x="224" y="1209.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">SHOP_CSV（待串接）</text>
+  <text x="444" y="1209.0" font-size="11" text-anchor="start" font-weight="normal" fill="#999999">—</text>
+  <text x="648" y="1209.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <text x="664" y="1209.0" font-size="11" text-anchor="start" font-weight="normal" fill="#999999">—</text>
+  <text x="854" y="1209.0" font-size="11" text-anchor="start" font-weight="normal" fill="#999999">—</text>
+  <text x="1044" y="1209.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">尚未匯入</text>
+  <text x="216" y="1248" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">角色可見性（同一頁，依權限收合）</text>
+  <text x="452.0" y="1248" font-size="11" text-anchor="start" font-weight="normal" fill="#777777"></text>
+  <circle cx="203" cy="1243" r="11" fill="#111111"/><text x="203" y="1247" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">10</text>
+  <rect x="216" y="1262" width="308" height="190" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="228" y="1282" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">營運主管／財務／系統管理者</text>
+  <rect x="228" y="1302" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="238" y="1319" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">品牌交易額（K1-01～06）</text>
+  <rect x="228" y="1334" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="238" y="1351" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">公司損益（K1-08～13）</text>
+  <rect x="228" y="1366" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="238" y="1383" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">現金與帳務（K1-14～25）</text>
+  <rect x="228" y="1398" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="238" y="1415" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">營運健康、模式分類</text>
+  <rect x="542" y="1262" width="308" height="190" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="554" y="1282" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">營運小編（只看自己負責的檔期）</text>
+  <rect x="554" y="1302" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="564" y="1319" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">品牌交易額（範圍內，標「範圍內」）</text>
+  <rect x="554" y="1334" width="284" height="26" rx="4" fill="#e6e6e6" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="564" y="1351" font-size="11" text-anchor="start" font-weight="normal" fill="#888888">🔒 公司損益：無權限</text>
+  <rect x="554" y="1366" width="284" height="26" rx="4" fill="#e6e6e6" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="564" y="1383" font-size="11" text-anchor="start" font-weight="normal" fill="#888888">🔒 現金與帳務：無權限</text>
+  <rect x="554" y="1398" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="564" y="1415" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">營運健康（範圍內）</text>
+  <rect x="868" y="1262" width="308" height="190" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="880" y="1282" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">團主／廠商</text>
+  <rect x="880" y="1302" width="284" height="26" rx="4" fill="#e6e6e6" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="890" y="1319" font-size="11" text-anchor="start" font-weight="normal" fill="#888888">🔒 沒有此頁（導向各自的看板）</text>
+  <rect x="880" y="1334" width="284" height="26" rx="4" fill="#f4f4f4" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="890" y="1351" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">團主：只看自己的歸因與佣金</text>
+  <rect x="880" y="1366" width="284" height="26" rx="4" fill="#e6e6e6" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="890" y="1383" font-size="11" text-anchor="start" font-weight="normal" fill="#888888">🔒 廠商：目前沒有看板入口</text>
+  <rect x="880" y="1398" width="284" height="26" rx="4" fill="#e6e6e6" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="890" y="1415" font-size="11" text-anchor="start" font-weight="normal" fill="#888888">🔒 公司營業收入、貢獻利潤：永遠看不到</text>
+  <text x="216" y="1476" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">依據：03 §5 角色可見性矩陣；公司收入與貢獻利潤只給有 finance.read 的內部角色。口徑 ⓘ 與「看明細 →」對所有可見指標一致。</text>
 </svg>
