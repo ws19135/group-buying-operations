@@ -25,7 +25,8 @@
     "e2e:aftersales": "tsx scripts/e2e-aftersales.ts",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
     "docs:gen": "tsx scripts/gen-docs.ts",
-    "bootstrap:demo": "tsx scripts/bootstrap-demo.ts"
+    "bootstrap:demo": "tsx scripts/bootstrap-demo.ts",
+    "snapshot": "tsx scripts/build-snapshot.ts"
   },
   "dependencies": {
     "next": "^15.5.0",
