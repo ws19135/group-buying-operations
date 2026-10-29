@@ -1,0 +1,348 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1690" viewBox="0 0 1200 1690" font-family="-apple-system, 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif">
+  <title>L2 三種經營模式績效（三層管理看板）</title>
+  <rect x="0" y="0" width="1200" height="1690" fill="#f4f4f4"/>
+  <rect x="0" y="0" width="200" height="1690" rx="0" fill="#e9e9e9" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="18" y="34" font-size="15" text-anchor="start" font-weight="bold" fill="#333333">團購 ERP</text>
+  <text x="18" y="64" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">營運</text>
+  <text x="24" y="84" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">總覽</text>
+  <rect x="8" y="93" width="184" height="24" rx="4" fill="#cfcfcf" stroke="none" stroke-width="1"/>
+  <text x="24" y="110" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">經營看板</text>
+  <text x="24" y="136" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">檔期</text>
+  <text x="24" y="162" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">排程日曆</text>
+  <text x="24" y="188" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">任務</text>
+  <text x="24" y="214" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">核准</text>
+  <text x="24" y="240" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">售後</text>
+  <text x="24" y="266" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">履約出貨</text>
+  <text x="24" y="292" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">客群適配</text>
+  <text x="18" y="322" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">主檔</text>
+  <text x="24" y="342" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">廠商</text>
+  <text x="24" y="368" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">團主</text>
+  <text x="24" y="394" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">社群</text>
+  <text x="24" y="420" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">商品</text>
+  <text x="24" y="446" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">客群</text>
+  <text x="18" y="476" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">財務</text>
+  <text x="24" y="496" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">財務結算</text>
+  <text x="18" y="526" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">資料與監控</text>
+  <text x="24" y="546" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">訂單明細</text>
+  <text x="24" y="572" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">訂單匯入</text>
+  <text x="24" y="598" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">例外</text>
+  <text x="24" y="624" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">自動化</text>
+  <text x="24" y="650" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">稽核</text>
+  <rect x="200" y="0" width="1000" height="48" rx="0" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="216" y="30" font-size="12" text-anchor="start" font-weight="normal" fill="#777777">營運 / 經營看板 / L2 經營模式績效</text>
+  <text x="990" y="30" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">使用者　營運主管</text>
+  <rect x="1100" y="11" width="72" height="28" rx="5" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="1136" y="30" font-size="12" text-anchor="middle" font-weight="normal" fill="#333333">登出</text>
+  <text x="216" y="88" font-size="22" text-anchor="start" font-weight="bold" fill="#333333">經營看板　L2 經營模式績效</text>
+  <text x="1176" y="70" font-size="11" text-anchor="end" font-weight="normal" fill="#777777">資料截至 2026-11-03 09:00（最近一次匯入）</text>
+  <rect x="760" y="76" width="54" height="26" rx="5" fill="#fff" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="787" y="93" font-size="12" text-anchor="middle" font-weight="normal" fill="#333333">本週</text>
+  <rect x="820" y="76" width="54" height="26" rx="5" fill="#d9d9d9" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="847" y="93" font-size="12" text-anchor="middle" font-weight="bold" fill="#333333">本月</text>
+  <text x="890" y="93" font-size="13" text-anchor="start" font-weight="bold" fill="#333333">2026-11</text>
+  <rect x="960" y="76" width="66" height="26" rx="5" fill="#fff" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="993" y="93" font-size="12" text-anchor="middle" font-weight="normal" fill="#333333">← 上月</text>
+  <rect x="1030" y="76" width="66" height="26" rx="5" fill="#fff" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="1063" y="93" font-size="12" text-anchor="middle" font-weight="normal" fill="#333333">下月 →</text>
+  <rect x="216" y="112" width="960" height="34" rx="4" fill="#e6e6e6" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="230" y="133.0" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">⚠️ DEMO 資料：以下全為虛構示範數字，不是真實營運數字（DQ-DEMO）</text>
+  <text x="216" y="181" font-size="12" text-anchor="start" font-weight="normal" fill="#777777">檢視方式</text>
+  <rect x="286" y="164" width="190" height="28" rx="5" fill="#d9d9d9" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="381" y="182" font-size="12" text-anchor="middle" font-weight="bold" fill="#333333">● 主模式（可加總）</text>
+  <rect x="476" y="164" width="190" height="28" rx="5" fill="#fff" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="571" y="182" font-size="12" text-anchor="middle" font-weight="normal" fill="#333333">○ 參與模式（不可加總）</text>
+  <circle cx="203" cy="178" r="11" fill="#111111"/><text x="203" y="182" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">1</text>
+  <text x="686" y="182" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">預設主模式；主模式規則：有向品牌收費條款 → AGENCY（決策 B-28，待確認）</text>
+  <text x="216" y="224" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">A. 主模式視圖（預設）：每檔只歸入一個主模式，合計必須等於 L1</text>
+  <circle cx="203" cy="219" r="11" fill="#111111"/><text x="203" y="223" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">2</text>
+  <rect x="216" y="236" width="960" height="192" rx="4" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <rect x="216" y="236" width="960" height="42" rx="4" fill="#e9e9e9" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="224" y="261.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">模式</text>
+  <text x="428" y="261.0" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">檔期數</text>
+  <text x="548" y="252" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">淨銷售額</text>
+  <text x="548" y="265" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">K2-X-01</text>
+  <text x="638" y="252" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">占 L1</text>
+  <text x="638" y="265" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">淨銷售</text>
+  <text x="758" y="261.0" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">公司營業收入</text>
+  <text x="868" y="252" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">貢獻利潤</text>
+  <text x="868" y="265" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">K2-X-03</text>
+  <text x="968" y="261.0" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">貢獻利潤率</text>
+  <text x="1048" y="252" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">退款率</text>
+  <text x="1048" y="265" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">K2-X-04</text>
+  <text x="1168" y="252" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">客訴率</text>
+  <text x="1168" y="265" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">K2-X-04</text>
+  <line x1="216" y1="278" x2="1176" y2="278" stroke="#bdbdbd"/>
+  <text x="224" y="297.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">AGENCY 代營運</text>
+  <text x="428" y="297.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">2</text>
+  <text x="548" y="297.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">370,000</text>
+  <text x="638" y="297.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">88.1%</text>
+  <text x="758" y="297.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">52,500</text>
+  <text x="868" y="297.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">18,900</text>
+  <text x="968" y="297.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">36.00%</text>
+  <text x="1048" y="297.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">5.1%</text>
+  <text x="1168" y="297.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">2.3%</text>
+  <line x1="216" y1="308" x2="1176" y2="308" stroke="#bdbdbd"/>
+  <text x="224" y="327.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">KOL_CPS KOL／KOC</text>
+  <text x="428" y="327.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">0</text>
+  <text x="548" y="327.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <text x="638" y="327.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <text x="758" y="327.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <text x="868" y="327.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <text x="968" y="327.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <text x="1048" y="327.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <text x="1168" y="327.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <line x1="216" y1="338" x2="1176" y2="338" stroke="#bdbdbd"/>
+  <text x="224" y="357.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">MOM_GROUP 團媽</text>
+  <text x="428" y="357.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">1</text>
+  <text x="548" y="357.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">50,000</text>
+  <text x="638" y="357.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">11.9%</text>
+  <text x="758" y="357.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">5,000</text>
+  <text x="868" y="357.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">1,500</text>
+  <text x="968" y="357.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">30.00%</text>
+  <text x="1048" y="357.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">8.0%</text>
+  <text x="1168" y="357.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">資料不足（n=4）</text>
+  <line x1="216" y1="368" x2="1176" y2="368" stroke="#bdbdbd"/>
+  <text x="224" y="387.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">UNCLASSIFIED 未分類</text>
+  <text x="428" y="387.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">0</text>
+  <text x="548" y="387.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <text x="638" y="387.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <text x="758" y="387.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <text x="868" y="387.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <text x="968" y="387.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <text x="1048" y="387.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <text x="1168" y="387.0" font-size="11" text-anchor="end" font-weight="normal" fill="#999999">—</text>
+  <line x1="216" y1="398" x2="1176" y2="398" stroke="#bdbdbd"/>
+  <text x="224" y="417.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">合計（＝L1）</text>
+  <text x="428" y="417.0" font-size="11" text-anchor="end" font-weight="bold" fill="#333333">3</text>
+  <text x="548" y="417.0" font-size="11" text-anchor="end" font-weight="bold" fill="#333333">420,000</text>
+  <text x="638" y="417.0" font-size="11" text-anchor="end" font-weight="bold" fill="#333333">100.0%</text>
+  <text x="758" y="417.0" font-size="11" text-anchor="end" font-weight="bold" fill="#333333">57,500</text>
+  <text x="868" y="417.0" font-size="11" text-anchor="end" font-weight="bold" fill="#333333">20,400</text>
+  <text x="968" y="417.0" font-size="11" text-anchor="end" font-weight="bold" fill="#333333">35.48%</text>
+  <text x="1048" y="417.0" font-size="11" text-anchor="end" font-weight="bold" fill="#333333">6.2%</text>
+  <text x="1168" y="417.0" font-size="11" text-anchor="end" font-weight="bold" fill="#333333">2.9%</text>
+  <rect x="216" y="436" width="960" height="34" rx="4" fill="#e6e6e6" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="230" y="457" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">✓ 對帳：370,000 + 50,000 = 420,000 ＝ L1 K1-03 有效淨銷售額；公司營業收入 52,500 + 5,000 = 57,500 ＝ L1 K1-08</text>
+  <circle cx="203" cy="453" r="11" fill="#111111"/><text x="203" y="457" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">3</text>
+  <text x="216" y="490" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">「—」＝該模式沒有主模式檔期（不是 0）；「資料不足（n=…）」＝樣本低於門檻（DQ-SMALL）；公司營業收入欄需 finance.read，其餘角色顯示 🔒。</text>
+  <text x="216" y="528" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">B. 參與模式視圖（切換後）：含該模式標籤即計入，重疊檔期會被重複計入</text>
+  <circle cx="203" cy="523" r="11" fill="#111111"/><text x="203" y="527" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">4</text>
+  <rect x="216" y="538" width="960" height="34" rx="4" fill="#fff" stroke="#b00020" stroke-width="1"/>
+  <text x="230" y="559" font-size="12" text-anchor="start" font-weight="bold" fill="#b00020">⚠️ 不可加總：三模式相加 790,000 ≠ L1 淨銷售額 420,000；差額 370,000 是重疊檔期（C-A、C-B）被重複計入的部分</text>
+  <rect x="216" y="582" width="960" height="222" rx="4" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <rect x="216" y="582" width="960" height="42" rx="4" fill="#e9e9e9" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="224" y="607.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">模式（含標籤）</text>
+  <text x="394" y="607.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">參與檔期</text>
+  <text x="658" y="607.0" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">檔期數</text>
+  <text x="798" y="598" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">淨銷售額</text>
+  <text x="798" y="611" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">K2-X-02</text>
+  <text x="898" y="598" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">占 L1</text>
+  <text x="898" y="611" font-size="10.5" text-anchor="end" font-weight="bold" fill="#333333">淨銷售</text>
+  <text x="914" y="607.0" font-size="10.5" text-anchor="start" font-weight="bold" fill="#333333">說明</text>
+  <line x1="216" y1="624" x2="1176" y2="624" stroke="#bdbdbd"/>
+  <text x="224" y="643.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">AGENCY</text>
+  <text x="394" y="643.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">C-A、C-B</text>
+  <text x="658" y="643.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">2</text>
+  <text x="798" y="643.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">370,000</text>
+  <text x="898" y="643.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">88.1%</text>
+  <text x="914" y="643.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333"></text>
+  <line x1="216" y1="654" x2="1176" y2="654" stroke="#bdbdbd"/>
+  <text x="224" y="673.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">KOL_CPS</text>
+  <text x="394" y="673.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">C-A</text>
+  <text x="658" y="673.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">1</text>
+  <text x="798" y="673.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">270,000</text>
+  <text x="898" y="673.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">64.3%</text>
+  <text x="914" y="673.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">C-A 同時含 AGENCY</text>
+  <line x1="216" y1="684" x2="1176" y2="684" stroke="#bdbdbd"/>
+  <text x="224" y="703.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">MOM_GROUP</text>
+  <text x="394" y="703.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">C-B、C-C</text>
+  <text x="658" y="703.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">2</text>
+  <text x="798" y="703.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">150,000</text>
+  <text x="898" y="703.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">35.7%</text>
+  <text x="914" y="703.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">C-B 同時含 AGENCY</text>
+  <line x1="216" y1="714" x2="1176" y2="714" stroke="#bdbdbd"/>
+  <text x="224" y="733.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">三者相加（不可加總）</text>
+  <text x="394" y="733.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333"></text>
+  <text x="658" y="733.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333"></text>
+  <text x="798" y="733.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">790,000</text>
+  <text x="898" y="733.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">188.1%</text>
+  <text x="914" y="733.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">≠ L1，僅表示參與規模</text>
+  <line x1="216" y1="744" x2="1176" y2="744" stroke="#bdbdbd"/>
+  <text x="224" y="763.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">重疊調整</text>
+  <text x="394" y="763.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">C-A × 2、C-B × 2</text>
+  <text x="658" y="763.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333"></text>
+  <text x="798" y="763.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">−370,000</text>
+  <text x="898" y="763.0" font-size="11" text-anchor="end" font-weight="normal" fill="#333333">−88.1%</text>
+  <text x="914" y="763.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">重複計入的部分</text>
+  <line x1="216" y1="774" x2="1176" y2="774" stroke="#bdbdbd"/>
+  <text x="224" y="793.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">＝L1 淨銷售額</text>
+  <text x="394" y="793.0" font-size="11" text-anchor="start" font-weight="normal" fill="#333333"></text>
+  <text x="658" y="793.0" font-size="11" text-anchor="end" font-weight="bold" fill="#333333">3</text>
+  <text x="798" y="793.0" font-size="11" text-anchor="end" font-weight="bold" fill="#333333">420,000</text>
+  <text x="898" y="793.0" font-size="11" text-anchor="end" font-weight="bold" fill="#333333">100.0%</text>
+  <text x="914" y="793.0" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">與 L1 K1-03 對帳一致</text>
+  <text x="216" y="848" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">C. 各模式專屬指標（依資料範圍與權限收合；不可加總的比率不要相加）</text>
+  <circle cx="203" cy="843" r="11" fill="#111111"/><text x="203" y="847" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">5</text>
+  <rect x="216" y="860" width="312" height="504" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <rect x="216" y="860" width="312" height="38" rx="6" fill="#e9e9e9" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="228" y="877" font-size="12.5" text-anchor="start" font-weight="bold" fill="#333333">AGENCY 代營運／團購經紀</text>
+  <text x="228" y="891" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">向品牌收服務費；營收類需 finance.read</text>
+  <text x="228" y="916" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">代營運檔期數與淨銷售（主模式）</text>
+  <text x="516" y="918" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">2 檔／370,000</text>
+  <text x="228" y="943" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-AG-01</text>
+  <text x="516" y="943" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <line x1="224" y1="947" x2="520" y2="947" stroke="#dddddd"/>
+  <text x="228" y="962" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">服務費收入</text>
+  <text x="516" y="964" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">NT$ 52,500</text>
+  <text x="228" y="989" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-AG-02</text>
+  <text x="516" y="989" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">結算確認</text>
+  <line x1="224" y1="993" x2="520" y2="993" stroke="#dddddd"/>
+  <text x="228" y="1008" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">代營運抽成率</text>
+  <text x="516" y="1010" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">14.19%</text>
+  <text x="228" y="1035" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-AG-03</text>
+  <text x="516" y="1035" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <line x1="224" y1="1039" x2="520" y2="1039" stroke="#dddddd"/>
+  <text x="228" y="1054" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">代營運貢獻利潤與貢獻利潤率</text>
+  <text x="516" y="1056" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">18,900／36.00%</text>
+  <text x="228" y="1081" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-AG-04</text>
+  <text x="516" y="1081" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <line x1="224" y1="1085" x2="520" y2="1085" stroke="#dddddd"/>
+  <text x="228" y="1100" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">服務費收款及時率</text>
+  <text x="516" y="1102" font-size="12.5" text-anchor="end" font-weight="bold" fill="#999999">—（待串接）</text>
+  <text x="228" y="1127" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-AG-05</text>
+  <text x="516" y="1127" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <line x1="224" y1="1131" x2="520" y2="1131" stroke="#dddddd"/>
+  <text x="228" y="1146" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">服務費結構：固定費占比</text>
+  <text x="516" y="1148" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">0%</text>
+  <text x="228" y="1173" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-AG-06</text>
+  <text x="516" y="1173" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <line x1="224" y1="1177" x2="520" y2="1177" stroke="#dddddd"/>
+  <text x="228" y="1192" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">保底補足金額與占比</text>
+  <text x="516" y="1194" font-size="12.5" text-anchor="end" font-weight="bold" fill="#999999">—（無保底條款）</text>
+  <text x="228" y="1219" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-AG-07</text>
+  <text x="516" y="1219" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <line x1="224" y1="1223" x2="520" y2="1223" stroke="#dddddd"/>
+  <text x="228" y="1238" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">任務準時完成率（營運 PM）</text>
+  <text x="516" y="1240" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">87%</text>
+  <text x="228" y="1265" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-AG-08</text>
+  <text x="516" y="1265" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <line x1="224" y1="1269" x2="520" y2="1269" stroke="#dddddd"/>
+  <text x="228" y="1284" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">品牌合作成功率（暫定）</text>
+  <text x="516" y="1286" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">75%</text>
+  <text x="228" y="1311" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-AG-09</text>
+  <text x="516" y="1311" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">暫定</text>
+  <line x1="224" y1="1315" x2="520" y2="1315" stroke="#dddddd"/>
+  <text x="228" y="1330" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">品牌再開團率（續約代理）</text>
+  <text x="516" y="1332" font-size="12.5" text-anchor="end" font-weight="bold" fill="#999999">資料不足（n=2）</text>
+  <text x="228" y="1357" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-AG-10</text>
+  <text x="516" y="1357" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <rect x="540" y="860" width="312" height="366" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <rect x="540" y="860" width="312" height="38" rx="6" fill="#e9e9e9" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="552" y="877" font-size="12.5" text-anchor="start" font-weight="bold" fill="#333333">KOL_CPS KOL／KOC 分潤</text>
+  <text x="552" y="891" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">逐單歸因；歸因與揭露是主要風險</text>
+  <text x="552" y="916" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">KOL／KOC 淨銷售（歸因）</text>
+  <text x="840" y="918" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">NT$ 270,000</text>
+  <text x="552" y="943" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-KC-01</text>
+  <text x="840" y="943" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <line x1="548" y1="947" x2="844" y2="947" stroke="#dddddd"/>
+  <text x="552" y="962" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">KOL 分潤成本與分潤成本率</text>
+  <text x="840" y="964" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">21,600／8.00%</text>
+  <text x="552" y="989" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-KC-02</text>
+  <text x="840" y="989" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">結算確認</text>
+  <line x1="548" y1="993" x2="844" y2="993" stroke="#dddddd"/>
+  <text x="552" y="1008" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">歸因覆蓋率</text>
+  <text x="840" y="1010" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">78%</text>
+  <text x="552" y="1035" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-KC-03</text>
+  <text x="840" y="1035" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <line x1="548" y1="1039" x2="844" y2="1039" stroke="#dddddd"/>
+  <text x="552" y="1054" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">未歸因淨銷售</text>
+  <text x="840" y="1056" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">NT$ 59,400</text>
+  <text x="552" y="1081" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-KC-04</text>
+  <text x="840" y="1081" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <line x1="548" y1="1085" x2="844" y2="1085" stroke="#dddddd"/>
+  <text x="552" y="1100" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">薦證揭露完成率</text>
+  <text x="840" y="1102" font-size="12.5" text-anchor="end" font-weight="bold" fill="#999999">—（待串接）</text>
+  <text x="552" y="1127" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-KC-05</text>
+  <text x="840" y="1127" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">人工填寫</text>
+  <line x1="548" y1="1131" x2="844" y2="1131" stroke="#dddddd"/>
+  <text x="552" y="1146" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">KOL 單檔產值與目標達成</text>
+  <text x="840" y="1148" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">270,000／90%</text>
+  <text x="552" y="1173" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-KC-06</text>
+  <text x="840" y="1173" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <line x1="548" y1="1177" x2="844" y2="1177" stroke="#dddddd"/>
+  <text x="552" y="1192" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">KOL 貢獻利潤</text>
+  <text x="840" y="1194" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">NT$ 13,900</text>
+  <text x="552" y="1219" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-KC-07</text>
+  <text x="840" y="1219" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <rect x="864" y="860" width="312" height="366" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <rect x="864" y="860" width="312" height="38" rx="6" fill="#e9e9e9" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="876" y="877" font-size="12.5" text-anchor="start" font-weight="bold" fill="#333333">MOM_GROUP 團媽／社群主</text>
+  <text x="876" y="891" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">客服量與信任；團主收款需對帳</text>
+  <text x="876" y="916" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">團媽／社群主淨銷售</text>
+  <text x="1164" y="918" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">NT$ 150,000</text>
+  <text x="876" y="943" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-MG-01</text>
+  <text x="1164" y="943" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <line x1="872" y1="947" x2="1168" y2="947" stroke="#dddddd"/>
+  <text x="876" y="962" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">團媽分潤成本率</text>
+  <text x="1164" y="964" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">6.00%</text>
+  <text x="876" y="989" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-MG-02</text>
+  <text x="1164" y="989" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">結算確認</text>
+  <line x1="872" y1="993" x2="1168" y2="993" stroke="#dddddd"/>
+  <text x="876" y="1008" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">每百單售後案件（客服量）</text>
+  <text x="1164" y="1010" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">3.2 件</text>
+  <text x="876" y="1035" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-MG-03</text>
+  <text x="1164" y="1035" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <line x1="872" y1="1039" x2="1168" y2="1039" stroke="#dddddd"/>
+  <text x="876" y="1054" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">客訴率</text>
+  <text x="1164" y="1056" font-size="12.5" text-anchor="end" font-weight="bold" fill="#999999">資料不足（n=4）</text>
+  <text x="876" y="1081" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-MG-04</text>
+  <text x="1164" y="1081" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <line x1="872" y1="1085" x2="1168" y2="1085" stroke="#dddddd"/>
+  <text x="876" y="1100" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">社群人均產值</text>
+  <text x="1164" y="1102" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">NT$ 312</text>
+  <text x="876" y="1127" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-MG-05</text>
+  <text x="1164" y="1127" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">人工填寫</text>
+  <line x1="872" y1="1131" x2="1168" y2="1131" stroke="#dddddd"/>
+  <text x="876" y="1146" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">團主活躍率（團媽）</text>
+  <text x="1164" y="1148" font-size="12.5" text-anchor="end" font-weight="bold" fill="#222222">67%</text>
+  <text x="876" y="1173" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-MG-06</text>
+  <text x="1164" y="1173" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <line x1="872" y1="1177" x2="1168" y2="1177" stroke="#dddddd"/>
+  <text x="876" y="1192" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">團主收款檔期對帳完成率</text>
+  <text x="1164" y="1194" font-size="12.5" text-anchor="end" font-weight="bold" fill="#999999">—（待串接）</text>
+  <text x="876" y="1219" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-MG-07</text>
+  <text x="1164" y="1219" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <text x="216" y="1394" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">D. 跨模式比較</text>
+  <circle cx="203" cy="1389" r="11" fill="#111111"/><text x="203" y="1393" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">6</text>
+  <rect x="216" y="1406" width="312" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="226" y="1422" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">模式退款率與客訴率比較</text>
+  <rect x="510" y="1411" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="516" y="1420" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="226" y="1462" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">5.1%／2.3%</text>
+  <text x="226" y="1477" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">AGENCY；其他模式見 A 表（不同分母不相加）</text>
+  <text x="226" y="1511" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-X-04</text>
+  <text x="520" y="1511" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <rect x="540" y="1406" width="312" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="550" y="1422" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">適配分與實際成效相關性（SOP 01）</text>
+  <rect x="834" y="1411" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="840" y="1420" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="550" y="1462" font-size="18" text-anchor="start" font-weight="bold" fill="#999999">資料不足（n=5）</text>
+  <text x="550" y="1477" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">需 ≥ 檔期數門檻；相關不等於因果</text>
+  <text x="550" y="1511" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-X-05</text>
+  <text x="844" y="1511" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">推導</text>
+  <rect x="864" y="1406" width="312" height="112" rx="6" fill="#fff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="874" y="1422" font-size="11" text-anchor="start" font-weight="normal" fill="#555555">模式別履約準時率與例外率</text>
+  <rect x="1158" y="1411" width="12" height="12" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="1164" y="1420" font-size="9" text-anchor="middle" font-weight="bold" fill="#555555">i</text>
+  <text x="874" y="1462" font-size="18" text-anchor="start" font-weight="bold" fill="#222222">94%／2.1%</text>
+  <text x="874" y="1477" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">AGENCY；出貨單 ≥ 3 筆才顯示</text>
+  <text x="874" y="1511" font-size="9" text-anchor="start" font-weight="normal" fill="#888888">K2-X-06</text>
+  <text x="1168" y="1511" font-size="9" text-anchor="end" font-weight="normal" fill="#888888">系統記錄</text>
+  <text x="216" y="1548" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">角色可見性</text>
+  <circle cx="203" cy="1543" r="11" fill="#111111"/><text x="203" y="1547" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">7</text>
+  <rect x="216" y="1560" width="960" height="96" rx="6" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="230" y="1586" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">營運主管／財務／管理者：全部（含公司營業收入、貢獻利潤）</text>
+  <text x="230" y="1614" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">🔒 營運小編：只看自己負責的檔期；營收與利潤欄顯示 🔒（無 finance.read）</text>
+  <text x="230" y="1642" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">🔒 團主：沒有此頁，只看自己的團主看板；廠商：目前沒有看板入口（決策 D-14）</text>
+</svg>
