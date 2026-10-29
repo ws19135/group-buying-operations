@@ -53,12 +53,13 @@ export function ProgressBar({ value, total, danger }: { value: number; total: nu
   );
 }
 
-export function KpiCard({ id, label, value, note, source, formula, tag }: { id: string; label: string; value: string; note?: string; source?: string; formula?: string; tag?: ReactNode }) {
+export function KpiCard({ id, label, value, note, source, formula, tag, href }: { id: string; label: string; value: string; note?: string; source?: string; formula?: string; tag?: ReactNode; href?: string }) {
   return (
     <div className="kpi" data-testid={`kpi-${id}`}>
       <div className="label"><span>{label}</span>{tag}</div>
       <div className={`value${value === '—' ? ' null' : ''}`} data-testid={`kpi-${id}-value`}>{value}</div>
       {note ? <div className="note">{note}</div> : null}
+      {href ? <div className="note"><Link href={href} data-testid={`kpi-${id}-detail`}>看明細 →</Link></div> : null}
       {formula ? <details><summary>口徑</summary><p>來源：{source}<br />{formula}</p></details> : null}
     </div>
   );

@@ -133,3 +133,15 @@ pre.diff { background: var(--surface-2); border: 1px solid var(--border); paddin
   .tl-head, .tl-row { grid-template-columns: 90px repeat(13, minmax(18px,1fr)); }
   .kv { grid-template-columns: 100px 1fr; }
 }
+
+/* 管理者總覽：跨團主業績長條圖、營運異常與待辦 */
+.vbars { display: flex; gap: 14px; align-items: stretch; height: 240px; padding-top: 6px; }
+.vbar { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; text-decoration: none !important; color: inherit; }
+.vbar-val { font-size: 12px; color: var(--muted); margin-bottom: 4px; white-space: nowrap; }
+.vbar-track { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+.vbar-fill { display: block; width: 100%; max-width: 72px; background: var(--primary); border-radius: 6px 6px 0 0; }
+.vbar:hover .vbar-fill { background: var(--primary-d); }
+.vbar-label { font-size: 13px; margin-top: 6px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attention-list { list-style: none; margin: 0; padding: 4px 16px 12px; }
+.attention-list li { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 9px 0; border-top: 1px solid var(--border); }
+.attention-list li:first-child { border-top: 0; }

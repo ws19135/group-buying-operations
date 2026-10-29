@@ -11,6 +11,7 @@ import { camelize } from '../lib/case';
 import { parseCsv } from '../lib/csv';
 import { listPaged, pageParams } from '../lib/repo';
 import { nonEmpty } from '../lib/text';
+import { isIsoDate } from '../lib/dates';
 import { campaignScope } from '../lib/scope';
 
 export const ORDER_STATUSES = ['PAID', 'PENDING', 'CANCELLED', 'REFUNDED', 'PARTIAL_REFUND'] as const;
@@ -235,8 +236,14 @@ export async function listOrders(actor: Actor, q: URLSearchParams) {
   const where = [`(${sc.sql})`];
   const cid = nonEmpty(q.get('campaignId')); if (cid) { params.push(cid); where.push(`o.campaign_id=$${params.length}`); }
   const st = nonEmpty(q.get('status')); if (st) { params.push(st); where.push(`o.status=$${params.length}`); }
+  // 下單日期區間（台北時間，含起訖日）；供儀表板 KPI 點進明細使用
+  const from = nonEmpty(q.get('from')); if (from) { if (!isIsoDate(from)) throw validation('from 日期格式需為 YYYY-MM-DD'); params.push(from); where.push(`o.ordered_at >= ($${params.length}::date::text || ' 00:00:00+08')::timestamptz`); }
+  const to = nonEmpty(q.get('to')); if (to) { if (!isIsoDate(to)) throw validation('to 日期格式需為 YYYY-MM-DD'); params.push(to); where.push(`o.ordered_at < (($${params.length}::date + 1)::text || ' 00:00:00+08')::timestamptz`); }
+  const hid = nonEmpty(q.get('hostId')); if (hid) { params.push(hid); where.push(`EXISTS (SELECT 1 FROM attributions a WHERE a.order_id=o.id AND a.host_id=$${params.length})`); }
+  if (q.get('refunded') === '1') where.push('o.refund_amount > 0');
   const res = await listPaged<Record<string, unknown>>(
-    `SELECT o.id, o.campaign_id, o.source_system, o.source_order_id, o.ordered_at, o.status, o.gross_amount, o.refund_amount, o.data_origin, o.import_batch_id
+    `SELECT o.id, o.campaign_id, c.title AS campaign_title, o.source_system, o.source_order_id, o.ordered_at, o.status, o.gross_amount, o.refund_amount, o.data_origin, o.import_batch_id,
+       (SELECT string_agg(h.display_name, '、' ORDER BY h.display_name) FROM attributions a JOIN hosts h ON h.id=a.host_id WHERE a.order_id=o.id) AS host_names
      FROM orders o JOIN campaigns c ON c.id=o.campaign_id WHERE ${where.join(' AND ')}`, params, 'o.ordered_at DESC', pageParams(q));
   return { ...res, items: camelize(res.items) };
 }
