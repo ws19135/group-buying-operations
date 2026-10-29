@@ -8,6 +8,7 @@ import { todayTaipei } from '../lib/ids';
 import { camelize } from '../lib/case';
 import { campaignScope } from '../lib/scope';
 import { pickCommissionRule } from '../lib/commission-calc';
+import { adminExtras, CAMPAIGN_HOSTS_JSON } from './dashboard-extra';
 import { attainment, computeSalesFromAgg, dataStatus, estimateCommission, KPI_DEFS, SALES_STATUSES, type DataStatus, type SalesAggRow } from '../lib/kpi';
 
 export interface DataQuality {
@@ -25,12 +26,22 @@ const STATUS_LABEL: Record<DataStatus, string> = {
   MIXED: '含 DEMO 與匯入資料混合：請勿作為正式業績',
 };
 
-function periodBounds(ym?: string | null): { ym: string; startDate: string; endDate: string; from: string; to: string } {
+export type PeriodMode = 'month' | 'week';
+
+function periodBounds(ym?: string | null, mode: PeriodMode = 'month'): { ym: string; mode: PeriodMode; startDate: string; endDate: string; from: string; to: string } {
+  if (mode === 'week') {
+    // 本週：台北時間的週一到週日
+    const today = todayTaipei();
+    const dow = new Date(`${today}T00:00:00Z`).getUTCDay();       // 0=週日
+    const start = addDays(today, -((dow + 6) % 7));
+    const end = addDays(start, 6);
+    return { ym: today.slice(0, 7), mode, startDate: start, endDate: end, from: `${start}T00:00:00+08:00`, to: `${addDays(end, 1)}T00:00:00+08:00` };
+  }
   const month = ym && /^\d{4}-\d{2}$/.test(ym) ? ym : todayTaipei().slice(0, 7);
   const m = Number(month.slice(5));
   if (m < 1 || m > 12) throw validation('月份格式需為 YYYY-MM');
   const { start, end } = monthRange(month);
-  return { ym: month, startDate: start, endDate: end, from: `${start}T00:00:00+08:00`, to: `${addDays(end, 1)}T00:00:00+08:00` };
+  return { ym: month, mode, startDate: start, endDate: end, from: `${start}T00:00:00+08:00`, to: `${addDays(end, 1)}T00:00:00+08:00` };
 }
 
 async function dataQuality(db: Queryable, orgId: string, scopeSql: string, scopeParams: unknown[]): Promise<DataQuality> {
@@ -67,19 +78,14 @@ async function salesAgg(db: Queryable, scopeSql: string, scopeParams: unknown[],
   return r.rows.map((x) => ({ status: x.status, n: x.n, gross: Number(x.gross), refund: Number(x.refund), refundedN: x.refunded_n }));
 }
 
-/** 檔期的參與團主（不含已婉拒）：主要團主排前面。供儀表板清單標出「是哪位團主」 */
-const CAMPAIGN_HOSTS_JSON = `(SELECT coalesce(json_agg(json_build_object('hostId', h.id, 'name', h.display_name, 'role', ch.role, 'status', ch.status) ORDER BY (ch.role = 'PRIMARY') DESC, h.display_name), '[]'::json)
-  FROM campaign_hosts ch JOIN hosts h ON h.id = ch.host_id
-  WHERE ch.campaign_id = c.id AND ch.deleted_at IS NULL AND h.deleted_at IS NULL AND ch.status <> 'DECLINED')`;
-
 // ===================== 管理者 Dashboard =====================
-export async function getAdminDashboard(actor: Actor, periodYm?: string | null) {
+export async function getAdminDashboard(actor: Actor, periodYm?: string | null, range?: string | null) {
   requirePerm(actor, 'dashboard.admin');
   const sc = campaignScope(actor, 1, 'c');
   if (sc.sql === 'FALSE') throw forbidden();
   const db = pool();
   const today = todayTaipei();
-  const p = periodBounds(periodYm);
+  const p = periodBounds(periodYm, range === 'week' ? 'week' : 'month');
   const dq = await dataQuality(db, actor.orgId, sc.sql, sc.params);
   const hasOrders = dq.status !== 'NO_DATA';
   const showSales = can(actor, 'order.read');
@@ -192,7 +198,7 @@ export async function getAdminDashboard(actor: Actor, periodYm?: string | null) 
 
   return {
     generatedAt: new Date().toISOString(),
-    period: { month: p.ym, from: p.startDate, to: p.endDate },
+    period: { month: p.ym, mode: p.mode, from: p.startDate, to: p.endDate },
     dataQuality: dq,
     kpiDefinitions: KPI_DEFS,
     sales: showSales ? sales : null,
@@ -209,6 +215,7 @@ export async function getAdminDashboard(actor: Actor, periodYm?: string | null) 
     pendingApprovals,
     vendors: camelize(vendors),
     vendorCampaigns: camelize(vendorCampaigns),
+    ...(await adminExtras({ db, actor, sc, today, p, showSales })),
   };
 }
 

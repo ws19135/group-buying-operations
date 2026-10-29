@@ -3,7 +3,7 @@ export interface Kpi { value: number | null; source?: string; formula?: string; 
 export interface DataQualityV { status: 'NO_DATA' | 'DEMO' | 'IMPORT' | 'MIXED'; statusLabel: string; lastImport: { id: string; finishedAt: string | null; dataAsOf: string | null; sourceSystem: string; status: string } | null; openImportErrors: number; warnings: string[] }
 export interface CampaignHostRef { hostId: string; name: string; role: string; status: string }
 export interface AdminDash {
-  generatedAt: string; period: { month: string; from: string; to: string }; dataQuality: DataQualityV;
+  generatedAt: string; period: { month: string; mode: 'month' | 'week'; from: string; to: string }; dataQuality: DataQualityV;
   sales: { gmv: Kpi; refund: Kpi; net: Kpi; orders: Kpi; aov: Kpi; refundRate: Kpi } | null;
   targets: { total: number | null; attainment: Kpi; byCampaign: { id: string; title: string; target: number; net: number; attainment: number | null }[] } | null;
   unattributedNet: number | null;
@@ -19,6 +19,16 @@ export interface AdminDash {
   vendors: { vendorId: string; name: string; campaigns: number; live: number; tasksTotal: number; tasksDone: number; vendorOverdue: number }[];
   vendorCampaigns: { campaignId: string; title: string; status: string; vendorId: string; vendorName: string; openDate: string | null; closeDate: string | null; hosts: CampaignHostRef[];
     tasksTotal: number; tasksDone: number; overdue: number; vendorOverdue: number; nextTaskName: string | null; nextTaskDue: string | null; nextTaskOwnerRole: string | null }[];
+  kpiDefinitions?: Record<string, { source?: string; formula?: string }>;
+  overview: { liveCampaigns: number; liveHosts: number; statuses: string[] };
+  finance: { estimatedCommission: { value: number | null; unrated: number } | null; confirmedCommission: { value: number; items: number } | null; received: { value: number; count: number } | null };
+  communityRank: { communityId: string; name: string; platform: string; orders: number; net: number }[] | null;
+  campaignOutput: { campaigns: number; average: number | null; top: { id: string; title: string; status: string; orders: number; net: number }[] } | null;
+  dataSources: { sourceSystem: string; dataOrigin: string; orders: number; lastSync: string | null; lastOrderAt: string | null }[] | null;
+  vendorSuccess: { overall: { launched: number; cancelled: number; rate: number } | null; byVendor: { vendorId: string; name: string; launched: number; cancelled: number; rate: number }[] };
+  onTimeLaunch: { total: number; onTime: number; rate: number | null };
+  productRepeat: { productId: string; name: string; campaigns: number; net: number | null; avgPerCampaign: number | null }[];
+  attention: { kind: string; chip: string; tone: 'danger' | 'warn' | 'info'; title: string; detail: string; urgency: number; href: string }[];
 }
 export interface HostDash {
   generatedAt: string; host: { id: string; name: string }; period: { month: string; from: string; to: string }; dataQuality: DataQualityV;
