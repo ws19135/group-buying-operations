@@ -46,3 +46,28 @@ export const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'];
 export const lab = (map: Record<string, Lab>, k: string | null | undefined): Lab => (k ? map[k] ?? { label: k, tone: 'neutral' } : { label: '—', tone: 'neutral' });
 
 export const STATUS_LABEL_MAP: Record<string, string> = STATUS_LABEL;
+
+// ---- SOP 02／03：選品評估、合作資格審查、試用、可行性 ----
+export const SEL_REC = m({ PROCEED: ['建議進入商務審查', 'ok'], SUPPLEMENT: ['補測／補件', 'warn'], HOLD: ['暫緩', 'danger'], BLOCKED: ['合規未過', 'danger'], INSUFFICIENT_DATA: ['資料不足', 'neutral'] });
+export const COMPLIANCE = m({ PASS: ['合規通過', 'ok'], FAIL: ['合規未過', 'danger'], UNKNOWN: ['尚未查核', 'warn'], NEEDS_LEGAL: ['需法務／合規審查', 'warn'] });
+export const EVAL_REVIEW = m({ ACCEPTED: ['同意採用', 'ok'], REJECTED: ['不採用', 'danger'], NEEDS_MORE: ['需補資料', 'warn'] });
+export const EVAL_STATUS = m({ DRAFT: ['草稿', 'neutral'], SUBMITTED: ['已送出', 'info'] });
+export const DD_STATUS = m({ CONFIRMED: ['已確認', 'ok'], PENDING_DOCS: ['待補件', 'warn'], NOT_APPLICABLE: ['不適用', 'neutral'], AT_RISK: ['有風險', 'danger'] });
+export const DD_RECORD_STATUS = m({ DRAFT: ['草稿', 'neutral'], IN_REVIEW: ['審查中', 'info'], APPROVED: ['已核准', 'ok'], REJECTED: ['已退回', 'danger'] });
+export const LEGAL_STATUS = m({ NOT_REQUIRED: ['不需法務審查', 'neutral'], REQUIRED: ['需法務／合規審查', 'warn'], CLEARED: ['已確認無虞', 'ok'], BLOCKED: ['法務封鎖', 'danger'] });
+export const PARTY = m({ BRAND: ['品牌', 'neutral'], COMPANY: ['公司', 'neutral'], HOST: ['團主', 'neutral'], SHARED: ['共同分擔', 'neutral'], TBD: ['待確認', 'warn'] });
+export const EVID_STATE = m({ VALID: ['有效', 'ok'], EXPIRING: ['即將到期', 'warn'], EXPIRED: ['已過期', 'danger'], NO_EXPIRY: ['無期限', 'neutral'] });
+export const EVID_KIND: Record<string, string> = { CERTIFICATE: '證書／認證', TEST_REPORT: '檢驗報告', CONTRACT: '合約', QUOTE: '報價', PHOTO: '照片', VIDEO: '影片', LICENSE: '授權文件', LEGAL_OPINION: '法務意見', OTHER: '其他' };
+export const TRIAL_STATUS = m({ OPEN: ['進行中', 'info'], CONCLUDED: ['已結論', 'ok'], CANCELLED: ['已取消', 'neutral'] });
+export const TRIAL_LEVEL: Record<string, string> = { QUALIFICATION: '商品資格驗證', HOST_FIT: '團主／檔期適配試用' };
+export const TRIAL_TYPE: Record<string, string> = { INTERNAL: '內部試用', DESIGNATED_HOST: '指定團主試用', MINI_GROUP: '小規模測試團' };
+export const CONCLUSION = m({ PASS: ['通過', 'ok'], CONDITIONAL: ['有條件通過', 'warn'], FAIL: ['不通過', 'danger'], RETEST: ['需重測', 'warn'] });
+export const CHECK_RESULT = m({ NOT_TESTED: ['未測', 'neutral'], PASS: ['通過', 'ok'], CONCERN: ['有疑慮', 'warn'], FAIL: ['不通過', 'danger'] });
+export const DEFECT = m({ NONE: ['無缺陷', 'neutral'], MINOR: ['輕微', 'neutral'], MAJOR: ['重大', 'warn'], CRITICAL: ['嚴重', 'danger'] });
+export const DIMENSION: Record<string, string> = { PRODUCT: '商品本身', CUSTOMER: '顧客體驗', CONTENT: '內容素材', BUSINESS: '商業效益' };
+export const RECOVERY = m({ NOT_REQUIRED: ['不需回收', 'neutral'], PENDING: ['待回收', 'warn'], RECOVERED: ['已回收', 'ok'], WAIVED: ['免回收', 'neutral'], LOST: ['遺失', 'danger'] });
+export const LIGHT = m({ RED: ['有阻礙性風險', 'danger'], YELLOW: ['有缺口', 'warn'], GREEN: ['無已知缺口', 'ok'] });
+export const RISK_LEVEL = m({ BLOCKING: ['阻礙', 'danger'], GAP: ['缺口', 'warn'] });
+export const REGULATED: Record<string, string> = { FOOD: '食品', SUPPLEMENT: '保健食品', MEDICAL_DEVICE: '醫療器材', COSMETIC: '化妝品', CHILD_PRODUCT: '兒童／嬰幼兒用品', OTHER_REGULATED: '其他受規範品類' };
+export const SOURCE_KIND: Record<string, string> = { VENDOR_QUOTE: '廠商報價', TRIAL_ACTUAL: '試用／小團實際', HISTORICAL_DATA: '歷史資料', CONTRACT: '合約', MANUAL_ESTIMATE: '人工估計' };
+export const SEL_DIM: Record<string, string> = { need: '客群需求符合度', quality: '商品品質與安全性', profit: '利潤與價格競爭力', supply: '供應商履約能力', content: '內容展示與說服力', repeat: '複購潛力' };

@@ -41,7 +41,7 @@ export async function g1Summary(actor: Actor, campaignId: string) {
           `SELECT recommendation, count(*)::int AS n, max(total_score) AS top FROM product_fit_assessments WHERE organization_id=$1 AND product_id=$2 AND campaign_id=$3 AND superseded_at IS NULL GROUP BY recommendation`, [actor.orgId, pid, campaignId]))
           .map((x) => [x.recommendation, { hosts: Number(x.n), topScore: x.top == null ? null : Number(x.top) }]))
       : null;
-    const evView = ev as (Record<string, unknown> & { compliance?: { status?: string | null; note?: string | null }; recommendation?: string | null; reviewDecision?: string | null }) | null;
+    const evView = ev;
     const ddView = dd;
     const risks = buildRisks({
       reviewStatus: p.review_status,

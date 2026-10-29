@@ -8,6 +8,7 @@ import { Modal } from '@/ui/Modal';
 import { Badge, Banner, Card, EmptyState, PageHeader, StatusBadge, Table } from '@/ui/components';
 import { CAMPAIGN_STATUS, REVIEW_STATUS, VENDOR_STATUS } from '@/ui/labels';
 import { as } from '@/ui/types';
+import { DiligenceCard } from './DiligenceCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +52,7 @@ export default withActor(async (actor, props: { params: Params }) => {
           )}
         </Card>
       </div>
+      {can(actor, 'selection.read') ? <DiligenceCard actor={actor} vendorId={v.id} products={v.products.map((p) => ({ id: p.id, name: p.name }))} /> : null}
       <Card title="商品" flush testid="vendor-products">
         {v.products.length === 0 ? <EmptyState title="尚無商品" hint={can(actor, 'product.write') ? <Link href="/products/new">建立商品</Link> : undefined} /> : (
           <Table head={['商品', '類別', '審核']}>{v.products.map((p) => <tr key={p.id}><td><Link href={`/products/${p.id}`}>{p.name}</Link></td><td>{p.category ?? '—'}</td><td><StatusBadge map={REVIEW_STATUS} value={p.reviewStatus} /></td></tr>)}</Table>

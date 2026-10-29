@@ -331,9 +331,9 @@ export async function reviewEvaluation(actor: Actor, id: string, raw: z.input<ty
 }
 
 /** 供 G1 摘要等唯讀使用：該商品現行（已送出、未被取代）的評估 */
-export async function currentEvaluation(db: Queryable, orgId: string, productId: string) {
+export async function currentEvaluation(db: Queryable, orgId: string, productId: string): Promise<EvaluationView | null> {
   const r = await db.query(`${SELECT_EVAL} WHERE e.organization_id=$1 AND e.product_id=$2 AND e.status='SUBMITTED' AND e.superseded_at IS NULL ORDER BY e.version_no DESC LIMIT 1`, [orgId, productId]);
-  return r.rows[0] ? camelize<Record<string, unknown>>(r.rows[0]) : null;
+  return r.rows[0] ? camelize<EvaluationView>(r.rows[0]) : null;
 }
 
 // ---------------- 總覽（/selection） ----------------

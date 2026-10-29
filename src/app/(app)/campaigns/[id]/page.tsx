@@ -18,6 +18,7 @@ import { as, type AuditV, type CampaignV, type CheckItemV } from '@/ui/types';
 import { TaskActions } from './TaskActions';
 import { RescheduleDialog } from './RescheduleDialog';
 import { FitG1Note, FitTab } from './FitTab';
+import { SelectionG1Note, SelectionTab } from './SelectionTab';
 import { AddPlacementForm, AddProductForm } from './CampaignForms';
 
 export const dynamic = 'force-dynamic';
@@ -52,6 +53,7 @@ export default withActor(async (actor, props: { params: Params; searchParams: SP
     ...(internal || actor.role === 'HOST' ? [{ key: 'hosts', label: '團主與曝光' }] : []),
     ...(internal ? [{ key: 'approvals', label: '核准與關卡' }] : []),
     ...(internal && can(actor, 'fit.read') ? [{ key: 'fit', label: '客群適配' }] : []),
+    ...(internal && can(actor, 'selection.read') ? [{ key: 'selection', label: '選品與試用' }] : []),
     ...(internal ? [{ key: 'audit', label: '異動紀錄' }] : []),
   ];
   const isManager = ['SYSTEM_ADMIN', 'OPS_MANAGER'].includes(actor.role);
@@ -119,6 +121,8 @@ export default withActor(async (actor, props: { params: Params; searchParams: SP
       {tab === 'approvals' && internal ? await ApprovalsTab({ c, actor }) : null}
 
       {tab === 'fit' && internal && can(actor, 'fit.read') ? await FitTab({ campaignId: id, actor }) : null}
+
+      {tab === 'selection' && internal && can(actor, 'selection.read') ? await SelectionTab({ campaignId: id, actor }) : null}
 
       {tab === 'audit' && internal ? await AuditTab({ id, actor }) : null}
     </>
@@ -232,6 +236,7 @@ async function ApprovalsTab({ c, actor }: { c: CampaignV; actor: A }) {
   const pending = (c.approvals ?? []).filter((a) => a.status === 'PENDING');
   return (
     <div data-testid="tab-approvals">
+      {gates.includes('G1') && can(actor, 'selection.read') ? await SelectionG1Note({ campaignId: c.id, actor }) : null}
       {gates.includes('G1') && can(actor, 'fit.read') ? await FitG1Note({ campaignId: c.id, actor }) : null}
       {gates.length === 0 && pending.length === 0 ? <Banner kind="nodata">目前狀態（{STATUS_LABEL_MAP[c.status] ?? c.status}）沒有可申請的關卡。</Banner> : null}
       {gates.map((g) => {

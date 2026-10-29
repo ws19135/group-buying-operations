@@ -11,6 +11,7 @@ import { money } from '@/ui/format';
 import { listProductFit } from '@/server/modules/fit';
 import { FitTable } from '@/ui/FitTable';
 import { as, type FitItemV } from '@/ui/types';
+import { EvaluationCard, FeasibilityCard, TrialCard } from './SelectionCards';
 
 export const dynamic = 'force-dynamic';
 interface P {
@@ -70,6 +71,9 @@ export default withActor(async (actor, props: { params: Params }) => {
           </Table>
         )}
       </Card>
+      {can(actor, 'selection.read') ? <EvaluationCard actor={actor} productId={p.id} /> : null}
+      {can(actor, 'selection.read') ? <TrialCard actor={actor} productId={p.id} /> : null}
+      {can(actor, 'selection.read') ? <FeasibilityCard actor={actor} productId={p.id} /> : null}
       {fitData ? (
         <Card title="候選團主適配" flush testid="product-fit" actions={can(actor, 'fit.assess') ? <ActionButton endpoint={`/api/products/${p.id}/fit`} label="產生候選團主評估" variant="primary" small testid="btn-assess-product" successMessage="已更新候選團主評估" /> : undefined}>
           <p className="small muted" style={{ padding: '10px 16px 0' }}>依各團主的客群分析、歷史績效與廠商供應履約評分。缺資料的維度會標示「未知」並降低信心，不會當成 0 分；合規與商品品質是硬性檢查，不被總分抵銷。評分權重為{fitData.config.approved ? '已確認' : '「建議值，待 Owner 確認」'}（v{fitData.config.version}）。</p>

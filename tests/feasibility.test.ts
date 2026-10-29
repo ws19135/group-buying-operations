@@ -4,7 +4,6 @@ import { createFeasibility, getFeasibility, listProductFeasibility, recordActual
 import { createEvidence } from '@/server/modules/evidence';
 import { createCase } from '@/server/modules/aftersales';
 import { importOrders } from '@/server/modules/orders';
-import type { Actor } from '@/server/lib/permissions';
 import { Client } from './api-helper';
 import { addUser, dayOffset, makeWorld, mkCampaign, mkHost, mkProduct, mkVendor, type World } from './helpers';
 
@@ -12,7 +11,7 @@ const HEADER = 'source_order_id,campaign_id,ordered_at,status,quantity,unit_pric
 
 let w: World, other: World;
 let vendorId: string, hostA: string, hostB: string;
-let ed: Client, ed2: Client, hostC: Client, vendC: Client, fin: Client;
+let ed: Client, hostC: Client, vendC: Client, fin: Client;
 let n = 0;
 const newProduct = async () => mkProduct(w, vendorId, { name: `[DEMO] 可行性商品 ${++n}${Math.random().toString(36).slice(2, 5)}` });
 
@@ -29,7 +28,7 @@ beforeAll(async () => {
   vendorId = (await mkVendor(w, '[DEMO] 可行性廠商', { category: '家電' })).id;
   hostA = (await mkHost(w, '[DEMO] 團主甲')).id; hostB = (await mkHost(w, '[DEMO] 團主乙')).id;
   const hu = await addUser(w.orgId, 'HOST', { hostIds: [hostA] }); const vu = await addUser(w.orgId, 'VENDOR', { vendorIds: [vendorId] });
-  [ed, ed2, hostC, vendC, fin] = await Promise.all([Client.forActor(w.editor), Client.forActor(w.editor2), Client.forActor(hu), Client.forActor(vu), Client.forActor(w.finance)]);
+  [ed, hostC, vendC, fin] = await Promise.all([Client.forActor(w.editor), Client.forActor(hu), Client.forActor(vu), Client.forActor(w.finance)]);
 });
 
 describe('可行性：版本、假設來源、不捏造', () => {
