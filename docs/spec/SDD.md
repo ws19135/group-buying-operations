@@ -66,6 +66,8 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 | FBT／SHP／INV | 出貨批次／出貨單／**庫存異動與發票共用 `INV-`** | ❓ 見 §20 #9 |
 | CAS／RFD | 售後案件／退款申請 | `CAS-000001`、`RFD-000001` |
 | PAY／EXP | 入帳／費用 | `PAY-000001`、`EXP-000001` |
+| SEG／SPF／LNK／EVD | 客群／客群偏好／團主↔客群連結／研究證據（SOP 01） | `SEG-0001`、`SPF-000001`、`LNK-000001`、`EVD-000001` |
+| FIT | 適配評估（SOP 01） | `FIT-000001` |
 | RUN／NTF／INT | 自動化執行／通知／進件 | `RUN-YYYYMMDD-0001`、`NTF-YYYYMMDD-000001`、`INT-000001` |
 
 > 時間分段的計數（CMP、TSK、IMP、SET、RUN、NTF）以台北日期或月份為 `period`，跨期自動重新從 1 起算。
@@ -74,7 +76,7 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 
 ## 1. 角色與權限矩陣
 
-> **本節矩陣由 `src/server/lib/permissions.ts` 直接產生**（腳本 `import ROLE_PERMISSIONS` 後輸出，非手抄）。43 項權限；各角色持有數：管理者 43、主管 36、小編 26、團主 10、廠商 7、財務 22。
+> **本節矩陣由 `src/server/lib/permissions.ts` 直接產生**（腳本 `import ROLE_PERMISSIONS` 後輸出，非手抄）。49 項權限（SOP 01 新增 6 項：`segment.read／write`、`fit.read／assess／review／config`）；各角色持有數：管理者 49、主管 42、小編 30、團主 10、廠商 7、財務 22。
 
 | 權限 | 管理者 | 主管 | 小編 | 團主 | 廠商 | 財務 |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
@@ -99,6 +101,10 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 | `exception.read` | ● | ● | ● |  |  | ● |
 | `finance.read` | ● | ● |  |  |  | ● |
 | `finance.write` | ● |  |  |  |  | ● |
+| `fit.assess` | ● | ● | ● |  |  |  |
+| `fit.config` | ● | ● |  |  |  |  |
+| `fit.read` | ● | ● | ● |  |  |  |
+| `fit.review` | ● | ● |  |  |  |  |
 | `fulfillment.read` | ● | ● | ● | ● | ● | ● |
 | `fulfillment.write` | ● | ● | ● |  |  |  |
 | `host.read` | ● | ● | ● |  |  | ● |
@@ -113,6 +119,8 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 | `product.write` | ● | ● | ● |  |  |  |
 | `refund.approve` | ● | ● |  |  |  |  |
 | `refund.complete` | ● |  |  |  |  | ● |
+| `segment.read` | ● | ● | ● |  |  |  |
+| `segment.write` | ● | ● | ● |  |  |  |
 | `settlement.confirm` | ● |  |  |  |  | ● |
 | `task.complete` | ● | ● | ● | ● | ● | ● |
 | `task.read` | ● | ● | ● | ● | ● | ● |
@@ -126,6 +134,7 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 
 - 權限只回答「能不能做這類動作」；「能碰哪些資料列」由 `campaignScope`（SAD §8.3）決定。
 - `OPS_MANAGER` ＝ 全部權限，**扣除** `user.manage`、`commission.write`、`host.self`、`vendor.self`、`refund.complete`、`finance.write`、`settlement.confirm`（程式用 `ALL.filter(…)`）。
+- SOP 01 的 6 項權限只給管理者、主管與（部分）營運小編：小編有 `segment.read／write`、`fit.read／assess`，**沒有** `fit.review`、`fit.config`；財務、團主、廠商一項都沒有（客群分析與適配評估無外部入口）。矩陣中這 6 列依 `permissions.ts` 補入；其餘列未重新產生，沿用原基準。
 - 核准關卡的決定者另有一張表（`GATE_APPROVER_ROLES`），**不用** `approval.*` 權限判斷：G1／G2／G5 ＝ 管理者、主管；G3 ＝ 管理者、主管、財務；G4 ＝ 管理者、財務。
 - 測試鎖定：`tests/unit/misc.test.ts`「權限矩陣（不可被默默放寬）」、`tests/aftersales.test.ts`「權限矩陣（定義）」、`tests/rbac.test.ts`。
 
@@ -235,12 +244,12 @@ sequenceDiagram
 
 **職責**：團主主檔、可承接區間、社群（多平台）、團主與社群的關聯。
 
-**資料表**：`hosts`（`normalized_name` 唯一；`status` ∈ ACTIVE／PAUSED／ENDED）、`host_availability`（`kind` ∈ AVAILABLE／BLOCKED，`start_date ≤ end_date`）、`communities`（`(platform, normalized_name)` 唯一；`platform` ∈ LINE／FACEBOOK／INSTAGRAM／THREADS／YOUTUBE／OTHER）、`host_communities`（`PRIMARY KEY (host_id, community_id)`，`role` ∈ OWNER／ADMIN／MEMBER，以 `ended_at` 結束關聯）。
+**資料表**：`hosts`（`normalized_name` 唯一；`status` ∈ ACTIVE／PAUSED／ENDED）、`host_availability`（`kind` ∈ AVAILABLE／BLOCKED，`start_date ≤ end_date`）、`communities`（`(platform, normalized_name)` 唯一；`platform` ∈ LINE／FACEBOOK／INSTAGRAM／THREADS／YOUTUBE／OTHER）、`host_communities`（`PRIMARY KEY (host_id, community_id)`，`role` ∈ OWNER／ADMIN／MEMBER，以 `ended_at` 結束關聯）。**SOP 01 新增** `hosts.partner_type`（可空；`GROUP_MOM`／`COMMUNITY_OWNER`／`KOL`／`OTHER`；空＝未知）。
 
 | 方法／路徑 | 權限 | 規則 |
 |---|---|---|
-| `GET /api/hosts`、`GET /api/hosts/:id` | `host.read` 或 `host.self`（團主只看自己） | 團主看不到 `internalNote` |
-| `POST /api/hosts`、`PATCH /api/hosts/:id`、`POST /api/hosts/:id/archive` | `host.write` | 封存時若仍參與未結案檔期（非 DECLINED）則 412；重複名稱 409 |
+| `GET /api/hosts`、`GET /api/hosts/:id` | `host.read` 或 `host.self`（團主只看自己） | 團主看不到 `internalNote`；**沒有 `segment.read` 的角色（財務、團主）另看不到 `partnerType`、清單的 `segmentCount`**；清單每列含 `segmentCount`（進行中的客群連結數） |
+| `POST /api/hosts`、`PATCH /api/hosts/:id`、`POST /api/hosts/:id/archive` | `host.write` | 封存時若仍參與未結案檔期（非 DECLINED）則 412；重複名稱 409；`partnerType` 只接受定義的 4 種值，空字串／null＝清空 |
 | `POST /api/hosts/:id/availability`、`POST /api/availability/:id/remove` | `host.write` | 區間驗證；移除為軟刪除 |
 | `POST /api/hosts/:id/communities`、`…/communities/:cid/unlink` | `community.write` | 重新關聯會清除 `ended_at`；解除關聯時若仍有未完成曝光安排則 412 |
 | `GET/POST/PATCH /api/communities…` | `community.read`／`community.write` | 建立時可一併關聯團主；`url` 僅 http(s) |
@@ -998,13 +1007,152 @@ sequenceDiagram
 
 ---
 
+## 18A. 客群分析與商品適配（`modules/segments.ts`、`modules/fit.ts`、`lib/fit-score.ts`，SOP 01）
+
+**職責**：把 SOP 01「客群定位」系統化——結構化的客群輪廓（事實／估計／未知）、團主↔客群連結、研究證據，並對「商品 × 團主」產生可解釋、可追溯、需人工覆核的適配評估，供 G1 選品核准**查閱**。**不修改 `gates.ts`／`campaigns.ts`／`workflow/*`，不自動核准，不發通知。**設計與驗收見 [`docs/phase2/SEGMENT_FIT.md`](../phase2/SEGMENT_FIT.md)。相關檔案：`migrations/013_segments_fit.sql`、`lib/segment-vocab.ts`（受控詞彙、別名表、`normText`）、`lib/fit-score.ts`（純函式評分）。
+
+### 18A.1 資料表與約束（migration 013）
+
+| 資料表 | ID | 重點約束 |
+|---|---|---|
+| `customer_segments` | `SEG-0001` | `normalized_name` 在組織內唯一（`WHERE deleted_at IS NULL`）；`age_band`∈`U25／25_29／30_44／45_59／60P`；`family_type`∈`SINGLE／COUPLE／PARENTING／TEEN／MULTI_GEN／EMPTY_NEST／OTHER`；`cycle`∈`WEEKLY／BIWEEKLY／MONTHLY／QUARTERLY／OCCASIONAL`；`price_min ≤ price_max`；`basis`∈`FACT／ESTIMATE`（預設 ESTIMATE）；**可空欄位＝未知** |
+| `segment_preferences` | `SPF-000001` | `kind`∈`MOTIVE／BARRIER／CATEGORY／CHANNEL`；`(segment_id, kind, normalized_value)` 唯一（未刪除者）；CHANNEL 值限 `LINE／FACEBOOK／INSTAGRAM／THREADS／YOUTUBE／OTHER／OFFLINE`（CHECK）；`evidence_id` 可指向證據；沒有任何一列＝該類未知 |
+| `partner_segment_links` | `LNK-000001` | `(host_id, segment_id)` 進行中唯一（`WHERE ended_at IS NULL`）；`share_percent` ∈ (0,100]；`community_id` 選填；解除＝`ended_at`（不刪列） |
+| `segment_evidence` | `EVD-000001` | `kind`∈`OBSERVATION／INTERVIEW／SURVEY／ORDER_DATA／PLATFORM_STAT／OTHER`；**CHECK：`FACT` 必須有 `source_label` 或 `source_url`**；`host_id` 選填 |
+| `product_fit_assessments` | `FIT-000001` | 見 §18A.4；`(product_id, host_id, COALESCE(campaign_id,''))` 未被取代者唯一；`product_fit_guard()` 觸發器鎖定評分內容 |
+| `hosts.partner_type` | — | 可空 CHECK，4 種值 |
+
+五張表皆有 `organization_id`、`touch_row`（`version+1`）與 `forbid_delete`（只軟刪除或以 `ended_at`／`superseded_at` 結束）。
+
+### 18A.2 API（`routes.ts` 新增 22 條）
+
+| 方法／路徑 | 權限 | 規則 |
+|---|---|---|
+| `GET /api/segments`、`POST /api/segments` | `segment.read`／`segment.write` | 列表篩選 `q`、`ageBand`、`familyType`、`cycle`（分頁，每列含 `linkedHosts`、`evidenceCount`）；建立帶 `Idempotency-Key`（範圍 `segment.create`）；名稱重複 409＋`existingId`；價格帶下限 > 上限 422；偏好陣列每類 ≤ 12 項 |
+| `GET /api/segments/:id` | `segment.read` | 輪廓＋四類偏好（含 basis、evidenceId）＋證據＋連結團主＋變更歷史（`audit_logs` 中 `entity_type='segment'`，最近 50 筆） |
+| `PATCH /api/segments/:id` | `segment.write` | 欄位更新（`null`／空字串＝清空）；四個偏好陣列「給了就整組同步」（新增、基準／證據變動更新、缺少者軟刪除）；帶 `version` 不符 409；只改偏好時仍會讓客群 `version` 前進；偏好變動另寫 `segment.preferences` 稽核 |
+| `POST /api/segments/:id/archive` | `segment.write` | 需 `reason`；仍有進行中連結 412；軟刪除（`deleted_at`），可用同名重建 |
+| `POST /api/segments/:id/evidence`、`POST /api/segment-evidence/:id/remove` | `segment.write` | 新增證據：FACT 無來源 422、來源連結只收 http(s)；移除為軟刪除，並清掉偏好上指向它的 `evidence_id` |
+| `GET /api/hosts/:id/segments` | `segment.read` | 團主客群分析彙整：`partnerType`、每個進行中連結（輪廓、偏好、證據、各自缺哪些）、`status`（`NOT_STARTED／PARTIAL／COMPLETE`）、`missing`、`shareSum`。必要項：年齡層、家庭型態、消費週期、四類偏好、至少一筆證據，加上團主的合作對象類型 |
+| `POST /api/hosts/:id/segments` | `segment.write` | 連結既有 `segmentId`，或一併建立 `segment`（二擇一）＋選填 `evidence[]`（≤10）；`communityId` 須為團主目前所屬社群；各進行中連結占比合計 ≤ 100；重複連結 409；冪等範圍 `segment.link`，整筆在同一交易 |
+| `PATCH /api/segment-links/:id`、`POST /api/segment-links/:id/end` | `segment.write` | 調整占比／依據／社群／備註（可樂觀鎖）；結束連結寫 `ended_at`；已結束者 404 |
+| `GET /api/fit/config`、`PUT /api/fit/config` | `fit.read`／`fit.config` | 見 §18A.3；PUT 帶 `version` 不符 409；權重不合法 422 |
+| `GET /api/fit/overview`、`GET /api/fit`、`GET /api/fit/:id` | `fit.read` | 總覽（待覆核、無客群分析的合作中團主、設定）；清單篩選 `recommendation`、`productId`、`hostId`、`campaignId`、`review=pending／done`、`limit`≤300；明細含設定快照與該（商品×團主×檔期）的歷次版本。帶檔期的列一律經 `campaignScope` |
+| `POST /api/fit/:id/review` | `fit.review` | `decision`∈`ACCEPTED／REJECTED／NEEDS_DATA`；非 ACCEPTED 必填原因；原因不得含手機／Email；已被取代 409；可重覆覆核（稽核有前後值）；**只寫覆核欄位** |
+| `GET /api/products/:id/fit`、`POST /api/products/:id/fit` | `fit.read`／`fit.assess` | GET：該商品「未被取代、無檔期脈絡」的評估，依建議等級再依總分排序；POST：body `{hostIds?, campaignId?}`，未給 `hostIds` 時評估所有 `ACTIVE` 團主（上限 200）；給 `campaignId` 須在檔期範圍內且商品在該檔期內 |
+| `GET /api/campaigns/:id/fit`、`POST /api/campaigns/:id/fit` | 同上＋`campaignScope` | 檔期內每個商品 × 每位未婉拒團主；無商品或無團主 412；範圍外 404 |
+| `POST /api/campaigns/:id/fit/outcome` | `fit.assess`＋`campaignScope` | 僅 `CLOSED`／`SETTLED`，否則 412；沒有檔期層級評估 412；內容相同不重寫（冪等） |
+
+### 18A.3 評分設定與演算法（`lib/fit-score.ts`，純函式，沒有資料庫相依）
+
+**設定**：存於 `system_settings['fit.scoring']`；未儲存時回傳內建建議值（`DEFAULT_FIT_CONFIG`，version 1、`approved:false`，介面顯示「建議值，待 Owner 確認」）；每次儲存 `version = 前一版 + 1`（第一次儲存＝2），寫 `fit.config.update` 稽核（前後值）。驗證 `configProblems`：五個權重為非負整數且合計 100；`0 ≤ review ≤ recommend ≤ 100`；`0 < minCompleteness ≤ mediumConfidence ≤ highConfidence ≤ 1`；`minHistoryCampaigns`、`minShipments` ≥ 1。
+
+| 維度（預設權重） | 輸入 | 分數（1–5；null＝未知） |
+|---|---|---|
+| 品類 `category`（20） | 客群 CATEGORY 偏好 × 商品類別／名稱（`normText` 正規化） | 類別互相包含＝5；僅別名或名稱命中＝4；有偏好但無命中＝1。未知：客群無品類偏好，或商品無類別且名稱未命中 |
+| 需求 `need`（30） | 客群 MOTIVE／BARRIER × 商品賣點＋說明＋合規備註＋名稱 | 動機：值或別名出現在文字；阻力：別名（認證、試用、退換…）出現＝已有化解依據。涵蓋率 = (命中動機＋已化解阻力)÷(動機數＋阻力數)；≥.75／.5／.25／>0／0 → 5／4／3／2／1。**一律標為估計**。未知：商品賣點與說明皆空，或客群無動機與阻力 |
+| 價格 `price`（15） | 客群價格帶 × 商品啟用規格團購價平均（不讀成本） | 在帶內 5；超出邊界 20% 內 3；更遠 1；只有單邊視為開放區間。未知：無價格帶或無團購價 |
+| 歷史績效 `history`（20） | 該團主歸因淨銷售（`SALES_STATUSES`；檔期狀態 `PENDING_CLOSE_CHECK／FULFILLING／PENDING_SETTLEMENT／SETTLED／CLOSED`；排除正被評估的檔期） | 優先同類別檔期（≥ `minHistoryCampaigns`，依據＝事實），否則全部檔期（依據＝估計，理由寫「跨品類」）；團主平均每檔淨銷售 ÷ 同範圍全體（檔期×團主）平均：≥1.2／.9／.6／.3／其他 → 5／4／3／2／1；團主退款率比全體高 ≥ 10 個百分點再 −1（最低 1）。未知：檔期不足，或基準樣本 < 3 筆或平均 ≤ 0 |
+| 供應履約 `supply`（15） | 該廠商歷次 `kind='ORDER'`、未取消的出貨單、售後案件（REFUND／COMPLAINT／EXCHANGE，未取消） | 例外率 ≤2%／5%／10%／20% → 5／4／3／2／其他 1；每百筆訂單案件數 ≤1／3／6／10 → 5／4／3／2／其他 1；取較低者（無訂單則只看例外率，依據＝估計）。未知：出貨單 < `minShipments` |
+
+多客群團主：各客群先算分，若所有已知客群都有占比則依占比加權，否則平均；未知客群不計入。維度依據＝任一已知客群（含輪廓、連結、偏好列）為估計則為估計。
+
+```
+已知權重和 Wk = Σ 已知（且權重>0）維度的權重
+總分    = 100 × Σ(權重 × 分數 ÷ 5) ÷ Wk        （Wk=0 時為 null；未知維度不計為 0）
+完整度  = Wk ÷ Σ 全部權重
+估計占比 = Σ(已知且依據＝估計的權重) ÷ Wk
+信心    = INSUFFICIENT 完整度 < minCompleteness；HIGH 完整度 ≥ high 且 估計占比 ≤ 0.5；
+          MEDIUM 完整度 ≥ medium；其餘 LOW
+硬性檢查 COMPLIANCE：廠商 BLACKLISTED／PAUSED → FAIL；商品無合規備註 → UNKNOWN；否則 PASS
+        QUALITY：商品 REJECTED → FAIL；APPROVED → PASS；其餘 → UNKNOWN
+建議    = 任何硬性 FAIL → BLOCKED
+          完整度 < minCompleteness 或 總分 null → INSUFFICIENT_DATA
+          總分 ≥ recommend 且 信心 ≠ LOW 且 硬性全 PASS → RECOMMEND
+          總分 ≥ review（含上一列被降級者）→ REVIEW
+          其餘 → NOT_RECOMMENDED
+```
+
+`reasons` 為人話摘要（建議與完整度、未通過／未知的硬性檢查、缺資料維度與原因、各維度分數與依據）。`inputHash` = 對（輸入 ＋ 權重 ＋ 門檻 ＋ `minHistoryCampaigns` ＋ `minShipments` ＋ `lexiconVersion`）做鍵排序後的 JSON 取 sha256（客群與偏好先排序，所以順序不影響）。
+
+### 18A.4 評估保存、覆核與成效回寫（`modules/fit.ts`）
+
+```mermaid
+sequenceDiagram
+  participant U as 小編／主管
+  participant A as assessProduct／assessCampaign
+  participant C as buildCtx（一次載入）
+  participant O as assessOne（每個 商品×團主）
+  participant S as scoreFit（純函式）
+  participant DB as product_fit_assessments
+  U->>A: POST /products/:id/fit 或 /campaigns/:id/fit
+  A->>A: requirePerm(fit.assess)；檢查檔期範圍、商品／團主存在
+  A->>C: 載入設定、已結單歷史、檔期類別、（逐廠商）供應統計
+  A->>O: 同一交易內逐一評估
+  O->>O: 讀團主進行中客群連結＋偏好；組成 FitInput
+  O->>S: inputHash(input, cfg)
+  O->>DB: SELECT 現行版本 FOR UPDATE（同 商品×團主×檔期）
+  alt 現行版本 input_hash 相同
+    O-->>A: unchanged=true（不新增列）
+  else 無現行版本或輸入／設定改變
+    O->>S: scoreFit(input, cfg)
+    O->>DB: 舊版 UPDATE superseded_at/by（先於新版 INSERT，滿足部分唯一索引）
+    O->>DB: INSERT 新版（設定快照、sources、reasons…）＋ audit fit.assess
+  end
+  A-->>U: { assessed, unchanged, results[] }
+```
+
+- **`product_fit_guard()`**：評分內容欄位寫入後不可改（含 `config_snapshot`、`input_hash`、`dimensions`、`hard_checks`、`reasons`、`sources`、評估人與時間），違反回 `restrict_violation`；`superseded_*` 只能由空變有值；刪除被 `forbid_delete` 擋。CHECK：有覆核決定必有覆核人與時間；非 ACCEPTED 必有 `review_note`。
+- **`sources`**（JSON）記用了哪些客群／連結（含各自依據與占比）、歷史範圍與樣本數、供應統計、商品類別／審核／廠商狀態、`lexiconVersion`。
+- **stale（資料已更新）**：列表／明細即時計算——商品、規格、廠商、客群、偏好、連結任一的 `updated_at` 晚於 `assessed_at`。**不含**訂單與出貨／售後的變動（SAD §12）。
+- **覆核**：`reviewFit` 鎖列→檢查檔期範圍→已被取代 409→只更新四個覆核欄位→稽核（前後值）。不改任何檔期狀態、不建立核准列、不寫通知（`fit.test.ts` 回歸）。
+- **結案回寫**：`recordCampaignOutcome` 對該檔期現行評估逐一計算該團主歸因淨銷售（`SALES_STATUSES`、依 `share_percent`）、訂單數、退款率、`campaign_hosts.target_revenue` 達成率，連同預測分數／建議寫入 `outcome`／`outcome_at`；內容（鍵排序後）相同則計為 `unchanged`；每筆寫 `fit.outcome` 稽核。歷史績效維度直接讀訂單，不讀 `outcome`，所以回寫不改變評分。
+- **G1 查閱**：檔期頁「客群適配」分頁與核准分頁（G1 狀態）的唯讀提示（`g1-fit-note`）；`gateCheck('G1')` 的檢查項仍為 `deps_done、vendor_ok、has_products、has_confirmed_host、vendor_info`，由 `fit.test.ts` 鎖定。
+
+### 18A.5 錯誤與狀態碼
+
+| 情況 | 狀態 |
+|---|---|
+| 缺少權限（團主／廠商／財務一律；小編做覆核或改設定） | 403 |
+| 他組織資料、檔期範圍外、不存在、已結束的連結 | 404 |
+| 客群名稱重複、同客群重複連結、`version` 不符、評分設定 `version` 不符、覆核已被取代的評估 | 409 |
+| 封存仍被連結的客群、檔期無商品／團主、未結案回寫、結案但無檔期評估、無可評估團主 | 412 |
+| 欄位驗證：非法列舉、價格帶、占比、FACT 無來源、含手機／Email、社群不屬於團主、權重不合法、不採用未填原因 | 422 |
+
+### 18A.6 冪等與樂觀鎖
+
+| 對象 | 機制 |
+|---|---|
+| 建立客群、連結（含新建）團主客群 | `Idempotency-Key`，範圍 `segment.create`、`segment.link`（`request_hash` 含使用者與完整內容） |
+| 重複評估 | 以 `input_hash` 比對現行版本：相同＝不新增（`unchanged`）；`product_fit_current_uq` 防並發雙寫 |
+| 重複回寫成效 | 內容相同不重寫 |
+| 客群、連結 | `version` 樂觀鎖（PATCH）；只改偏好時客群 `version` 也前進 |
+| 評分設定 | `PUT` 帶 `version`，不符 409 |
+
+### 18A.7 UI 頁面對照
+
+| 頁面 | 檔案 | 權限／內容 |
+|---|---|---|
+| 團主詳情「客群分析」區、團主清單「客群分析」欄、新增／編輯團主的「合作對象類型」 | `hosts/[id]/HostSegments.tsx`、`hosts/page.tsx`、`hosts/new/page.tsx`、`ui/SegmentEditor.tsx` | `segment.read`（寫入需 `segment.write`）；基本輪廓、需求動機、購買阻力、偏好品類、消費週期、活躍通路、觀察來源，每項標示事實／估計／未知 |
+| 客群清單與詳情 | `segments/page.tsx`、`segments/[id]/page.tsx` | `segment.read`；輪廓、連結團主、證據、版本與變更紀錄 |
+| 商品頁「候選團主適配」 | `products/[id]/page.tsx`、`ui/FitTable.tsx` | `fit.read`；「產生候選團主評估」需 `fit.assess`；覆核按鈕需 `fit.review` |
+| 檔期「客群適配」分頁、G1 唯讀提示、結案回寫按鈕 | `campaigns/[id]/FitTab.tsx` | `fit.read`＋檔期範圍；回寫按鈕僅 `CLOSED／SETTLED` |
+| 客群適配總覽與評分設定 | `fit/page.tsx`、`ui/FitConfigForm.tsx` | `fit.read`；設定需 `fit.config`；顯示「建議值，待 Owner 確認」 |
+| 導覽 | `(app)/layout.tsx` | 「客群適配」（營運群組）、「客群」（主檔群組），無對應權限者不顯示 |
+
+**DEMO 種子**：`scripts/seed-demo-segments.ts`（`db:seed:demo:segments`，`bootstrap:demo` 已串接；冪等、拒絕 production）。
+
+**測試**：`tests/unit/fit-score.test.ts`（32）、`tests/segments.test.ts`（23）、`tests/fit.test.ts`（27）、E2E 新區塊（`scripts/e2e-smoke.ts`）。突變驗證：「未知當 0 分」「硬性 FAIL 被抵銷」「相同輸入也新增版本」三種故意改壞的版本，對應測試全部轉紅。
+
+---
+
 ## 19. 橫切設計
 
 ### 19.1 去重與冪等鍵總表
 
 | 對象 | 機制 | 鍵 |
 |---|---|---|
-| 建立類 API（14 個範圍） | `Idempotency-Key` ＋ `request_hash` | `(org, scope, key)`；範圍：`vendor.create`、`host.create`、`community.create`、`product.create`、`campaign.create`、`fulfillment_batch.create`、`shipment.create`、`inventory.adjust`、`aftersales.case.create`、`aftersales.refund.request`、`settlement.create`、`payment.create`、`invoice.create`、`expense.create` |
+| 建立類 API（16 個範圍） | `Idempotency-Key` ＋ `request_hash` | `(org, scope, key)`；範圍：`vendor.create`、`host.create`、`community.create`、`product.create`、`campaign.create`、`fulfillment_batch.create`、`shipment.create`、`inventory.adjust`、`aftersales.case.create`、`aftersales.refund.request`、`settlement.create`、`payment.create`、`invoice.create`、`expense.create`、`segment.create`、`segment.link`（SOP 01） |
 | 廠商 | 部分唯一索引 | 正規化名稱、統編 |
 | 團主／社群／商品／規格 | 部分唯一索引 | 正規化名稱；`(platform, 正規化名稱)`；`(vendor, 正規化名稱)`；`(product, lower(sku_code))` |
 | 檔期 | 部分唯一索引 | `(vendor, 正規化標題, 開團日)`，未取消 |
@@ -1019,10 +1167,12 @@ sequenceDiagram
 | 庫存更正 | 唯一 | `reverses_id` |
 | 結算 | 部分唯一索引 | 每檔期一份 DRAFT／CONFIRMED；`(settlement_id, host_id)` |
 | 發票 | 部分唯一索引 | `(org, invoice_no)`，未作廢 |
+| 客群／偏好／連結（SOP 01） | 部分唯一索引 | `(org, 正規化客群名稱)`；`(segment, kind, 正規化值)`；`(host, segment)` 進行中 |
+| 適配評估（SOP 01） | 部分唯一索引＋`input_hash` | `(product, host, COALESCE(campaign,''))` 未被取代者；輸入相同不新增 |
 
 ### 19.2 樂觀鎖
 
-下列更新 API 帶 `version`，不符回 409 `CONFLICT`（`details.currentVersion`）：廠商、團主、社群、商品、規格、檔期（PATCH）、任務（PATCH）、出貨批次／出貨單、售後案件、入帳／發票／費用（PATCH）。實作多半經 `patchEntity`。
+下列更新 API 帶 `version`，不符回 409 `CONFLICT`（`details.currentVersion`）：廠商、團主、社群、商品、規格、檔期（PATCH）、任務（PATCH）、出貨批次／出貨單、售後案件、入帳／發票／費用（PATCH）、客群（PATCH）、團主客群連結（PATCH）、評分設定（PUT，`version`）。實作多半經 `patchEntity`。
 
 ### 19.3 稽核查詢（`modules/audit-read.ts`）
 
@@ -1060,6 +1210,13 @@ sequenceDiagram
 | 19 | 退款核准無雙人限制 | `decideRefund` 不檢查申請人≠核准人 | 待 Owner 決定（小團隊可能同一人） |
 | 20 | 佣金規則選取的生效區間 | 檔期綁定規則與 `CAMPAIGN_HOST` 規則不看 `effective_from／to`；只有 `HOST_DEFAULT` 看 | 確認預期；若要看需改 `pickCommissionRule`（金額邏輯，需 Owner 同意） |
 | 21 | `agreements` | 只有資料表，無服務函式或 API | 合約管理屬後續（K17） |
+| 22 | SOP 01 評分口徑是建議值 | 權重 30/20/15/20/15、門檻 80／65、供應履約與歷史績效切點為「待 Owner 確認」（`approved:false`），不是核准規則；不涉及佣金／結算公式 | 待決策 D-18、D-23（SEGMENT_FIT §9） |
+| 23 | G1 與適配評估 | 評估僅供查閱，`gates.ts` 未新增檢查項；是否納入 WARN／BLOCK 未定 | 待決策 D-19 |
+| 24 | 需求維度為關鍵字比對、別名表在程式 | 可能漏判同義詞；一律標估計並交人工覆核 | 待決策 D-22 |
+| 25 | stale 判斷不含訂單／出貨／售後變動 | 歷史績效與供應履約的新資料不會讓舊評估標示過期 | 需要時人工重新評估；是否擴充另議 |
+| 26 | 結案成效回寫為人工按鈕 | 沒有自動化工作；忘記回寫不影響評分 | 待決策 D-20 |
+| 27 | 第一次儲存評分設定的版本 | 內建建議值為版本 1，第一次儲存＝版本 2 | 刻意設計，使兩者可區分 |
+| 28 | 文件過期（SOP 01） | `ARCHITECTURE.md`、`docs/generated/*` 尚未涵蓋 5 張新表與 22 條新路由 | `npm run docs:gen` 重新產生 |
 
 ---
 
@@ -1081,14 +1238,19 @@ sequenceDiagram
 | `tests/fulfillment.test.ts` | 29 | §16 |
 | `tests/aftersales.test.ts` | 31 | §17 |
 | `tests/finance.test.ts` | 22 | §13、§18 |
-| **合計** | **245** | 14 個檔案；真實 PostgreSQL；一檔一組織 |
+| `tests/unit/fit-score.test.ts`（SOP 01） | 32 | §18A.3：未知不當 0 分、完整度與信心、硬性檢查、品類／需求／價格、多客群、歷史與供應切點、權重可設定、輸入雜湊 |
+| `tests/segments.test.ts`（SOP 01） | 23 | §18A.1–18A.2、§5：Owner 範例輪廓、未知與缺漏、多客群與占比、事實需來源、個資防護、更新／版本／稽核／軟刪除、冪等、`partnerType`、權限與租戶隔離 |
+| `tests/fit.test.ts`（SOP 01） | 27 | §18A.3–18A.6：設定、評估與排名、版本與不可改、stale、硬性檢查、覆核、檔期適配與範圍、結案回寫、**G1 語意不變**、權限 |
+| **合計（原基準）** | **245** | 14 個檔案；真實 PostgreSQL；一檔一組織 |
+| **合計（含 SOP 01 的 82 項，以全套重跑為準）** | **405** | 20 個檔案（SOP 01 開工前以全套重跑為 17 檔 323 項；SOP 01 新增 3 檔 82 項）；既有 API 模糊測試（`security-fuzz.test.ts`）自動涵蓋新路由，無 5xx |
 
-> 項數以 `grep -cE "^\s*(it|test)\("` 計算，加總為 245，與 `vitest run` 的輸出一致。E2E（Playwright）：`scripts/e2e-smoke.ts`（49 項）、`scripts/e2e-aftersales.ts`（52 項）。
+> 項數以 `grep -cE "^\s*(it|test)\("` 計算，加總為 245，與 `vitest run` 的輸出一致。E2E（Playwright）：`scripts/e2e-smoke.ts`（含 SOP 01 新增的 37 項，共 86 項；新區塊涵蓋團主客群分析建立與讀回、商品候選團主適配、檔期適配分頁與 G1 唯讀提示、覆核流程、評分設定、客群清單／詳情、團主／廠商／財務無權限）、`scripts/e2e-aftersales.ts`（52 項）。
 
 ---
 
 ## 22. 文件自檢
 
+- **SOP 01 更新**：資料表 58、端點 152（`routes.ts` 的 `R(`／`P(` 行數）、權限 49（各角色持有數：管理者 49、主管 42、小編 30、團主 10、廠商 7、財務 22，依 `permissions.ts` 規則推算）、有 `forbid_delete` 的表 47、`touch_row` 的表 31、冪等範圍 16、全套測試 405（20 檔）、E2E 86。§18A 的演算法與 API 逐項對照 `lib/fit-score.ts`、`modules/fit.ts`、`modules/segments.ts`、`routes.ts` 與 `migrations/013`；§18A.4 的序列圖與其餘增補**尚未**以 mermaid 重新 render（只目視核對語法）。其餘計數沿用原基準：
 - **計數類**（以指令重新計算，非引用舊文件）：資料表 53（`CREATE TABLE`）、端點 130（`routes.ts` 的 `R(`／`P(` 與 `API_ENDPOINTS.md` 一致）、權限 43 與各角色持有數（匯入 `permissions.ts` 計算）、測試 245（14 個檔案逐檔 `it(` 計數；`vitest run` 同為 245）、有 `forbid_delete` 的表 42、append-only 的表 4、無刪除保護的表 7、`touch_row` 的表 26、冪等範圍 14、自動化工作 8、事件類型 6、模板步驟 15／階段 8／檔期狀態 14／關卡 5。
 - **規則類**：每個模組都讀過對應的 `modules/*.ts`、相關 migration 與路由登記後才寫；表格中的「權限」欄以 `requirePerm`／`can` 呼叫與 `permissions.ts` 為準。
 - **算例**：§8.2 的日期表是實際執行 `computeSchedule(DEFAULT_STEPS, …)` 的輸出。

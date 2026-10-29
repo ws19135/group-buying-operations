@@ -8,7 +8,9 @@ import { Modal } from '@/ui/Modal';
 import { Badge, Card, EmptyState, PageHeader, StatusBadge, Table } from '@/ui/components';
 import { ASSET_KIND, REVIEW_STATUS } from '@/ui/labels';
 import { money } from '@/ui/format';
-import { as } from '@/ui/types';
+import { listProductFit } from '@/server/modules/fit';
+import { FitTable } from '@/ui/FitTable';
+import { as, type FitItemV } from '@/ui/types';
 
 export const dynamic = 'force-dynamic';
 interface P {
@@ -23,6 +25,7 @@ export default withActor(async (actor, props: { params: Params }) => {
   const w = can(actor, 'product.write');
   const showCost = can(actor, 'product.cost.read');
   const reviewer = can(actor, 'product.review');
+  const fitData = can(actor, 'fit.read') ? as<{ config: { version: number; approved: boolean }; items: FitItemV[] }>(await listProductFit(actor, p.id)) : null;
   const rs = p.reviewStatus;
   const ep = `/api/products/${p.id}/review`;
   return (
@@ -67,6 +70,12 @@ export default withActor(async (actor, props: { params: Params }) => {
           </Table>
         )}
       </Card>
+      {fitData ? (
+        <Card title="候選團主適配" flush testid="product-fit" actions={can(actor, 'fit.assess') ? <ActionButton endpoint={`/api/products/${p.id}/fit`} label="產生候選團主評估" variant="primary" small testid="btn-assess-product" successMessage="已更新候選團主評估" /> : undefined}>
+          <p className="small muted" style={{ padding: '10px 16px 0' }}>依各團主的客群分析、歷史績效與廠商供應履約評分。缺資料的維度會標示「未知」並降低信心，不會當成 0 分；合規與商品品質是硬性檢查，不被總分抵銷。評分權重為{fitData.config.approved ? '已確認' : '「建議值，待 Owner 確認」'}（v{fitData.config.version}）。</p>
+          {fitData.items.length === 0 ? <EmptyState title="尚未評估" hint="按「產生候選團主評估」，系統會對所有合作中的團主評分並排名。團主若尚未建立客群分析，會顯示「資料不足」。" /> : <FitTable items={fitData.items} canReview={can(actor, 'fit.review')} show="host" />}
+        </Card>
+      ) : null}
     </>
   );
 });

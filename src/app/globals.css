@@ -145,3 +145,19 @@ pre.diff { background: var(--surface-2); border: 1px solid var(--border); paddin
 .attention-list { list-style: none; margin: 0; padding: 4px 16px 12px; }
 .attention-list li { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 9px 0; border-top: 1px solid var(--border); }
 .attention-list li:first-child { border-top: 0; }
+
+/* SOP 01 客群分析與商品適配 */
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 10px; margin: 2px 6px 2px 0; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); font-size: 13px; }
+.chip.fact { border-color: var(--ok); } .chip.est { border-style: dashed; }
+.chip .b { font-size: 11px; color: var(--muted); } .chip button { border: 0; background: none; cursor: pointer; color: var(--muted); padding: 0 0 0 2px; font-size: 13px; }
+.unknown { color: var(--muted); font-style: italic; }
+.seg-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 10px 0; background: var(--surface-2); }
+.seg-card .seg-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.seg-card h3 { margin: 0; font-size: 15px; }
+.seg-card .evi { padding: 4px 0; border-top: 1px dashed var(--border); font-size: 13px; }
+.chip-editor { margin-bottom: 12px; } .chip-editor .adders { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; align-items: center; }
+.chip-editor .adders input { max-width: 160px; } .chip-editor .sugg { font-size: 12px; padding: 1px 8px; }
+.score-big { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; } .score-big.ref { color: var(--muted); }
+.fit-dims { margin: 6px 0; padding: 0; list-style: none; } .fit-dims li { padding: 3px 0; font-size: 13px; border-bottom: 1px dashed var(--border); } .fit-dims li:last-child { border-bottom: 0; }
+.fit-detail summary { cursor: pointer; color: var(--primary); font-size: 12px; } .fit-detail { max-width: 460px; }
+.share-bar { height: 6px; background: var(--neutral-bg); border-radius: 3px; min-width: 60px; } .share-bar > span { display: block; height: 100%; background: var(--primary); border-radius: 3px; }

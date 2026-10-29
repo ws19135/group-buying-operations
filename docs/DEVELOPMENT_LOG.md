@@ -199,6 +199,32 @@ Owner 提供建置前的 Dashboard 介面示意（含 KPI 清單與資料更新�
 ### 待 Owner 決定
 廠商合作成功率、檔期準時開團率、商品復開績效三項為暫定口徑；API／Webhook 事件同步未做（缺平台與憑證）。
 
+## 2026-10-29｜SOP 01 市場定位與客群分析、商品適配、G1 決策支援（分支 `feat/sop01-segment-fit`）
+
+### 目標
+建立團主客群輪廓、商品適配與 G1 選品決策支援；不改 G1–G5 語意、不自動核准、不碰正式資料、不寄通知。
+
+### 盤點結論
+既有只有 `hosts.audience_note` 自由文字與 `communities`；沒有結構化客群資料，故新增 5 張表（不複製既有表）並在 `hosts` 加 1 個可空欄位 `partner_type`。評分設定沿用 `system_settings`，變更紀錄沿用 `audit_logs` 與 `version`，不另建表。
+
+### 變更
+migration 013；`segments.ts`、`fit.ts`、`lib/fit-score.ts`、`lib/segment-vocab.ts`；6 個權限；22 條路由；團主／商品／檔期頁面板、`/fit`、`/segments`；`seed-demo-segments.ts`；SRS／SAD／SDD／線框圖／矩陣更新。完整設計見 [phase2/SEGMENT_FIT.md](phase2/SEGMENT_FIT.md)。
+
+### 證據
+- 基準線（開工前）：17 檔 323 項全綠。
+- 之後：20 檔 405 項全綠（新增 unit 32、segments 23、fit 27；既有 API 模糊測試自動涵蓋新路由，無 5xx）；`tsc`、`eslint` 乾淨；`next build` 成功；E2E 86/86（連跑 3 次）。
+- 突變驗證：把「未知」改成 0 分、讓硬性 FAIL 可被抵銷、讓相同輸入也新增版本，對應測試全部轉紅，還原後全綠。
+- G1 回歸：評估與覆核「不採用」前後，G1 檢查項、申請與核准結果完全相同，不新增核准列、不發通知。
+
+### 與規格的差異
+見 SEGMENT_FIT.md §3.2（S-1～S-5）。
+
+### 待 Owner 決定
+D-18～D-24：權重與門檻、是否納入 G1 檢查、回寫是否排進自動化、價格帶定義、別名表維護、供應履約切點、事實的認定標準。
+
+### 限制
+需求維度是關鍵字比對（一律標估計）；評估的「資料已更新」判斷不含訂單與出貨的變動；沒有 AI 或外部資料來源；DEMO 資料全為虛構。
+
 ## 後續紀錄格式
 
 每次變更新增一節，至少包含：

@@ -41,6 +41,8 @@
 | 自動化 | `GET /automation/jobs`、`POST /automation/jobs/:key {action: enable|disable|run}`、`GET /automation/runs` | `automation.manage`／`automation.run` |
 | 進件 | `GET/POST /intake` | `intake.write` |
 | 通知 | `GET /notifications`、`POST /notifications/:id/read`、`GET /notifications/all` | 本人；`/all` 需 `automation.manage` |
+| 客群分析 | `GET/POST /segments`、`GET/PATCH /segments/:id`、`POST /segments/:id/archive`、`POST /segments/:id/evidence`、`POST /segment-evidence/:id/remove`、`GET/POST /hosts/:id/segments`、`PATCH /segment-links/:id`、`POST /segment-links/:id/end` | 讀 `segment.read`；寫 `segment.write`（營運主管、營運小編、管理者；團主／廠商／財務無權限） |
+| 商品適配 | `GET/PUT /fit/config`、`GET /fit`、`GET /fit/overview`、`GET /fit/:id`、`POST /fit/:id/review`、`GET/POST /products/:id/fit`、`GET/POST /campaigns/:id/fit`、`POST /campaigns/:id/fit/outcome` | 讀 `fit.read`；產生評估與回寫 `fit.assess`；覆核 `fit.review`（主管／管理者）；設定 `fit.config`；檔期層級另受檔期資料範圍限制（越權 404）。設計見 [phase2/SEGMENT_FIT.md](phase2/SEGMENT_FIT.md) |
 | 稽核 | `GET /audit`、`GET /campaigns/:id/audit` | `audit.read`（財務僅限財務相關實體）；檔期稽核限內部角色且在資料範圍內 |
 
 權限與角色的完整對應：`src/server/lib/permissions.ts`；`GET /auth/me` 會回傳目前使用者的權限清單（供前端決定要顯示哪些按鈕，**後端仍會再次檢查**）。

@@ -7,11 +7,12 @@ import { HOST_STATUS } from '@/ui/labels';
 import { as, type Paged } from '@/ui/types';
 
 export const dynamic = 'force-dynamic';
-interface Row { id: string; displayName: string; status: string; contactEmail: string | null; lineId: string | null; communityCount: number; campaignCount: number }
+interface Row { id: string; displayName: string; status: string; contactEmail: string | null; lineId: string | null; communityCount: number; campaignCount: number; segmentCount?: number }
 
 export default withActor(async (actor, props: { searchParams: SP }) => {
   const q = await sp1(props.searchParams);
   const res = as<Paged<Row>>(await listHosts(actor, toQuery(q)));
+  const showSeg = can(actor, 'segment.read');
   const base = Object.fromEntries(Object.entries(q).filter(([k]) => k !== 'page'));
   return (
     <>
@@ -22,8 +23,8 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
       </Filters>
       <Card flush testid="host-list">
         {res.items.length === 0 ? <EmptyState title="沒有團主" /> : (
-          <Table head={['團主', '狀態', '聯絡方式', '社群數', '參與檔期']}>
-            {res.items.map((h) => <tr key={h.id} data-testid={`host-row-${h.id}`}><td><Link href={`/hosts/${h.id}`}><strong>{h.displayName}</strong></Link><div className="small muted">{h.id}</div></td><td><StatusBadge map={HOST_STATUS} value={h.status} /></td><td className="small">{h.contactEmail ?? ''} {h.lineId ?? ''}</td><td>{h.communityCount}</td><td>{h.campaignCount}</td></tr>)}
+          <Table head={['團主', '狀態', '聯絡方式', '社群數', '參與檔期', ...(showSeg ? ['客群分析'] : [])]}>
+            {res.items.map((h) => <tr key={h.id} data-testid={`host-row-${h.id}`}><td><Link href={`/hosts/${h.id}`}><strong>{h.displayName}</strong></Link><div className="small muted">{h.id}</div></td><td><StatusBadge map={HOST_STATUS} value={h.status} /></td><td className="small">{h.contactEmail ?? ''} {h.lineId ?? ''}</td><td>{h.communityCount}</td><td>{h.campaignCount}</td>{showSeg ? <td data-testid={`host-seg-${h.id}`}>{h.segmentCount ? <Link href={`/hosts/${h.id}`}>{h.segmentCount} 個客群</Link> : <Link href={`/hosts/${h.id}`} className="unknown">未建立</Link>}</td> : null}</tr>)}
           </Table>
         )}
         <Pagination total={res.total} limit={res.limit} offset={res.offset} base={base} />

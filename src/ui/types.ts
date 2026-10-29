@@ -65,3 +65,22 @@ export interface CampaignV {
 }
 export interface CheckItemV { key: string; label: string; level: 'BLOCK' | 'WARN'; ok: boolean; detail?: string; ackable?: boolean }
 export interface AuditV { id: number; occurredAt: string; actorName: string | null; actorRole: string | null; actorType: string; action: string; entityType: string; entityId: string; campaignId?: string | null; beforeData: unknown; afterData: unknown; reason: string | null; source: string }
+
+export interface FitDimensionV { key: string; weight: number; score: number | null; known: boolean; basis: 'FACT' | 'ESTIMATE' | null; reason: string }
+export interface FitItemV {
+  id: string; productId: string; productName: string; productCategory: string | null; hostId: string; hostName: string; campaignId: string | null;
+  configVersion: number; totalScore: number | null; completeness: number; confidence: string; recommendation: string;
+  dimensions: FitDimensionV[]; hardChecks: { key: string; result: string; reason: string }[]; reasons: string[];
+  assessedAt: string; assessedByName: string | null; reviewDecision: string | null; reviewNote: string | null; reviewedAt: string | null; reviewedByName: string | null;
+  stale: boolean; segmentCount: number; outcome: Record<string, unknown> | null; outcomeAt: string | null;
+}
+export interface PrefV { id: string; value: string; basis: 'FACT' | 'ESTIMATE'; evidenceId: string | null }
+export interface EvidenceV { id: string; kind: string; basis: 'FACT' | 'ESTIMATE'; summary: string; sourceLabel: string | null; sourceUrl: string | null; observedOn: string | null; hostId: string | null; hostName: string | null }
+export interface SegmentV {
+  id: string; name: string; description: string | null; ageBand: string | null; familyType: string | null; cycle: string | null; priceMin: number | null; priceMax: number | null; basis: 'FACT' | 'ESTIMATE'; version: number;
+  motives: PrefV[]; barriers: PrefV[]; categories: PrefV[]; channels: PrefV[]; evidence: EvidenceV[];
+}
+export interface HostSegmentsV {
+  hostId: string; hostName: string; partnerType: string | null; audienceNote: string | null; status: 'NOT_STARTED' | 'PARTIAL' | 'COMPLETE'; shareSum: number | null; missing: string[];
+  links: { link: { id: string; segmentId: string; communityId: string | null; communityName: string | null; sharePercent: number | null; basis: 'FACT' | 'ESTIMATE'; note: string | null; version: number }; segment: SegmentV; missing: string[] }[];
+}

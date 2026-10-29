@@ -1,6 +1,6 @@
 export interface ApiResult<T = unknown> { ok: boolean; status: number; data?: T; error?: { code: string; message: string; details?: unknown; requestId?: string } }
 
-export async function callApi<T = unknown>(url: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET', body?: unknown, idemKey?: string): Promise<ApiResult<T>> {
+export async function callApi<T = unknown>(url: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE' = 'GET', body?: unknown, idemKey?: string): Promise<ApiResult<T>> {
   try {
     const res = await fetch(url, {
       method,

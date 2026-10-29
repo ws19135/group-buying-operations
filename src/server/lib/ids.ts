@@ -74,4 +74,9 @@ export const ids = {
   shipment: async (db: Queryable) => `SHP-${pad(await next(db, 'SHP', ''), 6)}`,
   inventoryMovement: async (db: Queryable) => `STK-${pad(await next(db, 'STK', ''), 6)}`,
   intake: async (db: Queryable) => `INT-${pad(await next(db, 'INT', ''), 6)}`,
+  segment: async (db: Queryable) => `SEG-${pad(await next(db, 'SEG', ''), 4)}`,
+  segmentPreference: async (db: Queryable) => `SPF-${pad(await next(db, 'SPF', ''), 6)}`,
+  segmentLink: async (db: Queryable) => `LNK-${pad(await next(db, 'LNK', ''), 6)}`,
+  segmentEvidence: async (db: Queryable) => `EVD-${pad(await next(db, 'EVD', ''), 6)}`,
+  fitAssessment: async (db: Queryable) => `FIT-${pad(await next(db, 'FIT', ''), 6)}`,
 };

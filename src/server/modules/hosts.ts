@@ -10,6 +10,7 @@ import { camelize } from '../lib/case';
 import { isIsoDate } from '../lib/dates';
 import { likePattern, listPaged, pageParams, patchEntity, applyClears } from '../lib/repo';
 import { idempotent } from '../lib/idempotency';
+import { PARTNER_TYPES } from '../lib/segment-vocab';
 
 const optText = (max = 500) => z.string().trim().max(max).optional().or(z.literal('').transform(() => undefined));
 const optUrl = (max = 300) => z.string().trim().max(max).refine(isHttpUrl, '連結需為 http:// 或 https:// 開頭的網址').optional().or(z.literal('').transform(() => undefined));
@@ -24,11 +25,12 @@ export const hostCreateSchema = z.object({
   lineId: optText(80),
   status: z.enum(HOST_STATUS).optional(),
   audienceNote: optText(1000),
+  partnerType: z.preprocess((v) => (v === '' ? null : v), z.enum(PARTNER_TYPES).nullable().optional()),
   cooperationTerms: optText(2000),
   internalNote: optText(2000),
 });
 export const hostUpdateSchema = hostCreateSchema.partial().extend({ version: z.number().int().optional() });
-const HOST_FIELDS = ['displayName', 'legalName', 'contactEmail', 'contactPhone', 'lineId', 'status', 'audienceNote', 'cooperationTerms', 'internalNote'] as const;
+const HOST_FIELDS = ['displayName', 'legalName', 'contactEmail', 'contactPhone', 'lineId', 'status', 'audienceNote', 'partnerType', 'cooperationTerms', 'internalNote'] as const;
 
 export async function createHost(actor: Actor, raw: z.input<typeof hostCreateSchema>, idemKey?: string | null) {
   requirePerm(actor, 'host.write');
@@ -40,11 +42,11 @@ export async function createHost(actor: Actor, raw: z.input<typeof hostCreateSch
       const id = await ids.host(tx);
       await tx.query(
         `INSERT INTO hosts (id, organization_id, display_name, normalized_name, legal_name, contact_email, contact_phone, line_id, status,
-           audience_note, cooperation_terms, internal_note, created_by, updated_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13)`,
+           audience_note, cooperation_terms, internal_note, partner_type, created_by, updated_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14)`,
         [id, actor.orgId, input.displayName, normalizeName(input.displayName), input.legalName ?? null, input.contactEmail ?? null,
           input.contactPhone ?? null, input.lineId ?? null, input.status ?? 'ACTIVE', input.audienceNote ?? null,
-          input.cooperationTerms ?? null, input.internalNote ?? null, actor.userId]);
+          input.cooperationTerms ?? null, input.internalNote ?? null, input.partnerType ?? null, actor.userId]);
       await audit(tx, actor, { action: 'host.create', entityType: 'host', entityId: id, after: { displayName: input.displayName } });
       return { id };
     }, input);
@@ -68,11 +70,14 @@ export async function listHosts(actor: Actor, q: URLSearchParams) {
   const status = nonEmpty(q.get('status'));
   if (status) { params.push(status); where.push(`h.status=$${params.length}`); }
   const res = await listPaged<Record<string, unknown>>(
-    `SELECT h.id, h.display_name, h.status, h.contact_email, h.line_id, h.updated_at, h.version,
+    `SELECT h.id, h.display_name, h.status, h.contact_email, h.line_id, h.updated_at, h.version, h.partner_type,
+       (SELECT count(*)::int FROM partner_segment_links l WHERE l.host_id=h.id AND l.ended_at IS NULL) AS segment_count,
        (SELECT count(*)::int FROM host_communities hc WHERE hc.host_id=h.id AND hc.ended_at IS NULL) AS community_count,
        (SELECT count(*)::int FROM campaign_hosts ch WHERE ch.host_id=h.id AND ch.deleted_at IS NULL) AS campaign_count
      FROM hosts h WHERE ${where.join(' AND ')}`, params, 'h.id DESC', pageParams(q));
   res.items = camelize(res.items);
+  // 客群分析屬內部判斷：沒有 segment.read 的角色（財務、團主）看不到
+  if (!can(actor, 'segment.read')) for (const it of res.items) { delete it.segmentCount; delete it.partnerType; }
   return res;
 }
 
@@ -92,6 +97,7 @@ export async function getHost(actor: Actor, id: string) {
      WHERE ch.host_id=$1 AND ch.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY c.open_date DESC NULLS LAST LIMIT 100`, [id]);
   const out = camelize<Record<string, unknown>>(rows[0]);
   if (!internal) delete out.internalNote;
+  if (!can(actor, 'segment.read')) delete out.partnerType;
   return { ...out, communities: camelize(communities), availability: camelize(availability), history: camelize(history) };
 }
 
