@@ -155,3 +155,23 @@ export function evidenceHostAllowed(url: string, allowed: string[]): boolean {
     return allowed.some((a) => { const d = a.toLowerCase().replace(/^\*?\./, ''); return host === d || host.endsWith(`.${d}`); });
   } catch { return false; }
 }
+
+// ---------------- 畫面用的欄位定義（與上面的 zod 條款一一對應；由測試確保兩邊一致） ----------------
+export interface UiField { name: string; label: string; type: 'text' | 'number' | 'date' | 'bool' | 'select'; options?: { value: string; label: string }[] }
+const PARTY_OPTS = RESPONSIBLE_PARTIES.map((p) => ({ value: p, label: PARTY_LABEL[p] }));
+export const DD_UI_FIELDS: Record<string, UiField[]> = {
+  SOURCE_LICENSE_QA: [
+    { name: 'sourceType', label: '商品來源', type: 'select', options: [{ value: 'OWN_BRAND', label: '自有品牌' }, { value: 'AUTHORIZED_AGENT', label: '授權代理' }, { value: 'OEM', label: '代工' }, { value: 'IMPORT', label: '進口' }, { value: 'OTHER', label: '其他' }] },
+    { name: 'licenseHolder', label: '授權人／品牌方', type: 'text' }, { name: 'authorizationValidUntil', label: '授權到期日', type: 'date' }, { name: 'inspectionSummary', label: '品質檢驗摘要', type: 'text' }],
+  PRICING: [{ name: 'listPrice', label: '原價', type: 'number' }, { name: 'groupPrice', label: '團購價', type: 'number' }, { name: 'minPrice', label: '最低價', type: 'number' }, { name: 'priceNote', label: '價格條件說明', type: 'text' }],
+  MOQ: [{ name: 'moqQty', label: 'MOQ 數量', type: 'number' }, { name: 'minPurchaseCommitment', label: '最低採購承諾金額', type: 'number' }, { name: 'commitmentNote', label: '承諾說明', type: 'text' }],
+  STOCK_LEADTIME: [{ name: 'stockMode', label: '現貨／預購', type: 'select', options: [{ value: 'IN_STOCK', label: '現貨' }, { value: 'PRE_ORDER', label: '預購' }] }, { name: 'leadTimeDays', label: '出貨交期（天）', type: 'number' }, { name: 'shipWindowNote', label: '出貨時段說明', type: 'text' }],
+  INVENTORY_OVERSELL: [{ name: 'inventoryCap', label: '庫存上限', type: 'number' }, { name: 'oversellPolicy', label: '超賣處理', type: 'select', options: [{ value: 'BLOCK', label: '停止下單' }, { value: 'BACKORDER', label: '轉預購' }, { value: 'MANUAL', label: '人工處理' }] }, { name: 'stockoutNotifyHours', label: '缺貨通知時限（小時）', type: 'number' }],
+  DELIVERY_METHOD: [{ name: 'method', label: '配送方式', type: 'select', options: [{ value: 'DROPSHIP_PER_ORDER', label: '逐單代發' }, { value: 'CONSOLIDATED', label: '集貨' }, { value: 'HOST_PICKUP', label: '團主自取' }, { value: 'MIXED', label: '混合' }] }, { name: 'carrier', label: '物流商', type: 'text' }, { name: 'deliveryNote', label: '說明', type: 'text' }],
+  PAYMENT_LIABILITY: [{ name: 'collector', label: '收款方', type: 'select', options: PARTY_OPTS }, { name: 'invoicer', label: '開發票方', type: 'select', options: PARTY_OPTS }, { name: 'afterSalesOwner', label: '售後責任方', type: 'select', options: PARTY_OPTS }],
+  RETURNS_LIABILITY: [{ name: 'returnWindowDays', label: '退貨期限（天）', type: 'number' }, { name: 'defectOwner', label: '瑕疵責任方', type: 'select', options: PARTY_OPTS }, { name: 'damageOwner', label: '運損責任方', type: 'select', options: PARTY_OPTS }, { name: 'lostOwner', label: '遺失責任方', type: 'select', options: PARTY_OPTS }, { name: 'reshipOwner', label: '補寄責任方', type: 'select', options: PARTY_OPTS }],
+  SAMPLE_MEDIA_LICENSE: [{ name: 'samplePolicy', label: '試用品政策', type: 'text' }, { name: 'imageLicensed', label: '圖片可使用', type: 'bool' }, { name: 'videoLicensed', label: '影片可使用', type: 'bool' }, { name: 'licenseValidUntil', label: '授權期限', type: 'date' }, { name: 'licenseScope', label: '授權範圍', type: 'text' }],
+  COMMISSION_TERMS: [{ name: 'basis', label: '分潤基礎', type: 'select', options: [{ value: 'NSV', label: '有效淨銷售額' }, { value: 'GMV', label: 'GMV' }, { value: 'OTHER', label: '其他' }] }, { name: 'ratePercent', label: '分潤比例（%）', type: 'number' }, { name: 'settlementCycleDays', label: '結算週期（天）', type: 'number' }, { name: 'termsNote', label: '條款說明', type: 'text' }],
+  EXCLUSIVITY_RESALE: [{ name: 'exclusive', label: '有排他／競業限制', type: 'bool' }, { name: 'exclusivityNote', label: '排他說明', type: 'text' }, { name: 'resalePriceRestriction', label: '有轉售價格限制（將標示需法務審查）', type: 'bool' }, { name: 'assetTerms', label: '素材使用條款', type: 'text' }],
+  CONTINGENCY: [{ name: 'delayHandling', label: '延遲出貨處理', type: 'text' }, { name: 'stockoutHandling', label: '缺貨處理', type: 'text' }, { name: 'supplyStopHandling', label: '停止供應處理', type: 'text' }],
+};

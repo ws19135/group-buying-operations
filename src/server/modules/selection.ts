@@ -176,14 +176,22 @@ export async function evidenceFor(db: Queryable, orgId: string, subjectType: str
   return m;
 }
 
-async function present(db: Queryable, orgId: string, rows: (EvalRow & Record<string, unknown>)[], cfg: SelectionConfig) {
+export interface EvaluationView {
+  id: string; productId: string; versionNo: number; status: string; totalScore: number | null; completeness: number | null; confidence: string | null; recommendation: string | null;
+  evidenceGaps: string[] | null; compliance: { status?: string; note?: string | null }; scores: Record<string, StoredScore>; configVersion: number | null;
+  configSnapshot: { weights: Record<string, number>; thresholds: Record<string, number> } | null; evaluatedOn: string | null; evaluatorName: string | null;
+  reviewDecision: string | null; reviewNote: string | null; reviewedByName: string | null; supersededAt: string | null; version: number;
+  evidence: unknown[]; preview: ReturnType<typeof scoreSelection> | null; current: boolean; [k: string]: unknown;
+}
+
+async function present(db: Queryable, orgId: string, rows: (EvalRow & Record<string, unknown>)[], cfg: SelectionConfig): Promise<EvaluationView[]> {
   const today = todayTaipei();
   const ev = await evidenceFor(db, orgId, 'EVALUATION', rows.map((r) => r.id), today, cfg.expiringSoonDays);
-  const out = [];
+  const out: EvaluationView[] = [];
   for (const r of rows) {
     // 草稿：用目前設定即時試算（預覽）；已送出：顯示當時保存的結果與設定快照
     const preview = r.status === 'DRAFT' ? scoreSelection(await toSelInput(db, orgId, r, cfg, today), cfg) : null;
-    out.push({ ...camelize<Record<string, unknown> & { status: string }>(r), evidence: ev.get(r.id) ?? [], preview, current: r.status === 'SUBMITTED' && !r.superseded_at });
+    out.push({ ...camelize<Record<string, unknown>>(r), evidence: ev.get(r.id) ?? [], preview, current: r.status === 'SUBMITTED' && !r.superseded_at } as EvaluationView);
   }
   return out;
 }

@@ -23,7 +23,7 @@ let ed: Client, ed2: Client, hostC: Client, vendC: Client, fin: Client;
 const today = todayTaipei();
 let n = 0;
 const strip = (cs: { key: string; level: string; ok: boolean; detail?: string }[]) => cs.map((c) => ({ key: c.key, level: c.level, ok: c.ok, detail: c.detail }));
-const src = (keys: string[]) => Object.fromEntries(keys.map((k) => [k, { kind: 'VENDOR_QUOTE' }]));
+const src = (keys: string[]): Record<string, { kind: 'VENDOR_QUOTE' }> => Object.fromEntries(keys.map((k) => [k, { kind: 'VENDOR_QUOTE' as const }]));
 
 type Summary = Awaited<ReturnType<typeof g1Summary>>;
 type PS = Summary['products'][number];

@@ -169,9 +169,9 @@ export async function listProductTrials(actor: Actor, productId: string) {
 }
 
 const TASK_KEYS = ['SAMPLE_SHIP', 'TRIAL_ARRIVAL', 'TRIAL_FEEDBACK', 'LAUNCH_APPROVAL'];
-async function linkedTasks(db: Queryable, orgId: string, campaignId: string) {
+async function linkedTasks(db: Queryable, orgId: string, campaignId: string): Promise<TaskView[]> {
   const r = await db.query(`SELECT id, step_key, name, status, planned_end, completed_at, evidence_url FROM tasks WHERE organization_id=$1 AND campaign_id=$2 AND step_key = ANY($3::text[]) ORDER BY phase, seq`, [orgId, campaignId, TASK_KEYS]);
-  return camelize(r.rows);
+  return camelize<TaskView[]>(r.rows);
 }
 
 /** 試用內容的存取：挑戰檔期範圍（越權＝404） */
@@ -189,7 +189,21 @@ function projectCheck(c: Record<string, unknown>, canCost: boolean): Record<stri
   return c;
 }
 
-export async function getTrial(actor: Actor, id: string) {
+export interface CheckView { id: string; trialId: string; dimension: string; itemKey: string; itemLabel: string; result: string; evidenceText: string | null; defectSeverity: string; defectNote: string | null; riskNote: string | null;
+  verifiedBy: string | null; verifiedByName: string | null; version: number; restricted?: boolean; evidence: unknown[]; [k: string]: unknown }
+export interface TaskView { id: string; stepKey: string; name: string; status: string; plannedEnd: string | null; completedAt: string | null; evidenceUrl: string | null }
+export interface TrialView {
+  id: string; productId: string; productName: string; vendorId: string; vendorName: string; level: string; trialType: string; status: string; skuId: string | null; skuName: string | null; hostId: string | null; hostName: string | null;
+  campaignId: string | null; campaignTitle: string | null; testerUserId: string | null; testerName: string | null; testerNote: string | null; qualificationTrialId: string | null; sampleBatchId: string | null;
+  shipDate: string | null; arrivalDate: string | null; startDate: string | null; feedbackDate: string | null; closedDate: string | null; carrier: string | null; trackingNo: string | null;
+  recoveryRequired: boolean; recoveryStatus: string; recoveryDate: string | null; recoveryNote: string | null; cancelReason: string | null;
+  conclusion: string | null; suggestedConclusion: string | null; conclusionNote: string | null; overrideReason: string | null; concludedByName: string | null; concludedAt: string | null; validUntil: string | null;
+  reviewDecision: string | null; reviewNote: string | null; reviewedByName: string | null; version: number;
+  checks: CheckView[]; evidence: unknown[]; suggestion: ReturnType<typeof suggestConclusion>; qualification: Awaited<ReturnType<typeof qualificationFor>>; linkedQualification: { id: string; conclusion: string; validUntil: string | null } | null;
+  tasks: TaskView[]; history: Record<string, unknown>[]; config: { trialValidDays: number }; permissions: { write: boolean; review: boolean; cost: boolean }; [k: string]: unknown;
+}
+
+export async function getTrial(actor: Actor, id: string): Promise<TrialView> {
   requirePerm(actor, 'selection.read');
   const t = await loadTrialForActor(actor, id);
   const canCost = can(actor, 'product.cost.read');
@@ -200,7 +214,7 @@ export async function getTrial(actor: Actor, id: string) {
   checks.sort((a, b) => (order.get(a.itemKey as string) ?? 99) - (order.get(b.itemKey as string) ?? 99));
   const evT = await evidenceFor(pool(), actor.orgId, 'TRIAL', [id], today, cfg.expiringSoonDays);
   const evC = await evidenceFor(pool(), actor.orgId, 'TRIAL_CHECK', checks.map((c) => c.id as string), today, cfg.expiringSoonDays);
-  const projected = checks.map((c) => ({ ...projectCheck(c, canCost), evidence: maskEvidenceList(evC.get(c.id as string) ?? [], c.itemKey !== 'margin' || canCost) }));
+  const projected = checks.map((c) => ({ ...projectCheck(c, canCost), evidence: maskEvidenceList(evC.get(c.id as string) ?? [], c.itemKey !== 'margin' || canCost) })) as CheckView[];
   const suggestion = suggestConclusion(checks.map((c) => ({ dimension: c.dimension as string, result: c.result as string, defectSeverity: c.defectSeverity as string })));
   const q = t.level === 'QUALIFICATION' || t.qualification_trial_id ? await qualificationFor(pool(), actor.orgId, t.product_id) : null;
   const linkedQ = t.qualification_trial_id ? await query(`SELECT id, conclusion, valid_until, concluded_at FROM product_trials WHERE id=$1`, [t.qualification_trial_id]) : [];
@@ -214,7 +228,7 @@ export async function getTrial(actor: Actor, id: string) {
     tasks: t.campaign_id ? await linkedTasks(pool(), actor.orgId, t.campaign_id) : [],
     history: camelize(hist), config: { trialValidDays: cfg.trialValidDays },
     permissions: { write: can(actor, 'selection.write'), review: can(actor, 'product.review'), cost: canCost },
-  };
+  } as unknown as TrialView;
 }
 
 // ---------------- 更新 ----------------

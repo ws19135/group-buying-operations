@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DD_CATEGORIES, DD_KEYS, ddReadiness, evidenceHostAllowed, evidenceState, legalTriggers, maskTerms, parseTerms, suspectRegulated, touchesSensitive,
+  DD_CATEGORIES, DD_KEYS, DD_UI_FIELDS, ddReadiness, evidenceHostAllowed, evidenceState, legalTriggers, maskTerms, parseTerms, suspectRegulated, touchesSensitive,
 } from '@/server/lib/dd-catalog';
 
 describe('SOP02 盡職調查 12 類目錄', () => {
@@ -21,6 +21,15 @@ describe('SOP02 盡職調查 12 類目錄', () => {
     expect(() => parseTerms('MOQ', { moqQty: -1 })).toThrow();
     expect(() => parseTerms('SOURCE_LICENSE_QA', { authorizationValidUntil: '2026/01/01' })).toThrow();
     expect(parseTerms('CONTINGENCY', undefined)).toEqual({});
+  });
+});
+
+describe('畫面欄位定義與條款 schema 一致', () => {
+  it('每一類的畫面欄位與 zod 條款欄位完全相同（名稱），選項值都被 schema 接受', () => {
+    for (const c of DD_CATEGORIES) {
+      expect(DD_UI_FIELDS[c.key].map((f) => f.name).sort(), c.key).toEqual(Object.keys(c.terms.shape).sort());
+      for (const f of DD_UI_FIELDS[c.key]) for (const o of f.options ?? []) expect(() => parseTerms(c.key, { [f.name]: o.value }), `${c.key}.${f.name}=${o.value}`).not.toThrow();
+    }
   });
 });
 

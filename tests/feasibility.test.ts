@@ -16,7 +16,8 @@ let ed: Client, ed2: Client, hostC: Client, vendC: Client, fin: Client;
 let n = 0;
 const newProduct = async () => mkProduct(w, vendorId, { name: `[DEMO] 可行性商品 ${++n}${Math.random().toString(36).slice(2, 5)}` });
 
-const src = (keys: string[], kind = 'MANUAL_ESTIMATE') => Object.fromEntries(keys.map((k) => [k, { kind }]));
+type SK = 'CONTRACT' | 'MANUAL_ESTIMATE' | 'VENDOR_QUOTE' | 'TRIAL_ACTUAL' | 'HISTORICAL_DATA';
+const src = (keys: string[], kind: SK = 'MANUAL_ESTIMATE'): Record<string, { kind: SK }> => Object.fromEntries(keys.map((k) => [k, { kind }]));
 // 用不易與其他數字混淆的成本值，方便檢查「沒有權限的人拿到的回應裡不能出現」
 const FULL = { expectedOrders: 100, unitPrice: 1000, refundRatePct: 10, unitCost: 48731, shippingPerOrder: 60, platformFeePct: 3, otherVariablePerOrder: 0, fixedCost: 2000,
   brandFeePct: 10, serviceFeeFixed: 0, hostCommissionPct: 5, commissionBasis: 'NSV', hostPaidBy: 'COMPANY', cashFlowMode: 'BRAND_COLLECTS',
