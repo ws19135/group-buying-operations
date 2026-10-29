@@ -154,3 +154,23 @@
 | 保留評分版本、來源、理由與人工覆核 | `config_snapshot`、`sources`、`reasons`、覆核欄位、DB 觸發器不可改 | `fit` | IMPLEMENTED_NEW |
 | 流程串接；不改 G1–G5、不自動核准 | 面板與提示；結案回寫 API；未改 `gates.ts` | `fit`（G1 回歸）、`lifecycle`（既有） | IMPLEMENTED_NEW |
 | 角色權限、審計、既有設計系統 | 6 個新權限；`audit()`；`ApiForm`／`Modal`／`Card` | `segments`、`fit`、`unit/misc`、`security-fuzz` | IMPLEMENTED_NEW |
+
+## K. SOP 02 商品選品與廠商開發、SOP 03 商品試用與商業可行性驗證（本次任務指示 T-SOP02-03）
+
+| 需求 | 實作 | 測試 | 狀態 |
+|---|---|---|---|
+| 盤點既有文件與程式（廠商、聯絡人、商品、SKU、素材、協議、客群適配、檔期、任務、核准），標示可沿用／需擴充／需新增／待 Owner 核准 | `docs/phase2/PRODUCT_SELECTION_TRIAL.md` §1（讀過程式與 migration 001–013，不只讀文件） | — | DONE（文件） |
+| 選品評分：需求25／品質安全25／利潤價格20／供應履約15／內容10／複購5，1–5 分、加權 100、權重與門檻可設定且版本化 | `lib/selection-score.ts`、`selection.ts`、`system_settings['selection.scoring']`、`/selection?tab=config` | `unit/selection-score`（14）、`selection`（設定版本、衝突、驗證） | IMPLEMENTED_NEW（權重與門檻**待 Owner 確認**，D-25） |
+| 記錄評估人、日期、證據、理由、審核者、版本；不與 SOP 01 客群適配重複 | `product_evaluations`（觸發器鎖定送出內容）、`evidence_items`；適配僅唯讀引用 | `selection`（版本、不可改、覆核、不寫入 `product_fit_assessments`） | IMPLEMENTED_NEW |
+| 安全／合規是獨立必要查核，不被總分抵銷；分數只是建議，不自動核准商品或 G1 | `compliance`（PASS／FAIL／UNKNOWN／NEEDS_LEGAL）、建議等級 BLOCKED／SUPPLEMENT | `unit/selection-score`、`selection`、`selection-g1`（突變驗證） | IMPLEMENTED_NEW |
+| 12 類廠商首次合作盡職調查（結構化資料；狀態、負責人、責任方、證據、更新／審核時間、合約版本） | `vendor_dd_records`／`vendor_dd_items`、`dd-catalog.ts`、`diligence.ts` | `unit/dd-catalog`（13）、`diligence`（30） | IMPLEMENTED_NEW |
+| 轉售價格限制、食品、醫材等標示「需法務或合規審查」，不自行假定合法 | `legalTriggers`、`legal_status`（REQUIRED／CLEARED／BLOCKED）；CLEARED 需法務意見證據且限 `product.review` | `unit/dd-catalog`、`diligence` | IMPLEMENTED_NEW（受規範品類與窗口**待 Owner 指定**，D-29） |
+| 兩層級試用（商品資格／團主適配）、三類型（內部／指定團主／小團）；欄位含商品、規格、廠商、試用人、團主、檔期、日期鏈、物流、回收 | `product_trials`、`trials.ts` | `trials`（31） | IMPLEMENTED_NEW |
+| 四大面向結果、客觀證據、缺陷、風險、最終建議、審核者、版本與歷史；同商品可多次試用；重複進行中擋下；資格沿用 | `trial_checks`、`trial-catalog.ts`、部分唯一索引、商品指紋 | `unit/trial-catalog`（12）、`trials` | IMPLEMENTED_NEW |
+| 沿用既有任務（SAMPLE_SHIP／TRIAL_ARRIVAL／TRIAL_FEEDBACK／G1），不另建任務狀態機 | 試用只有 OPEN／CONCLUDED／CANCELLED；任務現況唯讀顯示 | `trials`（任務與狀態不變） | IMPLEMENTED_NEW |
+| 商業可行性：預估訂單、價格、成本、運費、平台費、分潤、其他變動與固定成本；GMV／有效淨銷售額／品牌利潤／公司營業收入分開；依收款模式；假設來源與版本；小團實際回寫 | `feasibility-calc.ts`、`feasibility.ts`、`feasibility_scenarios` | `unit/feasibility-calc`（21）、`feasibility`（18） | IMPLEMENTED_NEW（口徑**待 Owner 確認**，D-31） |
+| ERP 整合：廠商頁「合作資格審查」、商品頁「選品評估／商品資格試用／可行性」、檔期頁試用與摘要 | `DiligenceCard`、`SelectionCards`、`SelectionTab`、`/diligence/[id]`、`/trials/[id]`、`/feasibility/[id]`、`/selection` | E2E | IMPLEMENTED_NEW |
+| G1 核准畫面提供統一決策摘要（證據與風險），不改既有 G1 阻擋條件；保留商品 DRAFT→PENDING_REVIEW→APPROVED／REJECTED | `decision-summary.ts`、`lib/decision-risk.ts`；`gateImpact: NONE`；未修改 `gates.ts`／`products.ts` 審核 | `selection-g1`（G1 檢查項、核准、通知、任務、商品審核不變；唯讀摘要不寫入） | IMPLEMENTED_NEW |
+| 權限：六角色不變；PM 可填報；成本與分潤沿用既有權限，不給營運小編或外部團主；後端強制資料範圍 | 3 個新權限（共 52）；`product.cost.read` 欄位投影；`campaignScope`；404／403 | 各測試檔的權限隔離案例、`security-fuzz`（自動涵蓋新路由）、`unit/misc` | IMPLEMENTED_NEW |
+| 附件使用合法安全的儲存方式；GitHub 不放真實客戶、廠商機密、金鑰或未授權素材 | 證據只存連結（http／https，拒絕內嵌帳密、可設網域白名單）；DEMO 連結為 `docs.example.invalid` | `selection`（scheme、帳密、PII、白名單、素材引用） | IMPLEMENTED_NEW（存放位置與網域**待 Owner 指定**，D-32） |
+| 版本、操作人、稽核 | `audit()`；稽核不記敏感數值 | `diligence`、`feasibility`（稽核不含成本與分潤數值） | IMPLEMENTED_NEW |

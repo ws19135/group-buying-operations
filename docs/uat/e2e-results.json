@@ -1,14 +1,14 @@
 {
-  "ranAt": "2026-10-29T13:34:55.792Z",
+  "ranAt": "2026-10-29T16:13:26.245Z",
   "base": "http://127.0.0.1:3100",
-  "total": 86,
-  "passed": 86,
+  "total": 122,
+  "passed": 122,
   "failed": 0,
   "checks": [
     {
       "name": "健康檢查含資料庫連線",
       "ok": true,
-      "detail": "{\"ok\":true,\"db\":\"up\",\"latencyMs\":0,\"env\":\"development\",\"time\":\"2026-10-29T13:33:59.025Z\"}"
+      "detail": "{\"ok\":true,\"db\":\"up\",\"latencyMs\":2,\"env\":\"development\",\"time\":\"2026-10-29T16:12:08.007Z\"}"
     },
     {
       "name": "未登入造訪 /dashboard 會被導到登入頁",
@@ -155,7 +155,7 @@
     {
       "name": "預覽沒有改動資料（結團日不變）",
       "ok": true,
-      "detail": "closeDate=2026-11-05"
+      "detail": "closeDate=2026-11-06"
     },
     {
       "name": "團主列表顯示客群分析欄（/hosts）",
@@ -163,7 +163,7 @@
       "detail": "HTTP 200"
     },
     {
-      "name": "以名稱篩出新團主（/hosts?q=%5BE2E%5D%20%E6%96%B0%E5%9C%98%E4%B8%BB%20mvtl4h2g）",
+      "name": "以名稱篩出新團主（/hosts?q=%5BE2E%5D%20%E6%96%B0%E5%9C%98%E4%B8%BB%20mvtqrvbu）",
       "ok": true,
       "detail": "HTTP 200"
     },
@@ -256,6 +256,130 @@
       "ok": true
     },
     {
+      "name": "選品與試用總覽（/selection）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "導覽有「選品與試用」；說明分數不會自動核准商品或 G1",
+      "ok": true
+    },
+    {
+      "name": "總覽列出待覆核的評估、審查中調查、待覆核試用、到期證據",
+      "ok": true
+    },
+    {
+      "name": "評分與有效期設定頁（/selection?tab=config）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "設定頁權重合計 100、可儲存",
+      "ok": true
+    },
+    {
+      "name": "廠商頁有「合作資格審查」：合約版本、狀態、進度、有效期；說明不阻擋 G1",
+      "ok": true
+    },
+    {
+      "name": "合作資格審查詳情：12 類、已核准、有效期、證據、法務標示",
+      "ok": true
+    },
+    {
+      "name": "分潤條款（第 10 類）主管看得到數值",
+      "ok": true
+    },
+    {
+      "name": "草稿調查：有風險、需法務／合規審查、尚不能送審",
+      "ok": true
+    },
+    {
+      "name": "在畫面填寫的條款與狀態存檔後讀回一致",
+      "ok": true
+    },
+    {
+      "name": "商品頁有「選品評估」：80 分、建議進入商務審查、合規通過、已覆核",
+      "ok": true
+    },
+    {
+      "name": "商品頁有「商品試用」：商品資格仍有效，可沿用",
+      "ok": true
+    },
+    {
+      "name": "商品頁有「商業可行性」：GMV、淨銷售額、品牌利潤、公司營業收入分開呈現",
+      "ok": true
+    },
+    {
+      "name": "評估草稿顯示即時試算與未評項目（未知）",
+      "ok": true
+    },
+    {
+      "name": "送出後現行評估：品質沒附證據 → 補測／補件並列出缺證據；未評項目顯示未知",
+      "ok": true
+    },
+    {
+      "name": "檔期「選品與試用」分頁：決策摘要（燈號、風險）、本檔試用、相關任務；明講不是 G1 檢查項",
+      "ok": true
+    },
+    {
+      "name": "G1 核准區有唯讀的決策摘要提示（不影響申請）",
+      "ok": true
+    },
+    {
+      "name": "試用詳情：四大面向、系統建議、相關任務唯讀、不新增任務狀態機",
+      "ok": true
+    },
+    {
+      "name": "試用詳情：系統建議存在，尚有未測項目 → 需重測",
+      "ok": true
+    },
+    {
+      "name": "檢核項在畫面存檔後讀回（結果、客觀證據、驗證人）",
+      "ok": true
+    },
+    {
+      "name": "「通過」但沒填客觀證據 → 被擋並提示",
+      "ok": true
+    },
+    {
+      "name": "可行性詳情：試算結果、輸入與假設來源、版本；GMV 與公司營業收入分開",
+      "ok": true
+    },
+    {
+      "name": "API 讀回：主管看得到成本與利潤",
+      "ok": true,
+      "detail": "brandProfit=12734"
+    },
+    {
+      "name": "小編看得到設定但不能改（/selection?tab=config）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "小編商品頁：可行性的成本與利潤顯示「無權限」，不顯示數字",
+      "ok": true
+    },
+    {
+      "name": "小編的 API 回應：成本、利潤、分潤為 null 並標 restricted",
+      "ok": true
+    },
+    {
+      "name": "小編的可行性頁不顯示成本、分潤等敏感輸入項目",
+      "ok": true
+    },
+    {
+      "name": "小編看第 10 類（分潤）：條款隱藏、提示敏感資料",
+      "ok": true
+    },
+    {
+      "name": "小編的調查 API 回應不含分潤數值",
+      "ok": true
+    },
+    {
+      "name": "小編沒有核准／退回調查的按鈕",
+      "ok": true
+    },
+    {
       "name": "團主不可看客群適配（/fit）",
       "ok": true,
       "detail": "HTTP 200"
@@ -264,6 +388,15 @@
       "name": "團主不可看客群清單（/segments）",
       "ok": true,
       "detail": "HTTP 200"
+    },
+    {
+      "name": "團主不可看選品與試用（/selection）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "團主的導覽沒有「選品與試用」",
+      "ok": true
     },
     {
       "name": "團主的導覽沒有「客群」與「客群適配」",
@@ -278,6 +411,15 @@
       "name": "廠商不可看客群清單（/segments）",
       "ok": true,
       "detail": "HTTP 200"
+    },
+    {
+      "name": "廠商不可看選品與試用（/selection）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "廠商的導覽沒有「選品與試用」",
+      "ok": true
     },
     {
       "name": "廠商的導覽沒有「客群」與「客群適配」",
@@ -397,6 +539,16 @@
     },
     {
       "name": "手機版 /segments 無水平溢出",
+      "ok": true,
+      "detail": "溢出 0px"
+    },
+    {
+      "name": "手機版 /selection（/selection）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "手機版 /selection 無水平溢出",
       "ok": true,
       "detail": "溢出 0px"
     },

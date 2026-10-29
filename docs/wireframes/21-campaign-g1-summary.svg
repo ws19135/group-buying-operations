@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1560" viewBox="0 0 1200 1560" font-family="-apple-system, 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif">
+  <title>檔期詳情：選品與試用（G1 決策摘要）</title>
+  <rect x="0" y="0" width="1200" height="1560" rx="0" fill="#f4f4f4" stroke="none" stroke-width="1"/>
+  <rect x="0" y="0" width="200" height="1560" rx="0" fill="#e9e9e9" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="18" y="34" font-size="15" text-anchor="start" font-weight="bold" fill="#333333">團購 ERP</text>
+  <text x="18" y="64" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">營運</text>
+  <text x="24" y="84" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">總覽</text>
+  <rect x="8" y="103" width="184" height="24" rx="4" fill="#cfcfcf" stroke="none" stroke-width="1"/>
+  <text x="24" y="120" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">檔期</text>
+  <text x="24" y="136" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">排程日曆</text>
+  <text x="24" y="162" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">任務</text>
+  <text x="24" y="188" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">核准</text>
+  <text x="24" y="214" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">售後</text>
+  <text x="24" y="240" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">履約出貨</text>
+  <text x="24" y="266" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">客群適配</text>
+  <text x="24" y="292" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">選品與試用</text>
+  <text x="18" y="322" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">主檔</text>
+  <text x="24" y="342" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">廠商</text>
+  <text x="24" y="368" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">團主</text>
+  <text x="24" y="394" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">社群</text>
+  <text x="24" y="420" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">商品</text>
+  <text x="24" y="446" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">客群</text>
+  <text x="18" y="476" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">財務</text>
+  <text x="24" y="496" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">財務結算</text>
+  <text x="18" y="526" font-size="10" text-anchor="start" font-weight="normal" fill="#888888">資料與監控</text>
+  <text x="24" y="546" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">訂單明細</text>
+  <text x="24" y="572" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">訂單匯入</text>
+  <text x="24" y="598" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">例外</text>
+  <text x="24" y="624" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">自動化</text>
+  <text x="24" y="650" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">稽核</text>
+  <rect x="200" y="0" width="1000" height="48" rx="0" fill="#ffffff" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="216" y="30" font-size="12" text-anchor="start" font-weight="normal" fill="#777777">營運 / 檔期 / CMP-… / 選品與試用</text>
+  <text x="990" y="30" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">使用者　營運主管</text>
+  <rect x="1100" y="11" width="72" height="28" rx="5" fill="#fff" stroke="#6b6b6b" stroke-width="1"/>
+  <text x="1136.0" y="29.0" font-size="12" text-anchor="middle" font-weight="normal" fill="#333333">登出</text>
+  <text x="216" y="88" font-size="22" text-anchor="start" font-weight="bold" fill="#333333">〔檔期名稱〕</text>
+  <rect x="362" y="70" width="49" height="20" rx="10" fill="#ececec" stroke="#9a9a9a" stroke-width="1"/>
+  <text x="386.5" y="84" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">評估中</text>
+  <text x="216" y="110" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">CMP-〔編號〕</text>
+  <text x="245.0" y="134" font-size="12" text-anchor="middle" font-weight="normal" fill="#777777">概覽</text>
+  <text x="303.0" y="134" font-size="12" text-anchor="middle" font-weight="normal" fill="#777777">任務</text>
+  <text x="361.0" y="134" font-size="12" text-anchor="middle" font-weight="normal" fill="#777777">商品</text>
+  <text x="440.0" y="134" font-size="12" text-anchor="middle" font-weight="normal" fill="#777777">團主與曝光</text>
+  <text x="540.0" y="134" font-size="12" text-anchor="middle" font-weight="normal" fill="#777777">核准與關卡</text>
+  <text x="633.0" y="134" font-size="12" text-anchor="middle" font-weight="normal" fill="#777777">客群適配</text>
+  <rect x="676" y="114" width="100" height="30" rx="0" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="726.0" y="134" font-size="12" text-anchor="middle" font-weight="bold" fill="#333333">選品與試用</text>
+  <text x="819.0" y="134" font-size="12" text-anchor="middle" font-weight="normal" fill="#777777">異動紀錄</text>
+  <line x1="216" y1="144" x2="1176" y2="144" stroke="#bdbdbd"/>
+  <rect x="216" y="158" width="960" height="34" rx="4" fill="#e8eefc" stroke="#9db8f2" stroke-width="1"/>
+  <text x="228" y="180" font-size="11" text-anchor="start" font-weight="normal" fill="#1e3a8a">彙整商品評估、廠商合作資格審查、試用、商業可行性、客群適配。它不是 G1 的檢查項，不會阻擋或放行任何關卡，也不會自動核准。</text>
+  <rect x="216" y="200" width="960" height="34" rx="4" fill="#fff4d6" stroke="#f0d28a" stroke-width="1"/>
+  <text x="228" y="222" font-size="11" text-anchor="start" font-weight="normal" fill="#6b4600">🟡 有缺口：2 個商品，0 項阻礙、5 項缺口。gateImpact＝NONE。評分設定：建議值，待 Owner 確認（v1）。</text>
+  <rect x="216" y="256" width="960" height="300" rx="4" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="230" y="280" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">🟢 〔商品 A〕</text>
+  <rect x="560" y="266" width="90" height="20" rx="10" fill="#ececec" stroke="#9a9a9a" stroke-width="1"/>
+  <text x="605.0" y="280" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">無已知缺口</text>
+  <text x="230" y="300" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">廠商：〔廠商〕・商品審核：APPROVED</text>
+  <text x="230" y="324" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">選品評估</text>
+  <text x="230" y="342" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">80.0 分　建議進入商務審查　合規通過</text>
+  <text x="230" y="357" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">v2・完整度 100%・覆核：同意採用</text>
+  <text x="700" y="324" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">廠商合作資格審查</text>
+  <text x="700" y="342" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">合約版本 2026-DEMO-v1（此商品）　已核准</text>
+  <text x="700" y="357" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">有效至 〔日期〕／已失效：…</text>
+  <text x="700" y="372" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">待補 0・風險 0・過期證據 0・法務未結 0</text>
+  <text x="230" y="408" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">試用</text>
+  <text x="230" y="426" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">商品資格：通過　仍有效（至 〔日期〕）</text>
+  <text x="230" y="441" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">TRL-… 團主／檔期適配試用　進行中</text>
+  <text x="700" y="408" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">商業可行性（試算）</text>
+  <text x="700" y="426" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">v2・基準情境（本檔）　GMV NT$〔…〕・NSV NT$〔…〕</text>
+  <text x="700" y="441" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">品牌利潤／公司營業收入／公司貢獻（無權限者：「無權限查看」）</text>
+  <text x="230" y="496" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">客群適配（SOP 01，唯讀）：RECOMMEND 1 位</text>
+  <text x="230" y="520" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">風險與缺口</text>
+  <text x="244" y="500" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">🟢 沒有已知缺口</text>
+  <rect x="216" y="574" width="960" height="440" rx="4" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="230" y="598" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">🟡 〔商品 B〕</text>
+  <rect x="560" y="584" width="90" height="20" rx="10" fill="#ececec" stroke="#9a9a9a" stroke-width="1"/>
+  <text x="605.0" y="598" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">有缺口</text>
+  <text x="230" y="618" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">廠商：〔廠商〕・商品審核：APPROVED</text>
+  <text x="230" y="642" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">選品評估</text>
+  <text x="230" y="660" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">80.0 分　建議進入商務審查　合規通過</text>
+  <text x="230" y="675" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">v2・完整度 100%・覆核：同意採用</text>
+  <text x="700" y="642" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">廠商合作資格審查</text>
+  <text x="700" y="660" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">合約版本 2026-DEMO-v1（此商品）　已核准</text>
+  <text x="700" y="675" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">有效至 〔日期〕／已失效：…</text>
+  <text x="700" y="690" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">待補 0・風險 0・過期證據 0・法務未結 0</text>
+  <text x="230" y="726" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">試用</text>
+  <text x="230" y="744" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">商品資格：通過　仍有效（至 〔日期〕）</text>
+  <text x="230" y="759" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">TRL-… 團主／檔期適配試用　進行中</text>
+  <text x="700" y="726" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">商業可行性（試算）</text>
+  <text x="700" y="744" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">v2・基準情境（本檔）　GMV NT$〔…〕・NSV NT$〔…〕</text>
+  <text x="700" y="759" font-size="10" text-anchor="start" font-weight="normal" fill="#555555">品牌利潤／公司營業收入／公司貢獻（無權限者：「無權限查看」）</text>
+  <text x="230" y="814" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">客群適配（SOP 01，唯讀）：RECOMMEND 1 位</text>
+  <text x="230" y="838" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">風險與缺口</text>
+  <rect x="230" y="848" width="44" height="20" rx="10" fill="#e3e3e3" stroke="#9a9a9a" stroke-width="1"/>
+  <text x="252.0" y="862" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">缺口</text>
+  <text x="284" y="862" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">選品評估</text>
+  <text x="380" y="862" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">選品評估尚未覆核</text>
+  <rect x="230" y="872" width="44" height="20" rx="10" fill="#e3e3e3" stroke="#9a9a9a" stroke-width="1"/>
+  <text x="252.0" y="886" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">缺口</text>
+  <text x="284" y="886" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">合作資格審查</text>
+  <text x="380" y="886" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">合作資格審查尚未核准</text>
+  <rect x="230" y="896" width="44" height="20" rx="10" fill="#e3e3e3" stroke="#9a9a9a" stroke-width="1"/>
+  <text x="252.0" y="910" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">缺口</text>
+  <text x="284" y="910" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">試用</text>
+  <text x="380" y="910" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">本檔試用進行中，尚未結論</text>
+  <rect x="230" y="920" width="44" height="20" rx="10" fill="#e3e3e3" stroke="#9a9a9a" stroke-width="1"/>
+  <text x="252.0" y="934" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">缺口</text>
+  <text x="284" y="934" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">商業可行性</text>
+  <text x="380" y="934" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">商業可行性試算不完整（缺少輸入）</text>
+  <rect x="230" y="944" width="44" height="20" rx="10" fill="#fff" stroke="#9a9a9a" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="252.0" y="958" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">阻礙</text>
+  <text x="284" y="958" font-size="10" text-anchor="start" font-weight="normal" fill="#777777">（紅燈時）</text>
+  <text x="380" y="958" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">合規未過／法務封鎖／試用不通過／關鍵證據過期／被退回</text>
+  <rect x="216" y="1030" width="960" height="230" rx="4" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="230" y="1054" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">本檔試用（2）</text>
+  <line x1="216" y1="1064" x2="1176" y2="1064" stroke="#bdbdbd"/>
+  <rect x="226" y="1070" width="940" height="26" rx="0" fill="#ececec" stroke="#bdbdbd" stroke-width="1"/>
+  <text x="236" y="1088" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">試用</text>
+  <text x="336" y="1088" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">商品</text>
+  <text x="486" y="1088" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">層級／類型</text>
+  <text x="676" y="1088" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">團主</text>
+  <text x="786" y="1088" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">檢核</text>
+  <text x="856" y="1088" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">結論</text>
+  <text x="1000" y="1088" font-size="11" text-anchor="start" font-weight="bold" fill="#333333">回收</text>
+  <text x="236" y="1122" font-size="12" text-anchor="start" font-weight="bold" fill="#333333">TRL-000002</text>
+  <text x="336" y="1122" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">〔商品 B〕</text>
+  <text x="486" y="1122" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">團主／檔期適配・小規模測試團</text>
+  <text x="676" y="1122" font-size="11" text-anchor="start" font-weight="normal" fill="#333333">〔團主〕</text>
+  <text x="786" y="1122" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">3/12</text>
+  <text x="856" y="1122" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">—</text>
+  <rect x="1000" y="1108" width="56" height="20" rx="10" fill="#fff" stroke="#9a9a9a" stroke-width="1"/>
+  <text x="1028.0" y="1122" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">待回收</text>
+  <line x1="226" y1="1136" x2="1166" y2="1136" stroke="#bdbdbd"/>
+  <text x="236" y="1166" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">空狀態：「本檔尚無試用紀錄」，引導到商品頁新增（指定團主試用或小規模測試團）。</text>
+  <rect x="216" y="1280" width="960" height="150" rx="4" fill="#fff" stroke="#8a8a8a" stroke-width="1"/>
+  <text x="230" y="1304" font-size="14" text-anchor="start" font-weight="bold" fill="#333333">相關任務現況（唯讀；請到任務頁處理）</text>
+  <line x1="216" y1="1314" x2="1176" y2="1314" stroke="#bdbdbd"/>
+  <text x="236" y="1328" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">廠商寄樣</text>
+  <rect x="520" y="1314" width="56" height="20" rx="10" fill="#ececec" stroke="#9a9a9a" stroke-width="1"/>
+  <text x="548.0" y="1328" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">已完成</text>
+  <text x="236" y="1350" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">試用品到貨與試用</text>
+  <rect x="520" y="1336" width="56" height="20" rx="10" fill="#ececec" stroke="#9a9a9a" stroke-width="1"/>
+  <text x="548.0" y="1350" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">進行中</text>
+  <text x="236" y="1372" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">團主試用回饋・確認是否開團</text>
+  <rect x="520" y="1358" width="56" height="20" rx="10" fill="#ececec" stroke="#9a9a9a" stroke-width="1"/>
+  <text x="548.0" y="1372" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">待辦</text>
+  <text x="236" y="1394" font-size="12" text-anchor="start" font-weight="normal" fill="#333333">開團審核（G1 選品核准）</text>
+  <rect x="520" y="1380" width="56" height="20" rx="10" fill="#ececec" stroke="#9a9a9a" stroke-width="1"/>
+  <text x="548.0" y="1394" font-size="11" text-anchor="middle" font-weight="normal" fill="#333333">待辦</text>
+  <text x="216" y="1468" font-size="13" text-anchor="start" font-weight="bold" fill="#333333">↓ 「核准與關卡」分頁（G1 區）新增一行唯讀提示：</text>
+  <rect x="216" y="1480" width="960" height="40" rx="4" fill="#fff4d6" stroke="#f0d28a" stroke-width="1"/>
+  <text x="228" y="1504" font-size="11" text-anchor="start" font-weight="normal" fill="#6b4600">選品與試用決策摘要（查閱用，不影響核准）：🟡 有缺口・0 項阻礙、5 項缺口。　查看完整摘要 →</text>
+  <text x="216" y="1544" font-size="11" text-anchor="start" font-weight="normal" fill="#777777">（申請 G1 的按鈕與檢查清單不變：deps_done、has_confirmed_host、has_products、vendor_info、vendor_ok）</text>
+  <circle cx="222" cy="172" r="11" fill="#111111"/><text x="222" y="176" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">1</text>
+  <circle cx="222" cy="214" r="11" fill="#111111"/><text x="222" y="218" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">2</text>
+  <circle cx="222" cy="262" r="11" fill="#111111"/><text x="222" y="266" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">3</text>
+  <circle cx="232" cy="330" r="11" fill="#111111"/><text x="232" y="334" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">4</text>
+  <circle cx="702" cy="330" r="11" fill="#111111"/><text x="702" y="334" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">5</text>
+  <circle cx="232" cy="414" r="11" fill="#111111"/><text x="232" y="418" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">6</text>
+  <circle cx="702" cy="414" r="11" fill="#111111"/><text x="702" y="418" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">7</text>
+  <circle cx="222" cy="824" r="11" fill="#111111"/><text x="222" y="828" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">8</text>
+  <circle cx="222" cy="1034" r="11" fill="#111111"/><text x="222" y="1038" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">9</text>
+  <circle cx="222" cy="1284" r="11" fill="#111111"/><text x="222" y="1288" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">10</text>
+  <circle cx="222" cy="1484" r="11" fill="#111111"/><text x="222" y="1488" font-size="12" text-anchor="middle" fill="#ffffff" font-weight="bold">11</text>
+</svg>

@@ -9,7 +9,7 @@ import { ApiForm } from '@/ui/ApiForm';
 import { Modal } from '@/ui/Modal';
 import { Banner, Card, Kv, PageHeader, StatusBadge } from '@/ui/components';
 import { DD_RECORD_STATUS, REGULATED } from '@/ui/labels';
-import { fmtDateTime } from '@/ui/format';
+import { fmtDateTime, plain } from '@/ui/format';
 import { DdItemCard, type DdItemV } from '@/ui/selection/DdItemCard';
 import { as } from '@/ui/types';
 
@@ -61,7 +61,7 @@ export default withActor(async (actor, props: { params: Params }) => {
       <h2>12 類問題</h2>
       <div data-testid="dd-items">
         {d.items.map((it) => (
-          <DdItemCard key={`${it.id}-${it.version}`} item={it} fields={DD_UI_FIELDS[it.categoryKey] ?? []} editable={d.editable} canWrite={write} canReview={reviewer} canSensitive={d.canSeeSensitive} owners={owners} />
+          <DdItemCard key={`${it.id}-${it.version}`} item={plain(it)} fields={DD_UI_FIELDS[it.categoryKey] ?? []} editable={d.editable} canWrite={write} canReview={reviewer} canSensitive={d.canSeeSensitive} owners={owners} />
         ))}
       </div>
     </>

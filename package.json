@@ -19,6 +19,7 @@
     "db:seed:demo": "tsx scripts/seed-demo.ts",
     "db:seed:demo:aftersales": "tsx scripts/seed-demo-aftersales.ts",
     "db:seed:demo:segments": "tsx scripts/seed-demo-segments.ts",
+    "db:seed:demo:selection": "tsx scripts/seed-demo-selection.ts",
     "db:reset": "tsx scripts/reset-db.ts",
     "worker:once": "tsx scripts/worker.ts --once",
     "worker": "tsx scripts/worker.ts",

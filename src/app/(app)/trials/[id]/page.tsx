@@ -8,7 +8,7 @@ import { ApiForm } from '@/ui/ApiForm';
 import { Modal } from '@/ui/Modal';
 import { Badge, Banner, Card, EmptyState, Kv, PageHeader, StatusBadge, Table } from '@/ui/components';
 import { CONCLUSION, EVAL_REVIEW, RECOVERY, TASK_STATUS, TRIAL_LEVEL, TRIAL_STATUS, TRIAL_TYPE } from '@/ui/labels';
-import { fmtDateTime } from '@/ui/format';
+import { fmtDateTime, plain } from '@/ui/format';
 import { EvidenceBox } from '@/ui/selection/EvidenceBox';
 import { TrialChecks } from '@/ui/selection/TrialChecks';
 import { as } from '@/ui/types';
@@ -79,7 +79,7 @@ export default withActor(async (actor, props: { params: Params }) => {
         </Card>
       </div>
       <Card title="四大面向檢核" testid="trial-checks-card">
-        <TrialChecks trialId={t.id} editable={write && open} canCost={t.permissions.cost} checks={t.checks as never} />
+        <TrialChecks trialId={t.id} editable={write && open} canCost={t.permissions.cost} checks={plain(t.checks) as never} />
       </Card>
       <Card title="試用整體證據連結" testid="trial-evidence">
         <EvidenceBox subjectType="TRIAL" subjectId={t.id} items={t.evidence as never} canEdit={write && open} testid="trial-evidence-box" />

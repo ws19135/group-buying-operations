@@ -332,6 +332,33 @@
 
 索引：`events_dedupe_uq`（唯一）、`events_pending_idx`、`events_pkey`（唯一）
 
+## `evidence_items`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| subject_type | text | 否 |  |  |
+| subject_id | text | 否 |  |  |
+| vendor_id | text | 是 |  | vendors.id |
+| product_id | text | 是 |  | products.id |
+| kind | text | 否 |  |  |
+| title | text | 否 |  |  |
+| url | text | 否 |  |  |
+| source_label | text | 是 |  |  |
+| valid_from | date | 是 |  |  |
+| valid_until | date | 是 |  |  |
+| note | text | 是 |  |  |
+| asset_id | text | 是 |  | product_assets.id |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+| deleted_at | timestamp with time zone | 是 |  |  |
+
+索引：`evidence_items_expiry_idx`、`evidence_items_pkey`（唯一）、`evidence_items_subject_idx`
+
 ## `exceptions`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -378,6 +405,31 @@
 | version | integer | 否 | `1` |  |
 
 索引：`expenses_campaign_idx`、`expenses_org_idx`、`expenses_pkey`（唯一）
+
+## `feasibility_scenarios`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| product_id | text | 否 |  | products.id |
+| campaign_id | text | 是 |  | campaigns.id |
+| host_id | text | 是 |  | hosts.id |
+| trial_id | text | 是 |  | product_trials.id |
+| version_no | integer | 否 |  |  |
+| label | text | 是 |  |  |
+| inputs | jsonb | 否 | `'{}'::jsonb` |  |
+| sources | jsonb | 否 | `'{}'::jsonb` |  |
+| results | jsonb | 否 | `'{}'::jsonb` |  |
+| actuals | jsonb | 是 |  |  |
+| actuals_at | timestamp with time zone | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`feasibility_scenarios_pkey`（唯一）、`feasibility_scenarios_product_idx`、`feasibility_scenarios_uq`（唯一）
 
 ## `fulfillment_batches`
 
@@ -710,6 +762,40 @@
 
 索引：`product_assets_idx`、`product_assets_pkey`（唯一）
 
+## `product_evaluations`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| product_id | text | 否 |  | products.id |
+| version_no | integer | 否 |  |  |
+| status | text | 否 | `'DRAFT'::text` |  |
+| scores | jsonb | 否 | `'{}'::jsonb` |  |
+| compliance | jsonb | 否 | `'{}'::jsonb` |  |
+| config_version | integer | 是 |  |  |
+| config_snapshot | jsonb | 是 |  |  |
+| total_score | numeric | 是 |  |  |
+| completeness | numeric | 是 |  |  |
+| confidence | text | 是 |  |  |
+| recommendation | text | 是 |  |  |
+| evidence_gaps | jsonb | 是 |  |  |
+| evaluator_id | text | 是 |  |  |
+| evaluated_on | date | 是 |  |  |
+| submitted_at | timestamp with time zone | 是 |  |  |
+| review_decision | text | 是 |  |  |
+| review_note | text | 是 |  |  |
+| reviewed_by | text | 是 |  |  |
+| reviewed_at | timestamp with time zone | 是 |  |  |
+| superseded_at | timestamp with time zone | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`product_evaluations_draft_uq`（唯一）、`product_evaluations_pkey`（唯一）、`product_evaluations_product_id_version_no_key`（唯一）、`product_evaluations_product_idx`
+
 ## `product_fit_assessments`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -745,6 +831,56 @@
 | version | integer | 否 | `1` |  |
 
 索引：`product_fit_assessments_pkey`（唯一）、`product_fit_campaign_idx`、`product_fit_current_uq`（唯一）、`product_fit_host_idx`、`product_fit_product_idx`、`product_fit_review_idx`
+
+## `product_trials`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| product_id | text | 否 |  | products.id |
+| sku_id | text | 是 |  | skus.id |
+| vendor_id | text | 否 |  | vendors.id |
+| level | text | 否 |  |  |
+| trial_type | text | 否 |  |  |
+| host_id | text | 是 |  | hosts.id |
+| campaign_id | text | 是 |  | campaigns.id |
+| tester_user_id | text | 是 |  | users.id |
+| tester_note | text | 是 |  |  |
+| qualification_trial_id | text | 是 |  | product_trials.id |
+| sample_batch_id | text | 是 |  | fulfillment_batches.id |
+| ship_date | date | 是 |  |  |
+| arrival_date | date | 是 |  |  |
+| start_date | date | 是 |  |  |
+| feedback_date | date | 是 |  |  |
+| closed_date | date | 是 |  |  |
+| carrier | text | 是 |  |  |
+| tracking_no | text | 是 |  |  |
+| recovery_required | boolean | 否 | `false` |  |
+| recovery_status | text | 否 | `'NOT_REQUIRED'::text` |  |
+| recovery_date | date | 是 |  |  |
+| recovery_note | text | 是 |  |  |
+| status | text | 否 | `'OPEN'::text` |  |
+| cancel_reason | text | 是 |  |  |
+| conclusion | text | 是 |  |  |
+| suggested_conclusion | text | 是 |  |  |
+| conclusion_note | text | 是 |  |  |
+| override_reason | text | 是 |  |  |
+| concluded_by | text | 是 |  |  |
+| concluded_at | timestamp with time zone | 是 |  |  |
+| valid_until | date | 是 |  |  |
+| basis_fingerprint | text | 是 |  |  |
+| review_decision | text | 是 |  |  |
+| review_note | text | 是 |  |  |
+| reviewed_by | text | 是 |  |  |
+| reviewed_at | timestamp with time zone | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`product_trials_campaign_idx`、`product_trials_open_uq`（唯一）、`product_trials_pkey`（唯一）、`product_trials_product_idx`
 
 ## `products`
 
@@ -1073,6 +1209,31 @@
 
 索引：`tasks_assignee_idx`、`tasks_campaign_id_step_key_key`（唯一）、`tasks_campaign_idx`、`tasks_org_status_idx`、`tasks_pkey`（唯一）
 
+## `trial_checks`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| trial_id | text | 否 |  | product_trials.id |
+| dimension | text | 否 |  |  |
+| item_key | text | 否 |  |  |
+| item_label | text | 否 |  |  |
+| result | text | 否 | `'NOT_TESTED'::text` |  |
+| evidence_text | text | 是 |  |  |
+| defect_severity | text | 否 | `'NONE'::text` |  |
+| defect_note | text | 是 |  |  |
+| risk_note | text | 是 |  |  |
+| verified_by | text | 是 |  |  |
+| verified_at | timestamp with time zone | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`trial_checks_pkey`（唯一）、`trial_checks_trial_id_item_key_key`（唯一）、`trial_checks_trial_idx`
+
 ## `user_scopes`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -1131,6 +1292,64 @@
 | deleted_at | timestamp with time zone | 是 |  |  |
 
 索引：`vendor_contacts_idx`、`vendor_contacts_pkey`（唯一）、`vendor_contacts_primary_uq`（唯一）
+
+## `vendor_dd_items`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| record_id | text | 否 |  | vendor_dd_records.id |
+| category_key | text | 否 |  |  |
+| status | text | 否 | `'PENDING_DOCS'::text` |  |
+| responsible_party | text | 否 | `'TBD'::text` |  |
+| owner_user_id | text | 是 |  | users.id |
+| terms | jsonb | 否 | `'{}'::jsonb` |  |
+| note | text | 是 |  |  |
+| na_reason | text | 是 |  |  |
+| risk_note | text | 是 |  |  |
+| legal_status | text | 否 | `'NOT_REQUIRED'::text` |  |
+| legal_reason | text | 是 |  |  |
+| legal_note | text | 是 |  |  |
+| legal_cleared_by | text | 是 |  |  |
+| legal_cleared_at | timestamp with time zone | 是 |  |  |
+| confirmed_by | text | 是 |  |  |
+| confirmed_at | timestamp with time zone | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`vendor_dd_items_pkey`（唯一）、`vendor_dd_items_record_id_category_key_key`（唯一）、`vendor_dd_items_record_idx`
+
+## `vendor_dd_records`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| vendor_id | text | 否 |  | vendors.id |
+| product_id | text | 是 |  | products.id |
+| contract_version | text | 否 |  |  |
+| contract_ref | text | 是 |  |  |
+| regulated_category | text | 是 |  |  |
+| status | text | 否 | `'DRAFT'::text` |  |
+| prepared_by | text | 是 |  |  |
+| submitted_at | timestamp with time zone | 是 |  |  |
+| reviewed_by | text | 是 |  |  |
+| reviewed_at | timestamp with time zone | 是 |  |  |
+| review_note | text | 是 |  |  |
+| valid_until | date | 是 |  |  |
+| note | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+| deleted_at | timestamp with time zone | 是 |  |  |
+
+索引：`vendor_dd_records_pkey`（唯一）、`vendor_dd_records_uq`（唯一）、`vendor_dd_records_vendor_idx`
 
 ## `vendor_intake_submissions`
 
