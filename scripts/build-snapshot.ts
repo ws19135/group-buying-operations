@@ -107,9 +107,11 @@ async function main() {
       if (finalUrl.pathname !== u.pathname) fileOf.set(canonical(finalUrl), fileFor(role.key, u));
     }
 
-    const banner = `<div style="position:sticky;top:0;z-index:9999;background:#fff3cd;color:#664d03;border-bottom:1px solid #e6c866;padding:8px 14px;font:14px/1.5 sans-serif">` +
+    const banner = `<div id="snap-banner" style="position:sticky;top:0;z-index:9999;background:#fff3cd;color:#664d03;border-bottom:1px solid #e6c866;padding:8px 14px;font:14px/1.5 sans-serif">` +
       `📸 <b>唯讀快照</b>｜視角：<b>${role.label}</b>｜資料皆為虛構 DEMO｜按鈕與表單在快照中不會動作｜` +
-      `<a href="${PUBLISH_BASE}index.html" style="color:#664d03">換角色／回首頁</a></div>`;
+      `<a href="${PUBLISH_BASE}index.html" style="color:#664d03">換角色／回首頁</a></div>` +
+      // 內嵌在「單頁檢視」時，橫幅由外層提供，這裡隱藏（唯一保留的 script，只做這件事）
+      `<script>if(window.top!==window.self){var b=document.getElementById('snap-banner');if(b)b.style.display='none'}</script>`;
     const freeze = '<style>form button,form input,form select,form textarea,button{pointer-events:none!important;opacity:.55}</style>';
 
     for (const [key, s] of saved) {
@@ -145,16 +147,33 @@ async function main() {
     fs.writeFileSync(dest, buf);
   }
   const generatedAt = new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
-  const cards = ROLES.map((r) => `<a class="card" href="${PUBLISH_BASE}${r.key}/index.html"><h2>${r.label}</h2><p>${r.hint}</p><small>${summary[r.key]} 頁</small></a>`).join('');
-  fs.writeFileSync(path.join(OUT, 'index.html'), `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>團購 ERP 唯讀示範快照</title>
-<style>body{font-family:system-ui,'PingFang TC','Noto Sans TC',sans-serif;background:#f6f3ec;color:#172a3a;margin:0;padding:48px 24px}main{max-width:860px;margin:0 auto}h1{font-size:30px;margin:0 0 8px}p.lead{color:#3c4a57;line-height:1.7}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:28px 0}.card{display:block;background:#fff;border:1px solid #ddd8cc;border-radius:14px;padding:20px;text-decoration:none;color:inherit}.card:hover{border-color:#1f7a72}.card h2{margin:0 0 6px;font-size:20px;color:#1f7a72}.card p{margin:0 0 10px;color:#3c4a57;font-size:15px;line-height:1.6}.card small{color:#6a7179}
-.note{background:#fff3cd;border:1px solid #e6c866;border-radius:10px;padding:14px 16px;color:#664d03;line-height:1.7;font-size:15px}</style></head><body><main>
-<h1>團購 ERP：唯讀示範快照</h1>
-<p class="lead">選一個角色，看他登入後實際會看到的畫面。每個角色看到的範圍不同（例如團主與廠商看不到成本與他人資料）。</p>
-<div class="grid">${cards}</div>
-<div class="note"><b>請注意：</b>這是從示範環境擷取的<b>唯讀快照</b>，不是可操作的系統。所有資料皆為虛構（名稱帶 [DEMO]）；按鈕、表單與登入在這裡都不會動作。<br>快照產生時間：${generatedAt}</div>
-</main></body></html>`);
+  const roleData = ROLES.map((r) => ({ key: r.key, label: r.label, hint: r.hint, pages: summary[r.key], src: `${PUBLISH_BASE}${r.key}/index.html` }));
+  const noscript = ROLES.map((r) => `<li><a href="${PUBLISH_BASE}${r.key}/index.html">${r.label}</a>：${r.hint}</li>`).join('');
+  fs.writeFileSync(path.join(OUT, 'index.html'), `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>團購 ERP：各角色介面（唯讀示範）</title>
+<style>
+*{box-sizing:border-box}html,body{height:100%;margin:0}body{display:flex;flex-direction:column;font-family:system-ui,'PingFang TC','Noto Sans TC',sans-serif;background:#f6f3ec;color:#172a3a}
+header{background:#172a3a;color:#f6f3ec;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+header h1{font-size:18px;margin:0;font-weight:700}header .tabs{display:flex;flex-wrap:wrap;gap:6px}
+header button{font:inherit;font-size:15px;padding:7px 14px;border-radius:999px;border:1px solid #4a6073;background:transparent;color:#e3eaf0;cursor:pointer}
+header button[aria-selected="true"]{background:#e9a15b;border-color:#e9a15b;color:#172a3a;font-weight:700}
+header .grow{flex:1}header a{color:#e9a15b;font-size:14px;text-decoration:none}
+.sub{background:#fff3cd;color:#664d03;border-bottom:1px solid #e6c866;padding:6px 16px;font-size:14px;line-height:1.5}
+iframe{flex:1;width:100%;border:0;background:#fff}noscript{display:block;padding:24px}
+</style></head><body>
+<header><h1>🛒 團購 ERP：各角色介面</h1><div class="tabs" role="tablist" id="tabs"></div><span class="grow"></span><a id="open" href="#" target="_blank" rel="noopener">在新分頁開啟 ↗</a></header>
+<div class="sub"><b id="hint"></b>&emsp;｜&emsp;<b>唯讀快照</b>：不需要登入；資料皆為虛構（[DEMO]）；按鈕與表單不會動作。快照產生時間：${generatedAt}</div>
+<iframe id="view" title="角色介面"></iframe>
+<noscript><p>需要啟用 JavaScript 才能在同一頁切換角色；也可以直接開啟各角色：</p><ul>${noscript}</ul></noscript>
+<script>
+var ROLES=${JSON.stringify(roleData)};
+var tabs=document.getElementById('tabs'),view=document.getElementById('view'),hint=document.getElementById('hint'),open=document.getElementById('open');
+function show(key){var r=ROLES.filter(function(x){return x.key===key})[0]||ROLES[0];
+  view.src=r.src;open.href=r.src;hint.textContent=r.label+'視角（約 '+r.pages+' 頁）：'+r.hint;
+  Array.prototype.forEach.call(tabs.children,function(b){b.setAttribute('aria-selected',String(b.dataset.key===r.key))});
+  try{history.replaceState(null,'','#'+r.key)}catch(e){}}
+ROLES.forEach(function(r){var b=document.createElement('button');b.type='button';b.textContent=r.label;b.dataset.key=r.key;b.setAttribute('role','tab');b.onclick=function(){show(r.key)};tabs.appendChild(b)});
+show(location.hash.replace('#',''));
+</script></body></html>`);
   fs.writeFileSync(path.join(OUT, '.nojekyll'), '');
   console.info(`完成：${Object.values(summary).reduce((a, b) => a + b, 0)} 頁、${assets.size} 個靜態資源 → ${OUT}`);
 }
