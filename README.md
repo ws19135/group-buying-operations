@@ -6,10 +6,10 @@
 >
 > | 項目 | 數字（以 CI 為準） |
 > |---|---|
-> | 自動化測試 | 17 檔 323 項（真實 PostgreSQL，含安全審查與 API 模糊測試）＋ E2E 49 項 |
-> | 資料表／遷移 | 53 張表、12 支 migration |
-> | API 端點 | 130 個（[清單](docs/generated/API_ENDPOINTS.md)） |
-> | 角色／權限 | 6 種角色、43 項權限 |
+> | 自動化測試 | 20 檔 405 項（真實 PostgreSQL，含安全審查與 API 模糊測試）＋ E2E 86 項 |
+> | 資料表／遷移 | 58 張表、13 支 migration |
+> | API 端點 | 152 個（[清單](docs/generated/API_ENDPOINTS.md)） |
+> | 角色／權限 | 6 種角色、49 項權限 |
 >
 > 📌 **進行中的整理**：SRS／SAD／SDD／線框圖已補齊並併入主分支（見下方「文件地圖」）。這些是對**已完成系統的逆向整理並與程式核對**，不是事前設計。
 
@@ -56,7 +56,7 @@ flowchart TB
     M4["Phase 2：履約出貨、售後退款、財務結算試算"]
     M5["自動化 8 個工作、通知佇列、廠商進件、例外管理"]
   end
-  S --> DB[("PostgreSQL 16<br/>53 張表<br/>禁止 DELETE、稽核不可改、版本自動維護")]
+  S --> DB[("PostgreSQL 16<br/>58 張表<br/>禁止 DELETE、稽核不可改、版本自動維護")]
   W["Worker（預設關閉）"] --> DB
   W -.->|僅測試 Adapter| N["通知（LINE／Email 未接）"]
   X1["電商訂單 API／Webhook"] -.-|BLOCKED| S
@@ -129,6 +129,7 @@ flowchart LR
 | **設計** | [SDD 詳細設計](docs/spec/SDD.md)（各模組、狀態機、序列圖、權限矩陣） | ✅ | 逆向整理 |
 | | [資料字典](docs/generated/DATA_DICTIONARY.md)、[ERD](docs/generated/ERD.md)、[API 端點](docs/generated/API_ENDPOINTS.md) | ✅ | 由程式與資料庫自動產生 |
 | | [工作流程映射](docs/WORKFLOW_MAPPING.md)、[Dashboard 規格](docs/DASHBOARD_SPEC.md)、[自動化](docs/AUTOMATION.md)、[API 說明](docs/API.md) | ✅ | 設計說明 |
+| | [SOP 01 客群分析與商品適配](docs/phase2/SEGMENT_FIT.md) | ✅ | 資料模型、評分規則、流程串接、待決策 |
 | | [Phase 2：履約](docs/phase2/FULFILLMENT.md)、[售後](docs/phase2/AFTERSALES.md)、[財務](docs/phase2/FINANCE.md) | ✅ | 模組設計與限制 |
 | **介面** | [Wireframe 線框圖與畫面清單](docs/wireframes/WIREFRAMES.md)、[現況實畫面](docs/wireframes/AS_BUILT_SCREENS.md) | ✅ | 低擬真線框＋現況截圖 |
 | | [UAT 證據（含截圖）](docs/UAT_EVIDENCE.md) | ✅ | 驗收畫面 |

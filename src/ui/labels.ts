@@ -27,6 +27,13 @@ export const INTAKE_STATUS = m({ NEW: ['新進件', 'info'], CREATED: ['已建�
 export const ERR_STATUS = m({ OPEN: ['待處理', 'danger'], RESOLVED: ['已處理', 'ok'], IGNORED: ['已忽略', 'neutral'] });
 export const USER_STATUS = m({ ACTIVE: ['啟用', 'ok'], DISABLED: ['停用', 'neutral'] });
 
+export const RECOMMENDATION = m({ RECOMMEND: ['建議合作', 'ok'], REVIEW: ['需人工評估', 'warn'], NOT_RECOMMENDED: ['不建議', 'danger'], BLOCKED: ['硬性條件未過', 'danger'], INSUFFICIENT_DATA: ['資料不足', 'neutral'] });
+export const CONFIDENCE = m({ HIGH: ['信心高', 'ok'], MEDIUM: ['信心中', 'info'], LOW: ['信心低', 'warn'], INSUFFICIENT: ['信心不足', 'neutral'] });
+export const BASIS = m({ FACT: ['事實', 'ok'], ESTIMATE: ['估計', 'warn'] });
+export const REVIEW_DECISION = m({ ACCEPTED: ['同意採用', 'ok'], REJECTED: ['不採用', 'danger'], NEEDS_DATA: ['需補資料', 'warn'] });
+export const HARD_RESULT = m({ PASS: ['通過', 'ok'], FAIL: ['未通過', 'danger'], UNKNOWN: ['未知', 'neutral'] });
+export const PROFILE_STATUS = m({ NOT_STARTED: ['未建立', 'neutral'], PARTIAL: ['待補資料', 'warn'], COMPLETE: ['完整', 'ok'] });
+
 export const PLATFORM: Record<string, string> = { LINE: 'LINE', FACEBOOK: 'Facebook', INSTAGRAM: 'Instagram', THREADS: 'Threads', YOUTUBE: 'YouTube', OTHER: '其他' };
 export const PLACEMENT_TYPE: Record<string, string> = { LAUNCH: '開團公告', POST: '貼文', STORY: '限動', LIVE_TALK: 'Live Talk', TOPIC: '話題', REMINDER: '催單' };
 export const ASSET_KIND: Record<string, string> = { IMAGE: '圖片', DOCUMENT: '文件', CERTIFICATE: '證書／報告', LINK: '連結', OTHER: '其他' };

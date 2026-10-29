@@ -22,6 +22,8 @@ import * as intake from '../modules/intake';
 import * as notif from '../modules/notifications';
 import * as fulfillment from '../modules/fulfillment';
 import * as aftersales from '../modules/aftersales';
+import * as segments from '../modules/segments';
+import * as fit from '../modules/fit';
 import { listAudit, listCampaignAudit } from '../modules/audit-read';
 import { loadActiveTemplate } from '../workflow/templates';
 import { PHASES } from '../workflow/template-default';
@@ -94,6 +96,30 @@ export const routes: RouteDef[] = [
   }),
   R('GET', '/communities/:id', async (c) => hosts.getCommunity(c.actor, c.params.id)),
   R('PATCH', '/communities/:id', async (c) => hosts.updateCommunity(c.actor, c.params.id, c.body as never)),
+
+  // ---------- 客群分析與商品適配（SOP 01；設計見 docs/phase2/SEGMENT_FIT.md） ----------
+  R('GET', '/segments', async (c) => segments.listSegments(c.actor, c.query)),
+  R('POST', '/segments', async (c) => created(await segments.createSegment(c.actor, c.body as never, c.idemKey))),
+  R('GET', '/segments/:id', async (c) => segments.getSegment(c.actor, c.params.id)),
+  R('PATCH', '/segments/:id', async (c) => segments.updateSegment(c.actor, c.params.id, c.body as never)),
+  R('POST', '/segments/:id/archive', async (c) => segments.archiveSegment(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
+  R('POST', '/segments/:id/evidence', async (c) => created(await segments.addEvidence(c.actor, c.params.id, c.body as never))),
+  R('POST', '/segment-evidence/:id/remove', async (c) => segments.removeEvidence(c.actor, c.params.id)),
+  R('GET', '/hosts/:id/segments', async (c) => segments.getHostSegments(c.actor, c.params.id)),
+  R('POST', '/hosts/:id/segments', async (c) => created(await segments.linkHostSegment(c.actor, c.params.id, c.body as never, c.idemKey))),
+  R('PATCH', '/segment-links/:id', async (c) => segments.updateSegmentLink(c.actor, c.params.id, c.body as never)),
+  R('POST', '/segment-links/:id/end', async (c) => segments.endSegmentLink(c.actor, c.params.id, body(c, z.object({ reason: z.string().optional() })).reason)),
+  R('GET', '/fit/config', async (c) => fit.getFitConfig(c.actor)),
+  R('PUT', '/fit/config', async (c) => fit.putFitConfig(c.actor, c.body as never)),
+  R('GET', '/fit/overview', async (c) => fit.fitOverview(c.actor)),
+  R('GET', '/fit', async (c) => fit.listFit(c.actor, c.query)),
+  R('GET', '/fit/:id', async (c) => fit.getFit(c.actor, c.params.id)),
+  R('POST', '/fit/:id/review', async (c) => fit.reviewFit(c.actor, c.params.id, c.body as never)),
+  R('GET', '/products/:id/fit', async (c) => fit.listProductFit(c.actor, c.params.id)),
+  R('POST', '/products/:id/fit', async (c) => fit.assessProduct(c.actor, c.params.id, c.body as never)),
+  R('GET', '/campaigns/:id/fit', async (c) => fit.listCampaignFit(c.actor, c.params.id)),
+  R('POST', '/campaigns/:id/fit', async (c) => fit.assessCampaign(c.actor, c.params.id)),
+  R('POST', '/campaigns/:id/fit/outcome', async (c) => fit.recordCampaignOutcome(c.actor, c.params.id)),
 
   // ---------- 商品 ----------
   R('GET', '/products', async (c) => products.listProducts(c.actor, c.query)),

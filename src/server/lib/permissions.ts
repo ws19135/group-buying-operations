@@ -32,7 +32,9 @@ export type Permission =
   | 'aftersales.read' | 'aftersales.write' | 'refund.approve' | 'refund.complete'
   | 'finance.read' | 'finance.write' | 'settlement.confirm'
   | 'fulfillment.read' | 'fulfillment.write'
-  | 'intake.write';
+  | 'intake.write'
+  | 'segment.read' | 'segment.write'
+  | 'fit.read' | 'fit.assess' | 'fit.review' | 'fit.config';
 
 const ALL: Permission[] = [
   'user.manage', 'audit.read',
@@ -52,6 +54,8 @@ const ALL: Permission[] = [
   'finance.read', 'finance.write', 'settlement.confirm',
   'fulfillment.read', 'fulfillment.write',
   'intake.write',
+  'segment.read', 'segment.write',
+  'fit.read', 'fit.assess', 'fit.review', 'fit.config',
 ];
 
 /**
@@ -68,6 +72,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     'dashboard.admin', 'exception.read', 'exception.manage', 'intake.write', 'order.read', 'order.import',
     'fulfillment.read', 'fulfillment.write',
     'aftersales.read', 'aftersales.write',
+    'segment.read', 'segment.write', 'fit.read', 'fit.assess',
   ],
   FINANCE: [
     'vendor.read', 'host.read', 'community.read', 'product.read', 'product.cost.read',

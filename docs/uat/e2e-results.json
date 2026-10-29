@@ -1,14 +1,14 @@
 {
-  "ranAt": "2026-10-29T12:35:26.348Z",
+  "ranAt": "2026-10-29T13:34:55.792Z",
   "base": "http://127.0.0.1:3100",
-  "total": 49,
-  "passed": 49,
+  "total": 86,
+  "passed": 86,
   "failed": 0,
   "checks": [
     {
       "name": "健康檢查含資料庫連線",
       "ok": true,
-      "detail": "{\"ok\":true,\"db\":\"up\",\"latencyMs\":1,\"env\":\"development\",\"time\":\"2026-10-29T12:34:48.833Z\"}"
+      "detail": "{\"ok\":true,\"db\":\"up\",\"latencyMs\":0,\"env\":\"development\",\"time\":\"2026-10-29T13:33:59.025Z\"}"
     },
     {
       "name": "未登入造訪 /dashboard 會被導到登入頁",
@@ -155,7 +155,152 @@
     {
       "name": "預覽沒有改動資料（結團日不變）",
       "ok": true,
-      "detail": "closeDate=2026-11-04"
+      "detail": "closeDate=2026-11-05"
+    },
+    {
+      "name": "團主列表顯示客群分析欄（/hosts）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "以名稱篩出新團主（/hosts?q=%5BE2E%5D%20%E6%96%B0%E5%9C%98%E4%B8%BB%20mvtl4h2g）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "團主列表：有客群者顯示個數、沒有者顯示「未建立」",
+      "ok": true
+    },
+    {
+      "name": "團主詳情有「客群分析」：輪廓、動機、阻力、品類、週期、通路、觀察來源",
+      "ok": true
+    },
+    {
+      "name": "合作對象類型顯示「團媽」；未提供的價格帶顯示「未知」而不是 0",
+      "ok": true
+    },
+    {
+      "name": "每個偏好標示事實／估計",
+      "ok": true
+    },
+    {
+      "name": "尚未建立客群分析的團主顯示空狀態與引導",
+      "ok": true
+    },
+    {
+      "name": "用畫面建立客群分析並連結：讀回輪廓、動機、阻力、品類、通路、觀察來源",
+      "ok": true
+    },
+    {
+      "name": "API 讀回與畫面一致（狀態為待補資料：缺合作對象類型等）",
+      "ok": true,
+      "detail": "status=PARTIAL"
+    },
+    {
+      "name": "商品頁有「候選團主適配」：總分、建議、信心、資料完整度、覆核狀態",
+      "ok": true
+    },
+    {
+      "name": "資料不足的團主標示「資料不足」與「僅供參考」，不是 0 分",
+      "ok": true
+    },
+    {
+      "name": "展開可看各維度、依據與理由；未知維度標示「未知，未計分」",
+      "ok": true
+    },
+    {
+      "name": "再次評估：資料沒變就不新增版本（畫面無錯誤）",
+      "ok": true
+    },
+    {
+      "name": "檔期「客群適配」分頁：說明不影響核准、列出評估與人工覆核入口",
+      "ok": true
+    },
+    {
+      "name": "G1 核准區有唯讀的適配評估提示（不影響申請）",
+      "ok": true
+    },
+    {
+      "name": "客群適配總覽（/fit）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "總覽有待覆核清單",
+      "ok": true
+    },
+    {
+      "name": "覆核後出現在「已覆核」並顯示覆核人、時間與意見",
+      "ok": true
+    },
+    {
+      "name": "覆核不改檔期／商品狀態（評估內容仍不變）",
+      "ok": true
+    },
+    {
+      "name": "評分設定頁（建議值待確認、權重合計 100）（/fit?tab=config）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "評分設定顯示權重合計與儲存按鈕",
+      "ok": true
+    },
+    {
+      "name": "客群清單（/segments）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "客群詳情：輪廓、連結團主、研究證據、版本與變更紀錄",
+      "ok": true
+    },
+    {
+      "name": "團主不可看客群適配（/fit）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "團主不可看客群清單（/segments）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "團主的導覽沒有「客群」與「客群適配」",
+      "ok": true
+    },
+    {
+      "name": "廠商不可看客群適配（/fit）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "廠商不可看客群清單（/segments）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "廠商的導覽沒有「客群」與「客群適配」",
+      "ok": true
+    },
+    {
+      "name": "財務不可看客群適配（/fit）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "財務不可看客群清單（/segments）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "財務的導覽沒有「客群」與「客群適配」",
+      "ok": true
+    },
+    {
+      "name": "財務的團主列表沒有客群分析欄（/hosts）",
+      "ok": true,
+      "detail": "HTTP 200"
     },
     {
       "name": "團主 Dashboard（/dashboard/host）",
@@ -232,6 +377,26 @@
     },
     {
       "name": "手機版 /tasks 無水平溢出",
+      "ok": true,
+      "detail": "溢出 0px"
+    },
+    {
+      "name": "手機版 /fit（/fit）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "手機版 /fit 無水平溢出",
+      "ok": true,
+      "detail": "溢出 0px"
+    },
+    {
+      "name": "手機版 /segments（/segments）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "手機版 /segments 無水平溢出",
       "ok": true,
       "detail": "溢出 0px"
     },

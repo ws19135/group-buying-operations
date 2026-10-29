@@ -56,3 +56,16 @@
 | 真實外部整合（LINE／Email／電商 API／Google） | 無憑證與授權（BLOCKED） |
 | 與真實歷史結案數字的手工對帳 | 沒有真實資料 |
 | 備份還原演練、負載／壓力、SAST | 未執行 |
+
+## 5. SOP 01 客群分析與商品適配驗證（2026-10-29，分支 `feat/sop01-segment-fit`）
+
+| 檢查 | 結果 |
+|---|---|
+| `npm test` | **20 個檔案、405 項通過**（開工前 17 檔 323 項；新增 `tests/unit/fit-score.test.ts` 32、`tests/segments.test.ts` 23、`tests/fit.test.ts` 27） |
+| `npm run typecheck`／`npm run lint` | 無錯誤 |
+| `npm run build` | 成功 |
+| E2E | **86/86**（既有 49 ＋ SOP 01 區塊 37；對含 DEMO 資料的資料庫連跑 3 次皆通過；新增的畫面截圖在 `docs/uat/screens/20～25`） |
+| `npm run docs:gen` | 58 張表、126 個外鍵、152 個端點 |
+| 突變驗證 | 「未知當 0 分」→ 8 項轉紅；「硬性 FAIL 可抵銷」→ 4 項轉紅；「相同輸入也新增版本」→ 2 項轉紅；還原後 59/59 |
+
+> 注意：本節只涵蓋 SOP 01 切片；第 1～2 節的數字是 2026-10-28 的紀錄，最新總數以本節與 CI 為準。

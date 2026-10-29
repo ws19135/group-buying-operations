@@ -129,6 +129,34 @@
 | 〔越權〕其他廠商詳情 VEN-0002 | `/vendors/VEN-0002` | [vendor-x-vendor-other.png](screens/vendor-x-vendor-other.png) | 「你沒有權限檢視此頁」（HTTP 200） |
 | 〔越權〕團主詳情 | `/hosts/OWN-0001` | [vendor-x-host-detail.png](screens/vendor-x-host-detail.png) | 「你沒有權限檢視此頁」（HTTP 200） |
 
+## 客群分析與商品適配（SOP 01，營運主管）
+
+> 這一組由 `scripts/e2e-smoke.ts`（Playwright，1440×900；手機版 390 寬）對示範資料庫截圖，資料為虛構 DEMO（含 `seed-demo-segments.ts` 建立的客群與評估）。建置前線框見 [16](WIREFRAMES.md#16-host-segments)、[17](WIREFRAMES.md#17-product-fit)、[18](WIREFRAMES.md#18-fit-overview)。
+
+| 畫面 | 路徑 | 截圖 | 結果 |
+|---|---|---|---|
+| 團主詳情：客群分析 | `/hosts/OWN-0001` | [manager-host-segments.png](screens/manager-host-segments.png) | 200　顯示輪廓、動機、阻力、品類、週期、通路、觀察來源；價格帶未填顯示「未知」 |
+| 商品頁：候選團主適配 | `/products/PRD-000006` | [manager-product-fit.jpg](screens/manager-product-fit.jpg) | 200　排名、總分、信心、完整度、硬性檢查、覆核；展開可看各維度 |
+| 檔期：客群適配分頁 | `/campaigns/CMP-202610-0003?tab=fit` | [manager-campaign-fit.png](screens/manager-campaign-fit.png) | 200　說明不影響核准；單筆資料不足評估 |
+| 客群適配總覽 | `/fit` | [manager-fit-overview.png](screens/manager-fit-overview.png) | 200　建議值待確認橫幅、待覆核清單 |
+| 客群清單 | `/segments` | [manager-segments.png](screens/manager-segments.png) | 200 |
+| 手機版總覽 | `/fit`（390 寬） | [manager-mobile-fit.png](screens/manager-mobile-fit.png) | 200　頁面無水平溢出（E2E 檢查）；評估表在容器內橫向捲動，「人工覆核」「理由」欄需向右捲才看得到 |
+
+### 建置前線框 vs. 實際畫面的差異
+
+| # | 項目 | 線框 | 實際 | 說明 |
+|---|---|---|---|---|
+| D1 | 客群卡片的「完整度」 | 區塊標題旁徽章（未建立／待補資料／完整） | 相同；另在每張客群卡底部列出「此客群待補：…」 | 實作時補上以客群為單位的缺漏提示 |
+| D2 | 偏好的事實／估計標示 | 實線／虛線外框＋小字 | 實線／虛線外框＋小字「事實／估計」；編輯時點小字即可切換 | 與線框一致 |
+| D3 | 評估表欄位 | 理由欄只有「▶ 各維度與理由」 | 相同；展開後另顯示評估時間、人員、評分設定版本與（結案後）成效 | 為保留證據鏈而補充 |
+| D4 | 「資料不足」「硬性條件未過」列 | 分數灰字＋註明僅供參考 | 相同 | 與線框一致 |
+| D5 | 檔期頁 | 線框 17 只畫商品頁 | 檔期頁新增「客群適配」分頁（表格同商品頁，另有「回寫結案成效」按鈕）；G1 核准區有一行唯讀提示 | 對應「檔期草稿→適配評估」「G1 選品核准→查閱」「結案→回寫成效」的流程串接 |
+| D6 | 客群清單／詳情 | 線框未畫 | 新增 `/segments`、`/segments/[id]`（輪廓、連結團主、證據、版本與變更紀錄） | 共用客群需要獨立入口；尚無獨立線框 |
+| D7 | 總覽的「已覆核」「全部」分頁 | 線框只畫待覆核並以文字說明 | 三個分頁＋評分設定表單（權重合計即時顯示、非 100 無法儲存） | — |
+| D8 | 導覽 | 側欄「客群適配」（營運）與「客群」（主檔） | 相同；團主、廠商、財務沒有這兩項 | E2E 驗證 |
+
+> 觀察：手機版評估表的「人工覆核」與「理由」欄在視窗外（可橫向捲動，非溢出）；`23`、`25` 截圖列表中的「[E2E] 新團主…」是 E2E 腳本每次執行建立的測試團主，不是 DEMO 種子資料；商品頁整頁截圖較大，故以 JPEG 儲存；全頁截圖中側欄與頂列會被截斷，屬截圖方式造成。
+
 ## 範圍探測（不截圖）
 
 團主（demo-host1）與廠商（demo-vendor）分別依序開啟 5 檔期的詳情：

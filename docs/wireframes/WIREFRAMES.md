@@ -22,6 +22,9 @@
 | [12-settlement-detail](#12-settlement-detail) | 財務結算詳情 | P2 |
 | [13-host-my-settlements](#13-host-my-settlements) | 團主「我的結算」 | P2 |
 | [14-notifications](#14-notifications) | 通知中心 | P1 |
+| [16-host-segments](#16-host-segments) | 團主詳情：客群分析 | P2（SOP 01） |
+| [17-product-fit](#17-product-fit) | 商品頁：候選團主適配 | P2（SOP 01） |
+| [18-fit-overview](#18-fit-overview) | 客群適配總覽 | P2（SOP 01） |
 
 ## 01-login
 **登入**（P1）　現況畫面：`screens/anon-login.png`
@@ -229,6 +232,56 @@
 | 3 | 標示已讀 | POST /api/notifications/:id/read | 單筆標示；已讀不再顯示按鈕 | — |
 | 4 | 空狀態 | — | — | — |
 
+## 16-host-segments
+**團主詳情：客群分析**（SOP 01）　現況畫面：`screens/manager-host-segments.png`　對應需求：FR-SEG-01～07（SRS §4.16）
+
+> 這張是**建置前線框**（先畫線框、再實作）；與實際畫面的差異見 [AS_BUILT_SCREENS.md](AS_BUILT_SCREENS.md) 的「客群分析與商品適配」。
+
+![團主詳情：客群分析](./16-host-segments.svg)
+
+| # | 元件 | 資料來源 | 互動與規則 | 角色差異 |
+|---|---|---|---|---|
+| 1 | 區塊標題＋完整度徽章（未建立／待補資料／完整） | GET /api/hosts/:id/segments | 完整度由缺漏欄位計算；缺資料不影響團主其他功能 | 需 segment.read（管理者、主管、小編）；團主、廠商、財務看不到此區 |
+| 2 | ＋ 新增客群 | POST /api/hosts/:id/segments（一併建立客群、偏好、觀察來源） | 欄位留空＝未知；每個偏好可切換事實／估計；名稱重複回報既有 ID | 需 segment.write |
+| 3 | 連結既有客群 | POST /api/hosts/:id/segments（segmentId） | 同一客群可被多位團主共用；各客群占比合計不可超過 100% | 需 segment.write |
+| 4 | 基本資料列：合作對象類型、一句話描述、占比合計 | hosts.partner_type、hosts.audience_note、partner_segment_links | 舊的「客群描述」欄保留；類型未填顯示「未知」 | 類型在編輯表單修改（host.write） |
+| 5 | 客群卡片（名稱、整體依據、占比、主要社群、連結依據） | customer_segments、partner_segment_links | 一團主可有多張卡；連結的社群必須是該團主目前所屬社群 | — |
+| 6 | 編輯客群 | PATCH /api/segments/:id（含四類偏好陣列、樂觀鎖） | 會影響所有連結此客群的團主；移除的偏好只是軟刪除；變更有稽核前後值 | 需 segment.write |
+| 7 | 調整占比 | PATCH /api/segment-links/:id | 占比、依據、社群、備註 | 需 segment.write |
+| 8 | 結束連結 | POST /api/segment-links/:id/end | 只寫 ended_at，不刪列；客群與歷史評估保留 | 需 segment.write |
+| 9 | 輪廓與偏好列（年齡層、家庭型態、消費週期、價格帶、需求動機、購買阻力、偏好品類、活躍通路） | segment_preferences（kind＝MOTIVE／BARRIER／CATEGORY／CHANNEL） | 實線＝事實、虛線＝估計、斜體「未知」＝尚未填寫（不是「沒有」） | — |
+| 10 | 觀察來源＋新增觀察來源 | segment_evidence | 標「事實」必須填來源；不得含手機或 Email；移除＝軟刪除 | 需 segment.write |
+
+## 17-product-fit
+**商品頁：候選團主適配**（SOP 01）　現況畫面：`screens/manager-product-fit.jpg`；檔期頁版本 `screens/manager-campaign-fit.png`　對應需求：FR-FIT-01～10
+
+![商品頁：候選團主適配](./17-product-fit.svg)
+
+| # | 元件 | 資料來源 | 互動與規則 | 角色差異 |
+|---|---|---|---|---|
+| 1 | 產生候選團主評估 | POST /api/products/:id/fit | 預設評估所有「合作中」團主（上限 200）；輸入與設定沒變就不新增版本；不發任何通知、不改商品狀態 | 需 fit.assess（管理者、主管、小編） |
+| 2 | 候選團主欄 | product_fit_assessments × hosts | 建議合作排最前、硬性條件未過排最後；尚無客群分析者標示 | 需 fit.read；團主、廠商、財務無入口 |
+| 3 | 總分／建議 | scoring：需求30／品類20／價格15／歷史績效20／供應履約15（建議值，待確認） | 只用已知維度重新正規化；「資料不足」「硬性條件未過」的分數灰字並註明僅供參考 | — |
+| 4 | 信心／資料完整度／資料已更新 | confidence、completeness、stale 旗標 | 完整度＝已知權重比例；客群、商品、價格資料晚於評估時間更新就標「建議重評」 | — |
+| 5 | 硬性檢查（合規、商品品質） | 商品審核狀態、合規備註、廠商狀態 | 未通過＝BLOCKED，不被總分抵銷；未知＝最高只能「需人工評估」 | — |
+| 6 | 人工覆核（結果、覆核人、時間、意見）＋覆核／重新覆核按鈕 | POST /api/fit/:id/review | 同意採用／不採用／需補資料；後兩者必填原因；只記錄意見，不改任何檔期狀態；已被新版取代的評估不能覆核 | 需 fit.review（管理者、主管）；小編可看不可覆核 |
+| 7 | 理由展開 | dimensions、hard_checks、reasons、config_snapshot | 每維度顯示分數或「未知，未計分」、依據（事實／估計）、理由與命中項目；顯示評分設定版本 | — |
+| 8 | 展開內容（維度、硬性檢查、評估時間、結案成效） | 同上；outcome（結案回寫） | 結案後可回寫實際歸因淨銷售、訂單數、目標達成率（POST /api/campaigns/:id/fit/outcome） | 檔期層級資料依檔期資料範圍（小編只看自己負責的檔期） |
+| 9 | 覆核對話框 | 同 6 | 顯示系統建議；明示覆核不會改變檔期狀態或 G1–G5 | — |
+
+## 18-fit-overview
+**客群適配總覽**（SOP 01）　現況畫面：`screens/manager-fit-overview.png`、手機版 `screens/manager-mobile-fit.png`　對應需求：FR-FIT-01、FR-FIT-07、FR-FIT-12
+
+![客群適配總覽](./18-fit-overview.svg)
+
+| # | 元件 | 資料來源 | 互動與規則 | 角色差異 |
+|---|---|---|---|---|
+| 1 | 評分設定橫幅（版本、「建議值，待 Owner 確認」、權重與門檻） | GET /api/fit/config | 未經 Owner 確認前一律標示待確認；調整連結只給有權限者 | 調整需 fit.config（管理者、主管） |
+| 2 | 分頁：待覆核／已覆核／全部最新評估／評分設定 | GET /api/fit?review=… | 評分設定存新版本、寫稽核；舊評估保留當時的設定快照 | — |
+| 3 | 評估清單（團主／商品、總分／建議、信心、硬性檢查、覆核、理由） | 同 17 | 同商品頁的表格元件 | — |
+| 4 | 覆核入口 | POST /api/fit/:id/review | 同 17 的 6 | 需 fit.review |
+| 5 | 尚未建立客群分析的團主 | GET /api/fit/overview | 引導到團主頁建立客群分析（流程：新團主建檔 → 客群分析） | — |
+
 ## 設計共通規則
 
 - 狀態一律用「徽章＋文字」，不只靠顏色。
@@ -237,3 +290,4 @@
 - 敏感欄位（成本、目標營收、內部備註、他人結算）由**後端**決定是否回傳，畫面不是唯一防線。
 - 所有寫入都留稽核紀錄；沒有真正的刪除，只有封存、取消或作廢。
 - 結算相關頁面固定顯示「試算，口徑待 Owner 確認；非正式付款依據」。
+- 客群分析與適配：空值一律顯示「未知」（不是「無」或 0 分）；每個偏好與維度標示事實／估計；評分權重標示「建議值，待 Owner 確認」；適配評估只供查閱與人工覆核，不影響 G1–G5。

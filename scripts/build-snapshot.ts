@@ -5,7 +5,7 @@
  *
  * 只用 DEMO 帳號與虛構資料。輸出到 site/（預設）：每個角色一套頁面，頁內連結改寫成快照內的連結，
  * 移除所有 script（所以沒有任何寫入功能），並在頂端加上「唯讀快照」橫幅。
- * 環境變數：SNAPSHOT_BASE（發布路徑前綴，預設 /）、SNAPSHOT_OUT（輸出資料夾）、SNAPSHOT_MAX_PAGES（每個角色頁數上限，預設 200）。
+ * 環境變數：SNAPSHOT_BASE（發布路徑前綴，預設 /）、SNAPSHOT_OUT（輸出資料夾）、SNAPSHOT_MAX_PAGES（每個角色頁數上限，預設 400）。
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,7 +15,7 @@ const BASE_URL = (process.env.BASE_URL ?? 'http://127.0.0.1:3100').replace(/\/$/
 const PASSWORD = process.env.SNAPSHOT_PASSWORD ?? process.env.DEMO_PASSWORD ?? '';
 const PUBLISH_BASE = (process.env.SNAPSHOT_BASE ?? '/').replace(/\/?$/, '/');
 const OUT = path.resolve(process.env.SNAPSHOT_OUT ?? 'site');
-const MAX_PAGES = Number(process.env.SNAPSHOT_MAX_PAGES ?? 200);
+const MAX_PAGES = Number(process.env.SNAPSHOT_MAX_PAGES ?? 400);
 
 const ROLES: { key: string; email: string; label: string; hint: string }[] = [
   { key: 'manager', email: 'demo-manager@example.invalid', label: '營運主管', hint: '看得最完整：總覽、檔期、核准、履約、售後、財務' },

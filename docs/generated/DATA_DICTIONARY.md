@@ -279,6 +279,30 @@
 
 索引：`communities_name_uq`（唯一）、`communities_pkey`（唯一）
 
+## `customer_segments`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| name | text | 否 |  |  |
+| normalized_name | text | 否 |  |  |
+| description | text | 是 |  |  |
+| age_band | text | 是 |  |  |
+| family_type | text | 是 |  |  |
+| cycle | text | 是 |  |  |
+| price_min | bigint | 是 |  |  |
+| price_max | bigint | 是 |  |  |
+| basis | text | 否 | `'ESTIMATE'::text` |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+| deleted_at | timestamp with time zone | 是 |  |  |
+
+索引：`customer_segments_name_uq`（唯一）、`customer_segments_pkey`（唯一）
+
 ## `daily_summaries`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -432,6 +456,7 @@
 | updated_by | text | 是 |  |  |
 | version | integer | 否 | `1` |  |
 | deleted_at | timestamp with time zone | 是 |  |  |
+| partner_type | text | 是 |  |  |
 
 索引：`hosts_name_uq`（唯一）、`hosts_pkey`（唯一）
 
@@ -616,6 +641,27 @@
 
 索引：`organizations_pkey`（唯一）
 
+## `partner_segment_links`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| host_id | text | 否 |  | hosts.id |
+| segment_id | text | 否 |  | customer_segments.id |
+| community_id | text | 是 |  | communities.id |
+| share_percent | numeric | 是 |  |  |
+| basis | text | 否 | `'ESTIMATE'::text` |  |
+| note | text | 是 |  |  |
+| ended_at | timestamp with time zone | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`partner_segment_links_pkey`（唯一）、`partner_segment_links_segment_idx`、`partner_segment_links_uq`（唯一）
+
 ## `payments`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -663,6 +709,42 @@
 | deleted_at | timestamp with time zone | 是 |  |  |
 
 索引：`product_assets_idx`、`product_assets_pkey`（唯一）
+
+## `product_fit_assessments`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| product_id | text | 否 |  | products.id |
+| host_id | text | 否 |  | hosts.id |
+| campaign_id | text | 是 |  | campaigns.id |
+| config_version | integer | 否 |  |  |
+| config_snapshot | jsonb | 否 |  |  |
+| input_hash | text | 否 |  |  |
+| total_score | numeric | 是 |  |  |
+| completeness | numeric | 否 |  |  |
+| confidence | text | 否 |  |  |
+| recommendation | text | 否 |  |  |
+| dimensions | jsonb | 否 |  |  |
+| hard_checks | jsonb | 否 |  |  |
+| reasons | jsonb | 否 |  |  |
+| sources | jsonb | 否 |  |  |
+| assessed_by | text | 是 |  |  |
+| assessed_at | timestamp with time zone | 否 | `now()` |  |
+| review_decision | text | 是 |  |  |
+| review_note | text | 是 |  |  |
+| reviewed_by | text | 是 |  |  |
+| reviewed_at | timestamp with time zone | 是 |  |  |
+| superseded_at | timestamp with time zone | 是 |  |  |
+| superseded_by | text | 是 |  |  |
+| outcome | jsonb | 是 |  |  |
+| outcome_at | timestamp with time zone | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| version | integer | 否 | `1` |  |
+
+索引：`product_fit_assessments_pkey`（唯一）、`product_fit_campaign_idx`、`product_fit_current_uq`（唯一）、`product_fit_host_idx`、`product_fit_product_idx`、`product_fit_review_idx`
 
 ## `products`
 
@@ -727,6 +809,50 @@
 | is_internal | boolean | 否 | `true` |  |
 
 索引：`roles_pkey`（唯一）
+
+## `segment_evidence`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| segment_id | text | 否 |  | customer_segments.id |
+| host_id | text | 是 |  | hosts.id |
+| kind | text | 否 |  |  |
+| basis | text | 否 | `'ESTIMATE'::text` |  |
+| summary | text | 否 |  |  |
+| source_label | text | 是 |  |  |
+| source_url | text | 是 |  |  |
+| observed_on | date | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+| deleted_at | timestamp with time zone | 是 |  |  |
+
+索引：`segment_evidence_idx`、`segment_evidence_pkey`（唯一）
+
+## `segment_preferences`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| segment_id | text | 否 |  | customer_segments.id |
+| kind | text | 否 |  |  |
+| value | text | 否 |  |  |
+| normalized_value | text | 否 |  |  |
+| basis | text | 否 | `'ESTIMATE'::text` |  |
+| evidence_id | text | 是 |  | segment_evidence.id |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+| deleted_at | timestamp with time zone | 是 |  |  |
+
+索引：`segment_preferences_idx`、`segment_preferences_pkey`（唯一）、`segment_preferences_uq`（唯一）
 
 ## `service_cases`
 

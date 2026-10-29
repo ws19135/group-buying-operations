@@ -146,6 +146,128 @@ async function main() {
       await ctx.close();
     }
 
+    // ---- 客群分析與商品適配（SOP 01） ----
+    {
+      const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } }); const page = await ctx.newPage(); const w = new Watch(page);
+      await login(ctx, page, 'demo-manager@example.invalid');
+      // 每次執行都先建一位全新的團主（可重複執行），用來驗證「尚未建立客群分析」的空狀態
+      const freshName = `[E2E] 新團主 ${Date.now().toString(36)}`;
+      await page.goto(`${BASE}/hosts`, { waitUntil: 'networkidle' });
+      const created = await page.evaluate(async (n) => (await fetch('/api/hosts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ displayName: n }) })).json(), freshName);
+      const freshId = created?.data?.id as string;
+      await page.evaluate(async (n) => (await fetch('/api/hosts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ displayName: n }) })).json(), `${freshName} 無客群`);   // 這一位保持沒有客群分析，供「資料不足」檢查
+      const list = await visit(page, w, '/hosts', '團主列表顯示客群分析欄', { expectText: /客群分析/ });
+      const filtered = await visit(page, w, `/hosts?q=${encodeURIComponent(freshName)}`, '以名稱篩出新團主');
+      record('團主列表：有客群者顯示個數、沒有者顯示「未建立」', /\d+ 個客群/.test(list) && /未建立/.test(filtered));
+      await page.goto(`${BASE}/hosts?q=${encodeURIComponent('小雅')}`, { waitUntil: 'networkidle' });
+      const yaLink = page.locator('[data-testid^="host-row-"] a').first();
+      await Promise.all([page.waitForURL(/\/hosts\/OWN-/), yaLink.click()]);
+      await page.waitForLoadState('networkidle');
+      const ya = await page.locator('body').innerText();
+      record('團主詳情有「客群分析」：輪廓、動機、阻力、品類、週期、通路、觀察來源', ['客群分析', '育兒家庭 30–44 歲', '省時間', '品質安心', '陌生品牌', '怕踩雷', '家庭清潔', '親子用品', 'LINE', '每月', '觀察來源', '客群經常討論育兒'].every((t) => ya.includes(t)));
+      record('合作對象類型顯示「團媽」；未提供的價格帶顯示「未知」而不是 0', (await page.getByTestId('host-partner-type').innerText()).includes('團媽') && /價格帶[\s\S]{0,40}未知/.test(ya));
+      record('每個偏好標示事實／估計', (await page.locator('[data-testid^="seg-motives-"] .chip .b').count()) >= 2);
+      await page.screenshot({ path: path.join(SHOTS, '20-host-segments.png'), fullPage: true });
+      w.take();
+
+      // 為全新團主用畫面建立客群分析
+      await page.goto(`${BASE}/hosts/${freshId}`, { waitUntil: 'networkidle' });
+      record('尚未建立客群分析的團主顯示空狀態與引導', (await page.getByTestId('segment-empty').count()) > 0);
+      const segName = `[E2E] 家庭主婦 ${Date.now().toString(36)}`;
+      await page.getByTestId('btn-add-segment').click();
+      const dlg = page.getByTestId('btn-add-segment-dialog');
+      await dlg.getByTestId('seg-name').fill(segName);
+      await dlg.getByTestId('seg-ageBand').selectOption('30_44');
+      await dlg.getByTestId('seg-familyType').selectOption('PARENTING');
+      await dlg.getByTestId('seg-cycle').selectOption('MONTHLY');
+      await dlg.getByTestId('seg-suggest-MOTIVE-省時間').click();
+      await dlg.getByTestId('seg-add-BARRIER').fill('怕踩雷');
+      await dlg.getByTestId('seg-add-BARRIER-btn').click();
+      await dlg.getByTestId('seg-suggest-CATEGORY-家庭清潔').click();
+      await dlg.getByTestId('seg-channel-LINE').check();
+      await dlg.getByTestId('seg-share').fill('100');
+      await dlg.getByTestId('seg-evSummary').fill('E2E：客群常在群組詢問補貨時間。');
+      await dlg.getByTestId('seg-submit').click();
+      await page.getByText(segName).first().waitFor({ timeout: 15_000 });
+      const after = await page.locator('body').innerText();
+      record('用畫面建立客群分析並連結：讀回輪廓、動機、阻力、品類、通路、觀察來源', [segName, '省時間', '怕踩雷', '家庭清潔', 'LINE', '客群常在群組詢問補貨時間'].every((t) => after.includes(t)));
+      const hostId = page.url().split('/').pop() as string;
+      const api = await (await ctx.request.get(`${BASE}/api/hosts/${hostId}/segments`)).json();
+      record('API 讀回與畫面一致（狀態為待補資料：缺合作對象類型等）', api?.data?.links?.length === 1 && api.data.links[0].segment.motives[0].value === '省時間' && api.data.links[0].segment.motives[0].basis === 'ESTIMATE', `status=${api?.data?.status}`);
+      w.take();
+
+      // 商品頁：候選團主適配
+      await page.goto(`${BASE}/products?q=${encodeURIComponent('除菌')}`, { waitUntil: 'networkidle' });
+      await Promise.all([page.waitForURL(/\/products\/PRD-/), page.locator('a[href^="/products/PRD-"]').first().click()]);
+      await page.waitForLoadState('networkidle');
+      await page.getByTestId('btn-assess-product').click();   // 先評估，讓剛建立、尚無客群分析的團主也有一列
+      await page.getByText(`${freshName} 無客群`).first().waitFor({ timeout: 15_000 });
+      const prod = await page.locator('body').innerText();
+      record('商品頁有「候選團主適配」：總分、建議、信心、資料完整度、覆核狀態', ['候選團主適配', '資料完整度', '待覆核'].every((t) => prod.includes(t)) && /建議合作|需人工評估|不建議/.test(prod) && (await page.locator('[data-testid^="fit-row-"]').count()) >= 3);
+      record('資料不足的團主標示「資料不足」與「僅供參考」，不是 0 分', /資料不足/.test(prod) && /分數僅供參考/.test(prod));
+      await page.locator('[data-testid^="fit-detail-"]').first().click();
+      record('展開可看各維度、依據與理由；未知維度標示「未知，未計分」', /未知，未計分/.test(await page.locator('body').innerText()));
+      await page.screenshot({ path: path.join(SHOTS, '21-product-fit.png'), fullPage: true });
+      await page.getByTestId('btn-assess-product').click();
+      await page.waitForLoadState('networkidle');
+      record('再次評估：資料沒變就不新增版本（畫面無錯誤）', w.take().length === 0);
+
+      // 檔期頁：客群適配分頁與 G1 提示
+      await page.goto(`${BASE}/campaigns?q=${encodeURIComponent('保濕面膜')}`, { waitUntil: 'networkidle' });
+      await Promise.all([page.waitForURL(/\/campaigns\/CMP-/), page.locator('[data-testid^="campaign-link-"]').first().click()]);
+      await page.waitForLoadState('networkidle');
+      const campUrl = page.url().split('?')[0];
+      await page.goto(`${campUrl}?tab=fit`, { waitUntil: 'networkidle' });
+      const fitTab = await page.locator('body').innerText();
+      record('檔期「客群適配」分頁：說明不影響核准、列出評估與人工覆核入口', /不會.*自動核准/.test(fitTab) && (await page.locator('[data-testid^="fit-row-"]').count()) >= 1 && (await page.locator('[data-testid^="btn-fit-review-"]').count()) >= 1);
+      await page.screenshot({ path: path.join(SHOTS, '22-campaign-fit.png'), fullPage: true });
+      await page.goto(`${campUrl}?tab=approvals`, { waitUntil: 'networkidle' });
+      record('G1 核准區有唯讀的適配評估提示（不影響申請）', (await page.getByTestId('g1-fit-note').count()) > 0 && (await page.getByTestId('btn-request-G1').count()) >= 0);
+
+      // 總覽：覆核流程
+      await visit(page, w, '/fit', '客群適配總覽', { shot: '23-fit-overview.png', expectText: /建議值，待 Owner 確認/ });
+      const firstReview = page.locator('[data-testid^="btn-fit-review-"]').first();
+      record('總覽有待覆核清單', (await firstReview.count()) > 0);
+      if (await firstReview.count()) {
+        const rid = ((await firstReview.getAttribute('data-testid')) as string).replace('btn-fit-review-', '');
+        await firstReview.click();
+        const rdlg = page.getByTestId(`btn-fit-review-${rid}-dialog`);
+        await rdlg.getByTestId('field-decision').selectOption('NEEDS_DATA');
+        await rdlg.getByTestId('field-note').fill('E2E：請先補價格帶與觀察來源');
+        await rdlg.getByTestId(`fit-review-form-${rid}-submit`).click();
+        await page.waitForLoadState('networkidle');
+        await page.goto(`${BASE}/fit?tab=done`, { waitUntil: 'networkidle' });
+        record('覆核後出現在「已覆核」並顯示覆核人、時間與意見', /需補資料/.test(await page.getByTestId(`fit-review-${rid}`).innerText()) && /E2E：請先補價格帶/.test(await page.getByTestId(`fit-review-${rid}`).innerText()));
+        const stat = await (await ctx.request.get(`${BASE}/api/fit/${rid}`)).json();
+        record('覆核不改檔期／商品狀態（評估內容仍不變）', stat?.data?.reviewDecision === 'NEEDS_DATA' && stat?.data?.id === rid);
+      }
+      await visit(page, w, '/fit?tab=config', '評分設定頁（建議值待確認、權重合計 100）', { expectText: /建議值，待 Owner 確認/ });
+      record('評分設定顯示權重合計與儲存按鈕', (await page.getByTestId('cfg-sum').innerText()).includes('100%') && (await page.getByTestId('cfg-submit').isEnabled()));
+      await visit(page, w, '/segments', '客群清單', { shot: '24-segments.png', expectText: /育兒家庭/ });
+      await Promise.all([page.waitForURL(/\/segments\/SEG-/), page.locator('[data-testid^="segment-row-"] a').first().click()]);
+      await page.waitForLoadState('networkidle');
+      const segDetail = await page.locator('body').innerText();
+      record('客群詳情：輪廓、連結團主、研究證據、版本與變更紀錄', ['客群輪廓', '連結的團主', '研究證據', '版本與變更紀錄'].every((t) => segDetail.includes(t)));
+      await ctx.close();
+    }
+
+    // ---- 客群分析：非授權角色看不到 ----
+    {
+      for (const [email, label] of [['demo-host1@example.invalid', '團主'], ['demo-vendor@example.invalid', '廠商'], ['demo-finance@example.invalid', '財務']] as const) {
+        const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } }); const page = await ctx.newPage(); const w = new Watch(page);
+        await login(ctx, page, email);
+        await visit(page, w, '/fit', `${label}不可看客群適配`, { expectText: /沒有權限/ });
+        await visit(page, w, '/segments', `${label}不可看客群清單`, { expectText: /沒有權限/ });
+        const nav = await page.locator('nav').innerText();
+        record(`${label}的導覽沒有「客群」與「客群適配」`, !/客群適配/.test(nav) && !/客群\n/.test(`${nav}\n`));
+        if (email === 'demo-finance@example.invalid') {
+          const hostsPage = await visit(page, w, '/hosts', '財務的團主列表沒有客群分析欄', { notText: /客群分析/ });
+          void hostsPage;
+        }
+        await ctx.close();
+      }
+    }
+
     // ---- 團主 ----
     {
       const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } }); const page = await ctx.newPage(); const w = new Watch(page);
@@ -174,7 +296,7 @@ async function main() {
     {
       const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true }); const page = await ctx.newPage(); const w = new Watch(page);
       await login(ctx, page, 'demo-manager@example.invalid');
-      for (const [url, shot] of [['/dashboard', '14-mobile-dashboard.png'], ['/campaigns', '15-mobile-campaigns.png'], ['/tasks', '']] as const) {
+      for (const [url, shot] of [['/dashboard', '14-mobile-dashboard.png'], ['/campaigns', '15-mobile-campaigns.png'], ['/tasks', ''], ['/fit', '25-mobile-fit.png'], ['/segments', '']] as const) {
         await visit(page, w, url, `手機版 ${url}`, { shot: shot || undefined });
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         record(`手機版 ${url} 無水平溢出`, overflow <= 1, `溢出 ${overflow}px`);

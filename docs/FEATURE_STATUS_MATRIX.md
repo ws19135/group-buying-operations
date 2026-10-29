@@ -43,3 +43,7 @@
 | 36 | 真實 LINE／Email 通知 | BLOCKED | — | 缺憑證與 Owner 授權 |
 | 37 | SSO／MFA、密碼重設 | NOT_STARTED | — | 需 Owner 決定 |
 | 38 | 備份還原演練、監控告警、RLS、Production 部署 | NOT_STARTED | — | 需 Owner 授權 |
+| 39 | SOP 01 客群分析：客群輪廓、需求／阻力／品類／通路偏好、團主多客群與占比、研究證據、團主合作對象類型 | IMPLEMENTED_NEW | `tests/segments.test.ts`（23）；`docs/phase2/SEGMENT_FIT.md`；E2E 團主客群分析 | 事實／估計用人工標示；未知＝空值；證據不得含個資；沒有外部資料來源或問卷匯入 |
+| 40 | 商品 × 團主適配評估：五維度可解釋評分（權重可設定）、未知不當 0 分、完整度與信心、合規／品質硬性檢查、評估版本與設定快照、人工覆核 | IMPLEMENTED_NEW | `tests/unit/fit-score.test.ts`（32）、`tests/fit.test.ts`（27）；三種突變驗證皆轉紅 | 權重與門檻為**建議值，待 Owner 確認**（D-18）；需求維度是關鍵字比對（一律標估計）；歷史績效樣本少時為未知 |
+| 41 | 流程串接：新團主→客群分析提示、新商品→候選團主、檔期草稿→適配評估、G1 查閱評估、結案→成效回寫 | IMPLEMENTED_NEW | `tests/fit.test.ts`（G1 檢查項／核准結果／通知數不變）；E2E | **不改 G1–G5 語意、不自動核准、不發通知**；G1 是否納入檢查（D-19）與回寫是否排程（D-20）待決 |
+| 42 | 客群適配總覽與評分設定頁、客群清單與詳情（含變更紀錄） | IMPLEMENTED_NEW | E2E（`scripts/e2e-smoke.ts` SOP 01 區塊 37 項） | 團主、廠商、財務沒有入口 |

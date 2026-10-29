@@ -14,7 +14,7 @@
 npm run build && npm run bootstrap:demo && npm start          # 先有一個跑著的示範站（含 DEMO 資料）
 BASE_URL=http://127.0.0.1:3000 SNAPSHOT_PASSWORD=<DEMO_PASSWORD> npm run snapshot   # 輸出到 site/
 ```
-`scripts/build-snapshot.ts` 用 Playwright 逐角色登入並爬過所有站內連結，移除所有 script、把連結改寫成快照內的檔案、複製靜態資源。月份切換（`?month=`）不擷取；每個角色頁數上限預設 200（`SNAPSHOT_MAX_PAGES`）。
+`scripts/build-snapshot.ts` 用 Playwright 逐角色登入並爬過所有站內連結，移除所有 script、把連結改寫成快照內的檔案、複製靜態資源。月份切換（`?month=`）不擷取；每個角色頁數上限預設 400（`SNAPSHOT_MAX_PAGES`）。
 
 ## 自動發布（GitHub Actions）
 `.github/workflows/pages.yml`：在 CI 內起一個一次性的示範站（密碼每次隨機產生，不寫入任何檔案）→ 產生快照 → 發布到 GitHub Pages。

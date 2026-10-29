@@ -9,11 +9,13 @@ import { Modal } from '@/ui/Modal';
 import { Badge, Card, EmptyState, PageHeader, StatusBadge, Table } from '@/ui/components';
 import { AVAIL_KIND, CAMPAIGN_STATUS, HOST_PART, HOST_STATUS, PLATFORM } from '@/ui/labels';
 import { as } from '@/ui/types';
+import { PARTNER_TYPE_LABEL } from '@/server/lib/segment-vocab';
+import { HostSegments } from './HostSegments';
 
 export const dynamic = 'force-dynamic';
 
 interface H {
-  id: string; displayName: string; legalName: string | null; contactEmail: string | null; contactPhone: string | null; lineId: string | null; status: string; audienceNote: string | null; cooperationTerms: string | null; internalNote?: string | null; version: number;
+  id: string; displayName: string; legalName: string | null; contactEmail: string | null; contactPhone: string | null; lineId: string | null; status: string; audienceNote: string | null; partnerType?: string | null; cooperationTerms: string | null; internalNote?: string | null; version: number;
   communities: { id: string; platform: string; name: string; status: string; role: string }[];
   availability: { id: string; startDate: string; endDate: string; kind: string; note: string | null }[];
   history: { id: string; title: string; status: string; openDate: string | null; closeDate: string | null; participationStatus: string; role: string }[];
@@ -35,7 +37,8 @@ export default withActor(async (actor, props: { params: Params }) => {
             { name: 'displayName', label: '團主名稱', defaultValue: h.displayName, required: true }, { name: 'legalName', label: '法定名稱', defaultValue: h.legalName },
             { name: 'contactEmail', label: 'Email', type: 'email', defaultValue: h.contactEmail }, { name: 'contactPhone', label: '電話', defaultValue: h.contactPhone }, { name: 'lineId', label: 'LINE ID', defaultValue: h.lineId },
             { name: 'status', label: '狀態', type: 'select', required: true, defaultValue: h.status, options: Object.entries(HOST_STATUS).map(([k, l]) => ({ value: k, label: l.label })) },
-            { name: 'audienceNote', label: '客群描述', type: 'textarea', defaultValue: h.audienceNote }, { name: 'cooperationTerms', label: '合作條件', type: 'textarea', defaultValue: h.cooperationTerms }, { name: 'internalNote', label: '內部備註', type: 'textarea', defaultValue: h.internalNote }]} />
+            { name: 'partnerType', label: '合作對象類型', type: 'select', defaultValue: h.partnerType, options: Object.entries(PARTNER_TYPE_LABEL).map(([value, label]) => ({ value, label })), help: '未填＝未知' },
+            { name: 'audienceNote', label: '客群描述（一句話；結構化輪廓請見下方「客群分析」）', type: 'textarea', defaultValue: h.audienceNote }, { name: 'cooperationTerms', label: '合作條件', type: 'textarea', defaultValue: h.cooperationTerms }, { name: 'internalNote', label: '內部備註', type: 'textarea', defaultValue: h.internalNote }]} />
             : <dl className="kv"><dt>Email</dt><dd>{h.contactEmail ?? '—'}</dd><dt>LINE</dt><dd>{h.lineId ?? '—'}</dd><dt>合作條件</dt><dd>{h.cooperationTerms ?? '—'}</dd></dl>}
         </Card>
         <div>
@@ -55,6 +58,7 @@ export default withActor(async (actor, props: { params: Params }) => {
           </Card>
         </div>
       </div>
+      {can(actor, 'segment.read') ? <HostSegments actor={actor} hostId={h.id} communities={h.communities.map((c) => ({ id: c.id, name: c.name }))} /> : null}
       <Card title="歷史團購" flush testid="host-history">
         {h.history.length === 0 ? <EmptyState title="尚無參與的檔期" /> : (
           <Table head={['檔期', '狀態', '期間', '我的角色', '參與狀態']}>{h.history.map((c) => <tr key={c.id}><td><Link href={`/campaigns/${c.id}`}>{c.title}</Link></td><td><StatusBadge map={CAMPAIGN_STATUS} value={c.status} /></td><td>{c.openDate ?? '—'} ～ {c.closeDate ?? '—'}</td><td>{c.role === 'PRIMARY' ? '主要' : '共同'}</td><td><StatusBadge map={HOST_PART} value={c.participationStatus} /></td></tr>)}</Table>

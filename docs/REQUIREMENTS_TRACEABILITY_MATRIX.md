@@ -139,3 +139,18 @@
 | 基本 CI | `.github/workflows/ci.yml` | IMPLEMENTED_NEW（以 PR 上的實際執行結果為準） |
 | 備份還原演練、監控告警、RLS、靜態加密 | — | NOT_STARTED |
 | 履約、售後、退款、客訴、結算（RM P4/P5） | `settlements` 等僅 Schema | NOT_STARTED |
+
+## J. SOP 01 市場定位與客群分析（本次任務指示 T-SOP01）
+
+| 需求 | 實作 | 測試 | 狀態 |
+|---|---|---|---|
+| 客群輪廓、需求與偏好、團主多客群關聯、商品適配評估、研究證據、版本紀錄（五張邏輯表） | migration 013：`customer_segments`、`segment_preferences`、`partner_segment_links`、`segment_evidence`、`product_fit_assessments`；版本＝`version` 樂觀鎖＋`audit_logs`＋評估多版本 | `segments`、`fit`、`database` | IMPLEMENTED_NEW |
+| 一團主多客群、多通路、複選需求；區分事實／估計／未知 | `segments.ts`；`basis` 欄位；空值＝未知 | `segments`（多客群、占比、通路、未知／PARTIAL） | IMPLEMENTED_NEW |
+| 團主詳情「客群分析」區（輪廓、動機、阻力、品類、週期、通路、觀察來源） | `hosts/[id]/HostSegments.tsx` | E2E | IMPLEMENTED_NEW |
+| 商品／檔期頁的候選團主適配（評分、理由、完整度、人工覆核） | `FitTable.tsx`、商品頁、檔期「客群適配」分頁 | E2E、`fit` | IMPLEMENTED_NEW |
+| 可解釋規則：需求30／品類20／價格15／歷史績效20／供應履約15，可配置，標示待確認 | `lib/fit-score.ts`、`system_settings['fit.scoring']`、`/fit?tab=config` | `unit/fit-score`、`fit`（設定與版本） | IMPLEMENTED_NEW（權重待確認） |
+| 未知不當 0 分；標記缺乏證據與信心 | `scoreFit`（重新正規化、完整度、信心） | `unit/fit-score`（突變驗證） | IMPLEMENTED_NEW |
+| 合規與品質為硬性檢查，不被總分抵銷 | `hardChecks`、建議等級 BLOCKED | `unit/fit-score`、`fit`（突變驗證） | IMPLEMENTED_NEW |
+| 保留評分版本、來源、理由與人工覆核 | `config_snapshot`、`sources`、`reasons`、覆核欄位、DB 觸發器不可改 | `fit` | IMPLEMENTED_NEW |
+| 流程串接；不改 G1–G5、不自動核准 | 面板與提示；結案回寫 API；未改 `gates.ts` | `fit`（G1 回歸）、`lifecycle`（既有） | IMPLEMENTED_NEW |
+| 角色權限、審計、既有設計系統 | 6 個新權限；`audit()`；`ApiForm`／`Modal`／`Card` | `segments`、`fit`、`unit/misc`、`security-fuzz` | IMPLEMENTED_NEW |
