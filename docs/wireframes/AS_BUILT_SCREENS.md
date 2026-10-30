@@ -157,6 +157,33 @@
 
 > 觀察：手機版評估表的「人工覆核」與「理由」欄在視窗外（可橫向捲動，非溢出）；`23`、`25` 截圖列表中的「[E2E] 新團主…」是 E2E 腳本每次執行建立的測試團主，不是 DEMO 種子資料；商品頁整頁截圖較大，故以 JPEG 儲存；全頁截圖中側欄與頂列會被截斷，屬截圖方式造成。
 
+## 選品與試用（SOP 02／03，營運主管與小編）
+
+> 這一組由 `scripts/e2e-smoke.ts`（Playwright，1440×900；手機版 390 寬）對示範資料庫截圖，資料為虛構 DEMO（含 `seed-demo-selection.ts` 建立的評估、合作資格審查、試用與可行性；證據連結為保留網域 `docs.example.invalid`）。截圖存放在 `docs/uat/screens/`（E2E 每次重跑會更新）。建置前線框見 [19](WIREFRAMES.md#19-vendor-diligence)、[20](WIREFRAMES.md#20-product-selection)、[21](WIREFRAMES.md#21-campaign-g1-summary)、[22](WIREFRAMES.md#22-trial-detail)。
+
+| 畫面 | 路徑 | 截圖 | 結果 |
+|---|---|---|---|
+| 選品與試用總覽 | `/selection` | [26-selection.png](../uat/screens/26-selection.png) | E2E 通過　建議值待確認橫幅、待覆核評估、審查中調查、待覆核試用、即將到期證據 |
+| 廠商詳情：合作資格審查 | `/vendors/VEN-…` | [27-vendor-diligence.png](../uat/screens/27-vendor-diligence.png) | E2E 通過　調查清單（合約版本、範圍、狀態、進度、有效期） |
+| 合作資格審查詳情 | `/diligence/VDD-…` | [28-diligence.png](../uat/screens/28-diligence.png) | E2E 通過　已核准、有效期、12 類卡片、法務標示 |
+| 商品詳情：選品評估／試用／可行性 | `/products/PRD-…` | [29-product-selection.png](../uat/screens/29-product-selection.png) | E2E 通過　80 分、建議進入商務審查、合規通過、已覆核；商品資格仍有效 |
+| 檔期：選品與試用 | `/campaigns/CMP-…?tab=selection` | [30-campaign-selection.png](../uat/screens/30-campaign-selection.png) | E2E 通過　決策摘要（燈號、風險）、本檔試用、相關任務 |
+| 試用詳情 | `/trials/TRL-…` | [31-trial.png](../uat/screens/31-trial.png) | E2E 通過　系統建議、四大面向檢核表 |
+| 可行性詳情 | `/feasibility/FSB-…` | [32-feasibility.png](../uat/screens/32-feasibility.png) | E2E 通過　試算結果、輸入與假設來源、版本 |
+| 手機版總覽 | `/selection`（390 寬） | [33-mobile-selection.png](../uat/screens/33-mobile-selection.png) | E2E 通過　無水平溢出（E2E 檢查） |
+
+> 「E2E 通過」＝對重設並灌入全部 DEMO 種子的資料庫連跑 2 次，122/122 通過；逐項結果見 `docs/uat/e2e-results.json`。
+
+### 建置前線框 vs. 實際畫面的差異
+
+| # | 項目 | 線框 | 實際 | 說明 |
+|---|---|---|---|---|
+| E1 | 客群適配參考 | 評估卡內一行唯讀文字 | 相同（需 fit.read 才顯示；財務不顯示） | 與線框一致 |
+| E2 | 入口 | 線框只畫廠商、商品、檔期、試用頁 | 另新增 `/selection` 總覽與 `/feasibility/[id]` 可行性詳情（線框未畫） | 待辦與到期提醒、版本與實際回寫需要獨立頁 |
+| E3 | 第 10 類（分潤）對無權限者 | 線框標註隱藏 | 條款、狀態、備註不回傳；證據只顯示種類與有效狀態；只能指派負責人與責任方 | 後端依 `product.cost.read` 決定，不靠畫面隱藏 |
+| E4 | 導覽 | 側欄新增「選品與試用」（營運） | 相同；團主、廠商沒有此項，直接輸入網址顯示無權限 | E2E 驗證 |
+| E5 | 試用清單 | 商品頁卡片內列表 | 相同；另在檔期「選品與試用」分頁列出本檔試用與相關任務（唯讀） | 對應「G1 選品核准→查閱」的流程串接 |
+
 ## 範圍探測（不截圖）
 
 團主（demo-host1）與廠商（demo-vendor）分別依序開啟 5 檔期的詳情：

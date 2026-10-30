@@ -27,7 +27,7 @@
 
 ### 1.2 範圍
 
-**範圍內（已實作，僅在本機與隔離環境驗證）**：認證與 RBAC、廠商／團主／社群／商品主檔、客群分析與商品適配評估（SOP 01，決策支援，不改 G1–G5）、檔期與 15 步流程排程、日期變更影響預覽、14 狀態機與 G1–G5 關卡、訂單 CSV 匯入、管理者與團主 Dashboard、預估佣金、8 個自動化工作與通知佇列（測試 Adapter）、廠商進件、例外管理、履約與出貨與庫存紀錄、退款／客訴／售後、結算試算與確認、入帳／發票／費用紀錄、稽核。
+**範圍內（已實作，僅在本機與隔離環境驗證）**：認證與 RBAC、廠商／團主／社群／商品主檔、客群分析與商品適配評估（SOP 01，決策支援，不改 G1–G5）、商品選品評估／廠商合作資格審查／商品試用／商業可行性試算與 G1 統一決策摘要（SOP 02／03，決策支援，不改 G1–G5 與商品審核流程）、檔期與 15 步流程排程、日期變更影響預覽、14 狀態機與 G1–G5 關卡、訂單 CSV 匯入、管理者與團主 Dashboard、預估佣金、8 個自動化工作與通知佇列（測試 Adapter）、廠商進件、例外管理、履約與出貨與庫存紀錄、退款／客訴／售後、結算試算與確認、入帳／發票／費用紀錄、稽核。
 
 **範圍外**：見第 8 節（電商 API、真實 LINE／Email、廠商入口、歷史資料遷移、SSO／MFA、Production 部署等）。
 
@@ -55,7 +55,7 @@
 
 ### 1.4 參考文件
 
-`docs/ERP_MASTER_BLUEPRINT.md`（藍圖，BP）、`docs/REQUIREMENTS_TRACEABILITY_MATRIX.md`（RTM）、`docs/ARCHITECTURE_DECISIONS.md`（ADR-001～019）、`docs/WORKFLOW_MAPPING.md`、`docs/DASHBOARD_SPEC.md`、`docs/AUTOMATION.md`、`docs/FEATURE_STATUS_MATRIX.md`、`docs/phase2/{FULFILLMENT,AFTERSALES,FINANCE}.md`、`docs/KNOWN_ISSUES.md`、`docs/generated/*`（資料字典、ERD、端點清單）、`docs/TEST_REPORT.md`。
+`docs/ERP_MASTER_BLUEPRINT.md`（藍圖，BP）、`docs/REQUIREMENTS_TRACEABILITY_MATRIX.md`（RTM）、`docs/ARCHITECTURE_DECISIONS.md`（ADR-001～019）、`docs/WORKFLOW_MAPPING.md`、`docs/DASHBOARD_SPEC.md`、`docs/AUTOMATION.md`、`docs/FEATURE_STATUS_MATRIX.md`、`docs/phase2/{FULFILLMENT,AFTERSALES,FINANCE,SEGMENT_FIT,PRODUCT_SELECTION_TRIAL}.md`、`docs/KNOWN_ISSUES.md`、`docs/generated/*`（資料字典、ERD、端點清單）、`docs/TEST_REPORT.md`。
 
 ### 1.5 需求的權威順序
 規格有歧義時依序參考：Owner 的明確指示 → 藍圖 → ADR（PROPOSED，待確認）→ 程式現況。本文件與程式不一致時，**以程式為準**，並把落差列在第 11.3 節，由 Owner 決定改程式還是改規格。
@@ -78,7 +78,7 @@
 | 稽核／唯讀 | 查看歷史與 Log | 未建立獨立角色；稽核讀取依角色過濾（FR-RBAC-07） |
 | 開發／維運 | 部署、備份、監控 | 尚未有維運責任人（待決策 #7） |
 
-### 2.2 角色與權限（程式現況，49 項權限）
+### 2.2 角色與權限（程式現況，52 項權限）
 
 一人一個角色（ADR-005）。下表由 `src/server/lib/permissions.ts` 的 `ROLE_PERMISSIONS` 直接匯出。「能不能做這類動作」由權限決定；「能碰哪些資料列」另由資料範圍決定（FR-RBAC-02～06）。
 
@@ -125,6 +125,9 @@
 | `refund.complete` | ✅ | — | — | — | — | ✅ |
 | `segment.read` | ✅ | ✅ | ✅ | — | — | — |
 | `segment.write` | ✅ | ✅ | ✅ | — | — | — |
+| `selection.config` | ✅ | ✅ | — | — | — | — |
+| `selection.read` | ✅ | ✅ | ✅ | — | — | ✅ |
+| `selection.write` | ✅ | ✅ | ✅ | — | — | — |
 | `settlement.confirm` | ✅ | — | — | — | — | ✅ |
 | `task.complete` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `task.read` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -133,7 +136,7 @@
 | `vendor.read` | ✅ | ✅ | ✅ | — | — | ✅ |
 | `vendor.self` | ✅ | — | — | — | ✅ | — |
 | `vendor.write` | ✅ | ✅ | ✅ | — | — | — |
-| **權限數** | 49 | 42 | 30 | 10 | 7 | 22 |
+| **權限數** | 52 | 45 | 32 | 10 | 7 | 23 |
 
 關卡核准者（`GATE_APPROVER_ROLES`）：
 
@@ -144,6 +147,8 @@
 | G3 | 系統管理者、營運主管、財務 |
 | G4 | 系統管理者、財務 |
 | G5 | 系統管理者、營運主管 |
+
+**SOP 02／03 的權限組合**：填報（評估、調查、試用、可行性）= `selection.write`；覆核評估／試用、核准調查、確認法務無虞 = 沿用既有 `product.review`（只有管理者、營運主管）；成本、費用、分潤與利潤欄位 = 沿用既有 `product.cost.read`（營運小編沒有）；設定 = `selection.config`。團主、廠商沒有任何入口；財務只能讀。
 
 **資料範圍摘要**：管理者／營運主管／財務＝整個組織；營運小編＝自己負責或被指派任務的檔期；團主＝自己被邀請（未婉拒）的檔期，且只看自己的團主資料、自己的目標與 HOST 角色任務；廠商＝自己廠商的商品與檔期與 VENDOR 角色任務；外部角色對範圍外資料一律 404（不洩漏存在與否）。
 
@@ -387,11 +392,44 @@
 | 事後條件 | G1 檢查項、核准者與狀態轉移不變；不自動核准、不寄通知；重複回寫內容相同不重複寫入 |
 | 對應 FR | FR-FIT-10～12、FR-GATE-09 |
 
+### UC-22 商品選品評估與廠商合作資格審查
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運小編（填報）；營運主管／管理者（覆核、核准調查、確認法務無虞、調整設定）；財務（唯讀） |
+| 前置條件 | 商品與廠商已建檔；合作前要確認首次合作 12 類問題 |
+| 主要流程 | 1. 商品頁「選品評估」按「開始評估」，為六項（客群需求符合度、品質與安全性、利潤與價格競爭力、供應商履約能力、內容展示與說服力、複購潛力）打 1–5 分並填理由，品質與供應附證據連結；另填獨立的安全合規查核<br>2. 送出後系統保存分數、完整度、信心、建議與設定快照；主管覆核（同意／不採用／需補資料）<br>3. 廠商頁「合作資格審查」新增一份調查（合約版本必填，可限定商品與受規範品類），系統自動建立 12 類項目<br>4. 逐項填結構化條款、責任方、負責人、狀態與證據；有轉售價格限制或受規範品類者自動標示「需法務／合規審查」，由主管附法務意見後確認無虞<br>5. 備齊後送審，主管核准（預設有效 365 天）或退回 |
+| 替代／例外流程 | • 只評部分項目：未評＝未知，不當 0 分，完整度低於 0.5 為「資料不足」<br>• 合規未過：BLOCKED，高分不能抵銷；未查核或需法務：最多「補測／補件」<br>• 品質或供應沒有附有效證據：不能建議進入商務審查<br>• 同商品已有草稿、同廠商＋商品＋合約版本已有調查：409<br>• 標「已確認」但沒有有效證據、「不適用」沒原因、「有風險」沒說明：422<br>• 營運小編寫第 10 類（分潤）條款或核准／確認無虞：403<br>• 團主／廠商：403；他組織資料：404 |
+| 事後條件 | 已送出的評估內容不可改（資料庫觸發器），重評＝新版本；核准後調查不能改證據；覆核與核准只記錄結果，不改商品審核狀態、不核准 G1；到期或證據過期自動視為失效（不改資料）；每個寫入有稽核（敏感條款不記數值） |
+| 對應 FR | FR-SEL-01～09、FR-EVI-01～03、FR-DD-01～07 |
+
+### UC-23 商品試用與商業可行性試算
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運小編（填報、下結論）；營運主管／管理者（覆核、覆寫建議、敏感欄位）；財務（唯讀） |
+| 前置條件 | 商品已建檔；小規模測試團需商品已在該檔期內 |
+| 主要流程 | 1. 商品頁「商品試用」新增試用：層級（商品資格驗證／團主・檔期適配）× 類型（內部／指定團主／小規模測試團），系統自動建立四面向檢核項<br>2. 記錄寄樣、到貨、開始、回饋、結案日期、物流與試用品回收；逐項填結果、客觀證據、缺陷嚴重度與說明<br>3. 系統給建議結論（通過／有條件通過／不通過／需重測）；填最終建議與說明後結論（通過類記錄有效期與商品指紋）；主管覆核<br>4. 商品資格仍有效時，團主適配試用自動沿用，只補客戶、內容、商業三面向<br>5. 商品頁「商業可行性」新增試算：填預估訂單、團購價、退款率（營運小編）與成本、費用、分潤、付款與負擔方（需成本檢視權限），每個數字註明假設來源；系統算出 GMV、有效淨銷售額、公司營業收入、團主分潤、公司貢獻利潤、品牌利潤、團主收入<br>6. 小規模測試團結單後回寫實際訂單、GMV、退款、客單價、客訴與出貨例外並與預測並列 |
+| 替代／例外流程 | • 進行中的相同組合已存在：409<br>• 「通過」沒填客觀證據、缺陷沒說明：422<br>• 最終建議比系統建議樂觀：營運小編 403；主管需填覆寫原因，否則 422<br>• 沿用的商品資格在結論前已失效：412<br>• 缺少的輸入：結果顯示「未知」並列出缺什麼，不當 0<br>• 有金額的成本沒指定負擔方：利潤未知<br>• 營運小編填成本／分潤欄位：403；讀取時為 null 並標 restricted<br>• 別人負責的檔期：404 |
+| 事後條件 | 結論後內容不可改（可補寫物流與回收）；試算假設與結果不可改，每次存檔是新版本；試用不新增任何任務狀態、不自動完成任務；商品名稱／類別／規格編號／合規備註變更使資格自動失效（價格不影響） |
+| 對應 FR | FR-TRL-01～08、FR-FEA-01～04 |
+
+### UC-24 G1 統一決策摘要（唯讀）
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運主管／管理者（核准者）；營運小編（自己負責的檔期）；財務（唯讀） |
+| 前置條件 | 檔期已有商品；評估、調查、試用、可行性有的就彙整，沒有的列為缺口 |
+| 主要流程 | 1. 檔期「選品與試用」分頁顯示每個商品的評估、合作資格審查、試用、可行性、客群適配統計與風險清單（阻礙／缺口）及總燈號<br>2. G1 核准區顯示簡短提示並連到該分頁<br>3. G1 照既有規則申請與核准 |
+| 替代／例外流程 | • 他人負責的檔期：404；團主／廠商：403<br>• 營運小編的摘要沒有成本與利潤，風險訊息也不洩漏利潤正負 |
+| 事後條件 | `gateImpact` 恆為 `NONE`：G1 檢查項、核准者、狀態轉移、通知、任務都不變；摘要不寫任何資料 |
+| 對應 FR | FR-G1S-01～04、FR-GATE-09 |
+
 ---
 
 ## 4 功能需求
 
-**統計**（程式現況，基準 `3be9a94`）：共 **164 條**功能需求（其中 SOP 01 新增 22 條：SEG 8、FIT 14）；IMPLEMENTED 126、PARTIAL 17、NOT_STARTED 14、BLOCKED 7。使用案例 21 個。SOP 01 部分的基準為 `feat/sop01-segment-fit`（migration 013）。
+**統計**（程式現況，基準 `3be9a94`）：共 **204 條**功能需求（其中 SOP 01 新增 22 條：SEG 8、FIT 14；SOP 02／03 新增 40 條：SEL 11、EVI 3、DD 8、TRL 9、FEA 5、G1S 4）；IMPLEMENTED 161、PARTIAL 18、NOT_STARTED 18、BLOCKED 7。使用案例 24 個。SOP 02／03 部分的基準為 `feat/sop02-03-selection-trial`（migration 014）。SOP 01 部分的基準為 `feat/sop01-segment-fit`（migration 013）。
 
 | 模組 | FR 數 | IMPLEMENTED | PARTIAL | NOT_STARTED | BLOCKED |
 |---|--:|--:|--:|--:|--:|
@@ -412,7 +450,13 @@
 | UI 使用者介面 | 2 | 0 | 1 | 1 | 0 |
 | SEG 客群分析（SOP 01） | 8 | 7 | 1 | 0 | 0 |
 | FIT 商品適配評估（SOP 01） | 14 | 13 | 0 | 1 | 0 |
-| **合計** | **164** | **126** | **17** | **14** | **7** |
+| SEL 商品選品評估（SOP 02） | 11 | 9 | 1 | 1 | 0 |
+| EVI 證據連結（SOP 02／03） | 3 | 3 | 0 | 0 | 0 |
+| DD 廠商合作資格審查（SOP 02） | 8 | 7 | 0 | 1 | 0 |
+| TRL 商品試用（SOP 03） | 9 | 8 | 0 | 1 | 0 |
+| FEA 商業可行性試算（SOP 03） | 5 | 4 | 0 | 1 | 0 |
+| G1S G1 統一決策摘要（SOP 02／03） | 4 | 4 | 0 | 0 | 0 |
+| **合計** | **204** | **161** | **18** | **18** | **7** |
 
 > 狀態判定：只要有一條驗收條件沒有自動化測試保護，或實作與需求有落差，就標 PARTIAL，並在該列說明；不為了好看而標 IMPLEMENTED。
 
@@ -435,7 +479,7 @@
 
 ### 4.2 RBAC 角色、權限與資料範圍
 
-模組：`lib/permissions.ts`、`lib/scope.ts`，各模組 `requirePerm`。權限共 49 項，6 個角色（SOP 01 新增 `segment.*`、`fit.*` 六項，團主、廠商、財務一律沒有）。
+模組：`lib/permissions.ts`、`lib/scope.ts`，各模組 `requirePerm`。權限共 52 項，6 個角色（SOP 01 新增 `segment.*`、`fit.*` 六項，團主、廠商、財務一律沒有；SOP 02／03 新增 `selection.read`／`selection.write`／`selection.config` 三項，團主、廠商沒有，財務只有 `selection.read`）。
 
 | ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
 |---|---|:-:|---|---|:-:|---|:-:|
@@ -699,6 +743,88 @@
 | FR-FIT-13 | 資料已更新提示（stale）：評估後商品、規格、廠商、客群、偏好或連結有更新時，現行評估標示「資料已更新，建議重評」；重新評估後恢復；訂單與出貨資料的變動不計入 | SHOULD | Given 評估後更新客群價格帶 When 讀候選團主 Then 該團主 `stale=true`；重評後價格維度由未知變為已知（價格帶內 5）、完整度升為 1、`stale=false` | fit ›「輸入或設定改變…」›「客群資料更新後，既有評估被標示「資料已更新」（stale）」 | IMPLEMENTED | SEGMENT_FIT §4.6 | ✅ |
 | FR-FIT-14 | 自動排程回寫成效、AI／外部資料來源（外部客群研究、社群 API）、關鍵字別名管理介面、把適配評估納入 G1 檢查 | COULD | （未實作；回寫為人工按鈕、別名在程式內、G1 僅查閱；見 D-19、D-20、D-22） | — | NOT_STARTED | SEGMENT_FIT §9 | — |
 
+### 4.18 SEL 商品選品評估（SOP 02）
+
+模組：`selection.ts`、`lib/selection-score.ts`（評分純函式）、`migrations/014`。設計見 [`docs/phase2/PRODUCT_SELECTION_TRIAL.md`](../phase2/PRODUCT_SELECTION_TRIAL.md)。**權重、門檻、有效期都是待 Owner 確認的建議值（D-25、D-27）**；評估是「商品本身」的通用人工評分，**不含客群適配**（那是 SOP 01，只唯讀引用）；**分數與評估只是決策建議，不會自動核准商品或 G1**。測試檔在 `tests/`，`selection` 即 `tests/selection.test.ts`，`unit/selection-score` 即 `tests/unit/selection-score.test.ts`。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-SEL-01 | 選品設定可配置且有版本：六項權重（客群需求符合度 25、品質與安全性 25、利潤與價格競爭力 20、供應商履約能力 15、內容展示與說服力 10、複購潛力 5）為非負整數且合計必須 100；門檻（建議進入商務審查 80、補測／補件 65、最低完整度 0.5、高信心 0.85、中信心 0.6，需遞增）；合作資格審查有效天數 365、商品資格試用有效天數 180、證據即將到期提醒 30 天（1–3650 整數）；證據連結網域白名單（預設空＝不限制）；存於 `system_settings['selection.scoring']`，每次儲存版本 +1 並寫稽核；預設標示「建議值，待 Owner 確認」；只有 `selection.config`（管理者、營運主管）能改，其餘有 `selection.read` 者可讀 | MUST | Given 尚未儲存 When 讀設定 Then 內建 v1、`persisted:false`、`approved:false`；權重合計 ≠100 或門檻順序錯誤 Then 422；主管儲存後版本 2 並有稽核 `selection.config.update`；以舊版本號再存 Then 409；營運小編存 Then 403；團主／廠商讀 Then 403；白名單格式錯誤 Then 422 | selection ›「選品設定：版本、驗證、權限」（5 項）；unit/selection-score ›「SOP02 送出檢查與設定驗證」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §3.1、D-25 | ✅ |
+| FR-SEL-02 | 六項評分 1–5 整數、每項已評分必填理由（≤500 字、不得含電話或 Email）；總分＝Σ（權重 × 分數 ÷ 5）；**未評分的項目是「未知」，不當 0 分**：總分只用已知項目的權重重新正規化，並回報資料完整度（已知權重 ÷ 全部權重）與信心（完整度 ≥0.85 高、≥0.6 中、≥最低完整度為低、其餘不足）；至少要有一項評分才能送出 | MUST | Given 六項全 4 分 Then 80.0 分、完整度 1；全 5 分 100、全 1 分 20；只評需求與重複各 5 分 Then 完整度 0.3、資料不足、信心不足；分數 6 或 3.5、已評分卻無理由、理由含電話 Then 422 | unit/selection-score ›「加權與門檻」「缺資料不當 0 分」（4 項含信心分級）；selection ›「選品評估：流程、版本、不可改」›「缺資料不當 0 分…」「送出檢查…」「分數超出 1–5…」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §3.1 | ✅ |
+| FR-SEL-03 | 安全與合規是**獨立必要查核**（PASS／FAIL／UNKNOWN／NEEDS_LEGAL＋說明），不併入加權、不被總分抵銷；送出時必填，FAIL 與 NEEDS_LEGAL 必填說明；食品、保健食品、醫材、化妝品、兒童用品等只標示「需法務或合規審查」，不判斷是否合法 | MUST | Given 合規 FAIL 且 100 分 Then 建議 BLOCKED（總分僅供參考）；UNKNOWN／NEEDS_LEGAL 且 100 分 Then 最多 SUPPLEMENT；FAIL 未填說明送出 Then 422 | unit/selection-score ›「安全與合規是獨立的必要查核，不被總分抵銷」（3 項）；selection ›「…合規未通過：100 分也是 BLOCKED；需法務審查：最多 SUPPLEMENT」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §3.2 | ✅ |
+| FR-SEL-04 | 建議等級（依序）：合規 FAIL → BLOCKED；完整度 < 最低完整度或無分數 → INSUFFICIENT_DATA；總分 ≥ 建議門檻且合規 PASS 且信心不為低且**品質與供應兩項（評了分的）都附有效證據** → PROCEED；總分 ≥ 補測門檻（含被降級者）→ SUPPLEMENT；其餘 HOLD。過期證據不算證據。回傳值沒有任何核准欄位 | MUST | Given 全 4 分、合規通過、品質與供應各附有效證據 Then 80 分 PROCEED；品質／供應沒附證據或證據已過期 Then SUPPLEMENT 並列出缺證據項目；79 分 Then SUPPLEMENT；60 分 Then HOLD；門檻改為 60 則 60 分 SUPPLEMENT | unit/selection-score ›「加權與門檻」「PROCEED 需證據」；selection ›「缺證據…」「過期證據不算證據…」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §3.3 | ✅ |
+| FR-SEL-05 | 版本與不可變：同商品同時只有一份草稿（再建 409）；送出時保存分數、完整度、信心、建議、缺證據項目、設定版本與快照、評估人與評估日；已送出內容不可改（服務層 412、資料庫觸發器也擋）；重新評估＝新版本（版本號 +1），舊版標記被取代、歷史保留；禁止實體刪除 | MUST | Given 已送出評估 When 更新或再送出 Then 412；直接 UPDATE 分數或總分 Then 資料庫拒絕；DELETE 被擋；重評送出 Then `supersedes` 列出舊版，列表現行為 v2、v1 已被取代；引用別份評估的證據 Then 422 | selection ›「建立草稿 → 同商品第二份草稿被擋」「送出後內容不可改…」「重新評估＝新版本…」「引用別人的證據被拒」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §2.1、§3.5 | ✅ |
+| FR-SEL-06 | 評估覆核：只有 `product.review`（管理者、營運主管）；決定為同意採用／不採用／需補資料，後兩者必填原因（不得含電話或 Email）；草稿不能覆核、已被新版取代的評估不能覆核（409）；**覆核只記錄意見，不改商品審核狀態、不核准 G1** | MUST | Given 已送出評估 When 營運小編覆核 Then 403；主管不採用未填原因 Then 422；主管需補資料後商品 `review_status` 不變；舊版覆核 Then 409；草稿覆核 Then 412 | selection ›「選品評估覆核：只記錄意見，不改商品審核狀態、不核准 G1」（2 項） | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §3.5 | ✅ |
+| FR-SEL-07 | 與 SOP 01 不重複：評估頁以唯讀方式顯示該商品現行適配統計（各建議等級的團主數、最高分，需 `fit.read`）作為「客群需求符合度」的參考；不複製、不重算、不寫入 `product_fit_assessments`；評估人須自行填分數與理由 | MUST | Given 產生並讀取評估前後 Then `product_fit_assessments` 列數不變 | selection ›「權限與資料隔離」›「評估不寫入 SOP 01 的適配資料（唯讀引用）」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §3.4 | ✅ |
+| FR-SEL-08 | 權限與租戶隔離：`selection.read`（管理者、營運主管、營運小編、財務）、`selection.write`（管理者、營運主管、營運小編）；團主、廠商所有入口 403；財務只讀；他組織的商品、評估、證據一律 404 | MUST | Given 團主／廠商 When 讀或建評估、讀總覽 Then 403；財務讀 200、建立 403；跨組織讀、改、覆核、掛證據 Then 404 | selection ›「權限與資料隔離」（4 項）；selection ›「選品設定」›「營運小編不能改設定（403）；團主與廠商連讀取也不行」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §9 | ✅ |
+| FR-SEL-09 | 選品與試用總覽（`/selection`）：待覆核的評估、審查中的調查、待覆核的試用結論（檔期層級者沿用檔期資料範圍）、即將到期或已過期的證據（第 10 類分潤證據對無成本檢視權限者不列）、待回收的試用品筆數、目前設定與狀態 | SHOULD | Given 已送出未覆核的評估 When 小編讀總覽 Then 列在 `pendingEvaluations` 且只含本組織，`canReview`／`canConfig` 為 false | selection ›「總覽：待覆核清單只含本組織；小編可看不可設定」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §11 | ✅ |
+| FR-SEL-10 | 把評估或調查納入 G1 檢查（WARN／BLOCK）、商品送審前必須有已送出的評估、AI 或外部資料來源 | COULD | （未實作；目前僅查閱，見 D-26、D-33；G1 與商品審核流程不變） | — | NOT_STARTED | PRODUCT_SELECTION_TRIAL §14 | — |
+| FR-SEL-11 | 介面與流程提示：商品詳情「選品評估」（草稿編輯器含即時試算、現行評估、版本歷史、覆核）、導覽「選品與試用」、`/selection` 總覽與設定頁；每處明講「分數不會自動核准商品或 G1」「建議值，待 Owner 確認」；未評項目顯示「未知」；團主／廠商導覽沒有入口 | SHOULD | Given 主管開商品頁 Then 見現行評估分數、建議、合規、覆核；小編開設定頁 Then 只讀提示；團主／廠商開 `/selection` Then 「沒有權限」 | E2E（`scripts/e2e-smoke.ts` 選品與試用區塊）；無自動化單元／整合測試保護畫面 | PARTIAL | PRODUCT_SELECTION_TRIAL §11 | ❌ |
+
+### 4.19 EVI 證據連結（SOP 02／03）
+
+模組：`evidence.ts`、`lib/dd-catalog.ts`（`evidenceState`、`evidenceHostAllowed`）、`migrations/014`（`evidence_items`）。**只存連結與中繼資料，不存檔案本體**；檔案應放公司核准的雲端空間，不得放進 GitHub（D-32）。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-EVI-01 | 新增證據連結的安全檢查：只接受 http(s)（javascript:、data:、ftp:、file: 被拒）、不得內嵌帳號密碼、長度 ≤2000；標題、來源說明、備註不得含電話或 Email；有效期限不得早於起始日；設定網域白名單後只接受名單內網域或其子網域（不以字尾比對，`evilcorp.example` 不通過 `corp.example`）；可改為引用既有 `product_assets`（沿用其連結，不複製；素材須屬同商品） | MUST | Given 各種 URL When 新增 Then 非 http(s) 與帶帳密者 422；白名單內外網域分別通過／422；標題含電話 422；引用別的商品的素材 422 | selection ›「證據連結：只存連結，安全檢查，軟刪除」（5 項）；unit/dd-catalog ›「證據連結網域白名單」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §10 | ✅ |
+| FR-EVI-02 | 證據掛在調查項目、評估、試用、試用檢核項、可行性；含種類（證書、檢驗報告、合約、報價、照片、影片、授權、法務意見、其他）與有效期限，狀態為有效／即將到期／已過期／無期限；父層鎖定後不能增減（調查已核准、評估已送出、試用已結論或取消）；移除＝軟刪除（資料列保留）；資料庫禁止實體刪除；稽核留下新增與移除 | MUST | Given 已送出的評估 When 新增或移除證據 Then 412；移除後 `deleted_at` 有值、再移除 404；DELETE 被資料庫擋；已核准調查新增證據 412；已結論試用的檢核項證據 412 | selection ›「移除＝軟刪除…；評估送出後不能再增減證據」；diligence ›「…已核准的調查不能增減證據」；trials ›「結論或取消後，檢核項與證據都鎖定」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §2.1 | ✅ |
+| FR-EVI-03 | 敏感證據沿用 `product.cost.read`：第 10 類（分潤）調查項目、試用「預估毛利」檢核項、可行性情境上的證據，沒有權限者不能新增或移除，讀取時只剩種類與有效狀態（標 `restricted`，不含標題、連結、備註）；稽核標題記為「[敏感]」 | MUST | Given 營運小編 When 在第 10 類或可行性新增證據 Then 403；讀取時 `url`、`title` 皆不存在；主管可新增並讀到連結 | diligence ›「敏感條款…」›「這一類的證據連結：小編看不到標題與連結，也不能新增；主管可以」；feasibility ›「可行性的證據連結（報價）屬敏感…」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §9 | ✅ |
+
+### 4.20 DD 廠商合作資格審查（SOP 02）
+
+模組：`diligence.ts`、`lib/dd-catalog.ts`（12 類目錄、結構化條款 schema、法務觸發、準備度）、`migrations/014`（`vendor_dd_records`、`vendor_dd_items`）。一份調查＝某廠商（可限定某商品）在某**合約版本**下的 12 類問題。**核准結果不阻擋也不放行 G1**，只在廠商頁與 G1 決策摘要顯示（D-26）。系統只管理「有沒有被審、誰審的」，**不判斷是否合法**。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-DD-01 | 建立調查：合約版本必填（可附合約編號／文件位置文字、受規範品類、備註）；商品須屬該廠商；自動建立 12 類項目（待補件、責任方待確認）；同廠商＋同商品（或整個廠商）＋同合約版本不可重複（409），換合約版本或限定商品可並存；支援冪等鍵 | MUST | Given 新調查 Then 12 項、全部待補件；重複 409；商品屬別家廠商 422；同冪等鍵重送回同一筆 ID | diligence ›「盡職調查：建立與 12 類」（4 項）；unit/dd-catalog ›「12 類目錄」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §4.1 | ✅ |
+| FR-DD-02 | 12 類為：來源／授權／品質檢驗、售價與團購價、MOQ、現貨或預購與交期、庫存與超賣機制、配送方式、收款／發票／售後責任方、退貨／瑕疵／運損／遺失／補寄責任、試用品與圖片影片授權、分潤基礎／比例／結算週期、競業／排他／轉售價格限制／素材條款、延遲／缺貨／停止供應應變；每類有**結構化條款欄位並嚴格驗證**（責任方、期限、金額、比例；多餘欄位被拒），另有狀態、責任方（品牌／公司／團主／共同／待確認）、負責人（必須是啟用中的內部使用者）、備註、更新者與時間；樂觀鎖（舊版本更新 409）；稽核留前後值 | MUST | Given 第 7 類填收款方 BRAND When 讀回 Then 條款、責任方、負責人一致；責任方填「廠商」或多餘欄位 422；負責人是團主帳號或不存在 422；舊版本更新 409；稽核有 `selection.dd.item.update` | diligence ›「盡職調查項目：結構化條款、負責人、責任方、證據」（5 項）；unit/dd-catalog ›「條款是結構化欄位並驗證」「畫面欄位定義與條款 schema 一致」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §4.1 | ✅ |
+| FR-DD-03 | 狀態規則：已確認／待補件／不適用／有風險；「不適用」必填原因、「有風險」必填說明（API 與資料庫 CHECK）；標「已確認」前，必附證據的類別（1 來源授權、7 責任方、8 退換責任、9 試用品與素材授權、10 分潤、11 排他與價格限制）須至少一筆**未過期**證據（D-35） | MUST | Given 第 1 類沒有證據或只有已過期證據 When 標已確認 Then 422；附一筆有效證據後成功；不適用未填原因 422 | diligence ›「不適用必填原因、有風險必填說明」「需證據的類別：沒有證據、只有過期證據都不能標已確認…」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §4.2 | ✅ |
+| FR-DD-04 | 法務／合規審查標示：第 11 類勾選轉售價格限制、調查選了受規範品類（食品、保健食品、醫療器材、化妝品、兒童用品、其他）或廠商／商品類別／名稱符合關鍵字（疑似），自動把對應項目標為「需法務／合規審查」；任何填報者可手動標示（說明必填）；「確認無虞」只有 `product.review` 可設，且須先附一筆**有效的「法務意見」類證據**與說明；「法務封鎖」代表不得合作；自動觸發條件仍成立時不能直接解除標示；未結案（需審或封鎖）擋住送審與核准 | MUST | Given 勾選轉售價格限制 Then 第 11 類 `legalStatus=REQUIRED`；小編確認無虞 403；無法務意見或只有過期的法務意見 422；有有效法務意見後 CLEARED 並記錄確認者；封鎖後送審 422；受規範品類仍成立時解除 412 | diligence ›「法務／合規審查標示：不自行假定合法」（5 項）；unit/dd-catalog ›「法務／合規審查標示（不自行假定合法）」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §4.3、D-29 | ✅ |
+| FR-DD-05 | 第 10 類（分潤基礎、比例、結算週期、條款說明）屬敏感，沿用 `product.cost.read`：沒有權限的角色讀取時條款為空並標 `restricted`、備註不外露，寫入條款、狀態、備註 403，只能指派負責人與責任方；他們編輯其他欄位時不會清掉既有條款；稽核不記錄這一類的條款內容 | MUST | Given 主管填入比例 12 When 小編讀調查 Then `terms` 為空、`restricted:true`、原始回應不含 `"ratePercent":12`；小編寫條款／狀態／備註 403，指派負責人成功；財務（有成本檢視權限）讀得到；稽核資料不含 `ratePercent` | diligence ›「敏感條款：第 10 類分潤，沿用 product.cost.read」（5 項）；unit/dd-catalog ›「敏感條款（第 10 類分潤）」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §9 | ✅ |
+| FR-DD-06 | 送審與核准：草稿／已退回可編輯，審查中與已核准唯讀；送審條件＝12 項皆為已確認或不適用、無「有風險」、無過期證據、無未結案的法務審查、12 項齊全；核准（`product.review`）重新檢查條件，有效期預設 `ddValidDays`（365）天，可指定較短但不可超過上限、不可早於今天；退回與撤銷已核准者需原因，之後回到可編輯；**到期或核准後證據過期自動視為失效（不改資料，顯示原因）**；資料庫保證核准必有有效期與審核者、禁止實體刪除 | MUST | Given 未備齊 When 送審 Then 422 說明原因；備齊送審後修改項目 412；小編核准 403；主管核准 `validUntil=今天+365`；指定 366 天或昨天 422；`valid_until` 改為昨天 Then `validity.valid=false` 且原因含「到期」；證據改為過期 Then 原因含「證據已過期」；送審後證據過期 Then 核准 422；退回→再送審→核准→撤銷，稽核依序有 create／submit／reject／approve／revoke | diligence ›「送審、核准、有效期、撤銷」（8 項） | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §4.2、D-27 | ✅ |
+| FR-DD-07 | 權限與租戶隔離：`selection.write` 填報、`product.review` 核准／退回／確認無虞；財務只讀（寫 403）；團主、廠商 403；他組織 404；廠商詳情列表附準備度與有效性摘要 | MUST | Given 財務 When 讀調查 200、改調查與新增 403；團主讀廠商調查 403；跨組織讀、核准 404 | diligence ›「財務唯讀、列表」（2 項）；diligence ›「盡職調查：建立與 12 類」›「備註含電話被拒；團主沒有入口；跨組織 404」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §9 | ✅ |
+| FR-DD-08 | 協議（`agreements`）CRUD 並與調查關聯、廠商入口對外回填、法務窗口與審查流程、有效期自動提醒通知 | COULD | （未實作；目前以合約版本與合約編號文字記錄；見 D-29、D-36、BLOCKED 的廠商入口） | — | NOT_STARTED | PRODUCT_SELECTION_TRIAL §14 | — |
+
+### 4.21 TRL 商品試用（SOP 03）
+
+模組：`trials.ts`、`lib/trial-catalog.ts`（四面向檢核目錄、建議結論、商品指紋、資格有效性）、`migrations/014`（`product_trials`、`trial_checks`）。**試用紀錄不是任務狀態機**：資料狀態只有進行中／已結論／已取消；寄樣、到貨、回饋與 G1 任務仍由既有任務模組管理。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-TRL-01 | 建立試用：層級（商品資格驗證／團主・檔期適配）× 類型（內部／指定團主／小規模測試團）；團主適配不可為內部試用、指定團主須選團主、小規模測試團須選檔期；規格須屬該商品、團主須存在、試用人須為啟用中的內部使用者、檔期須在使用者資料範圍內且含此商品、寄樣批次須為「寄樣」類且在可見檔期內；自動建立檢核項；同一商品可有多次試用，**進行中的相同組合（商品＋規格＋團主＋檔期＋類型＋層級）只能一筆**（服務層 409、資料庫部分唯一索引雙重保證），已結論或取消後可再開；支援冪等鍵 | MUST | Given 同組合再建 Then 409，取消後可再建；直接 INSERT 重複進行中 Then 資料庫拒絕；類型規則違反 422；他人檔期 404；規格屬別的商品 422；同冪等鍵回同一筆 | trials ›「試用：建立、類型、重複、日期」（7 項）；trials ›「小規模測試團、檔期範圍、任務唯讀」›「寄樣批次…」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §5.1–5.2 | ✅ |
+| FR-TRL-02 | 日期與物流：寄樣、到貨、開始試用、回饋、結案日期須依序不早於前者（服務層與資料庫 CHECK）；物流商、追蹤碼；試用品回收（需否回收、狀態待回收／已回收／免回收／遺失、日期、備註；標已回收須有日期）；結論後仍可補寫物流與回收（已取消不可） | MUST | Given 到貨早於寄樣 Then 422；需回收 Then 待回收；標已回收未填日期 422；結論後標已回收成功；不需回收則狀態重設為不需回收 | trials ›「日期先後…」；trials ›「試用：試用品回收」（2 項） | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §5.2 | ✅ |
+| FR-TRL-03 | 四大面向檢核：商品本身（品質、規格符合、包裝完整、保存期限／效期、使用限制、安全標示）、顧客體驗（開箱、使用難易、效果、容易誤解之處、客服疑問）、內容素材（可示範性、素材品質、賣點差異）、商業效益（預估毛利、需求、退貨風險、供應風險），共 18 項；每項結果（未測／通過／有疑慮／不通過）、**客觀證據（通過必填）**、缺陷嚴重度（缺陷須說明）、風險說明（不通過須缺陷或風險說明）、驗證人與時間、證據連結；說明不得含電話或 Email；「預估毛利」的文字可能含成本，沒有成本檢視權限者不能填、也看不到（結果欄位仍可見），稽核不記其文字 | MUST | Given 通過但無客觀證據 Then 422（資料庫 CHECK 也擋）；缺陷未說明 422；不通過未說明 422；小編填毛利說明 403、讀到 null 並標 restricted；稽核不含該文字 | trials ›「試用：四面向檢核與客觀證據」（4 項）；unit/trial-catalog ›「試用：四大面向與檢核項」「檢核項規則與商品指紋」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §5.3 | ✅ |
+| FR-TRL-04 | 系統建議結論：任何不通過或嚴重缺陷 → 不通過；仍有未測 → 需重測；有疑慮或重大缺陷 → 有條件通過；否則通過；沒有檢核項 → 需重測。最終建議（通過／有條件通過／不通過／需重測）**不得比系統建議更樂觀**：更樂觀時營運小編被拒（403），具 `product.review` 者須填覆寫原因（否則 422）；更保守不需要；結論說明必填 | MUST | Given 有不通過項 When 小編下「通過」Then 403；主管不填覆寫原因 422，填了成功且保存系統建議與覆寫原因；全通過時小編下「有條件通過」成功 | unit/trial-catalog ›「試用：系統建議結論」（6 項）；trials ›「試用結論：系統建議、覆寫、有效期、覆核」›「最終建議不得比系統建議更樂觀…」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §5.4 | ✅ |
+| FR-TRL-05 | 結論、覆核與取消：結論後記錄結論人、時間、系統建議、覆寫原因；通過／有條件通過記錄有效期（預設 `trialValidDays`＝180 天，可更短、不可更長）與**商品指紋**；結論後結論、層級、類型、商品、團主、檔期、有效期、指紋等不可改（資料庫觸發器），檢核項與證據鎖定；禁止實體刪除；覆核（`product.review`）接受／不接受（不接受須原因），**只記錄意見，不改商品審核狀態**；未結論不能覆核；進行中的試用可取消（原因必填） | MUST | Given 全通過 When 下通過結論 Then `validUntil=今天+180`；指定 181 天 422；再結論 412；直接 UPDATE 結論或有效期 Then 資料庫拒絕；小編覆核 403；覆核後商品 `review_status` 不變；取消後檢核項無法修改 | trials ›「試用結論…」（4 項）、「試用：試用品回收」›「結論後不可改的欄位…」、「試用：四面向檢核與客觀證據」›「結論或取消後…鎖定」；trials ›「試用：權限與跨組織」›「稽核…」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §5.4 | ✅ |
+| FR-TRL-06 | 商品資格沿用與失效：商品最近一次資格試用「已結論、通過或有條件通過、已被接受、未過期（到期日當天仍有效）、商品指紋未變」才可沿用；指紋＝名稱、類別、啟用規格編號、合規備註（與順序／大小寫／前後空白無關），**價格改變不使資格失效**；團主適配試用建立時自動沿用（可用 `reuseQualification=false` 取消），只補客戶、內容、商業三面向（12 項）；結論時若沿用的資格已失效 → 412；失效時顯示原因（過期、商品資料已變更、結論不是通過、尚未覆核、覆核未接受）；最近一次若不通過，以它為準 | MUST | Given 資格通過且已覆核 Then 團主適配試用 12 項並記錄 `qualificationTrialId`；未覆核或不通過或沒有資格 Then 不沿用；改合規備註 Then 失效且原因含「已變更」；改價格 Then 仍有效；過期 Then 失效；沿用中商品改名後結論 412 | unit/trial-catalog ›「商品指紋」「資格有效」「資格失效」；trials ›「商品資格的沿用與失效」（7 項） | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §5.4 | ✅ |
+| FR-TRL-07 | 不新增任務狀態機、檔期資料範圍：檔期關聯的試用只有該檔的負責人／可見者看得到（他人 404，列表也不含）；檔期試用頁唯讀顯示該檔 `SAMPLE_SHIP`、`TRIAL_ARRIVAL`、`TRIAL_FEEDBACK`、`LAUNCH_APPROVAL` 任務現況；建立與結論試用不新增、不修改任何任務 | MUST | Given 小編 A 看小編 B 負責檔期的試用 Then 404（讀、改、取消、檔期試用頁皆然），商品試用列表不含；建立試用前後該檔 `tasks` 的 ID 與狀態完全相同 | trials ›「小規模測試團、檔期範圍、任務唯讀」（4 項） | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §5.6 | ✅ |
+| FR-TRL-08 | 權限與租戶隔離：`selection.write` 建立／填檢核／結論／取消、`product.review` 覆核與覆寫；財務只讀；團主、廠商所有入口 403；他組織 404 | MUST | Given 團主／廠商 When 讀或建試用、改檢核項 Then 403；財務讀 200、取消 403；跨組織讀、結論、改檢核項 404 | trials ›「試用：權限與跨組織」（3 項） | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §9 | ✅ |
+| FR-TRL-09 | 新商品一律須做商品資格試用（強制）、試用品回收逾期的自動提醒或例外、試用結果的 AI／外部資料 | COULD | （未實作；目前不強制、回收只記錄不追蹤，見 D-28、D-34） | — | NOT_STARTED | PRODUCT_SELECTION_TRIAL §14 | — |
+
+### 4.22 FEA 商業可行性試算（SOP 03）
+
+模組：`feasibility.ts`、`lib/feasibility-calc.ts`（試算純函式與遮罩）、`migrations/014`（`feasibility_scenarios`）。**口徑沿用 `docs/biz-model/04-FINANCE_AND_COMMISSION.md` 的提案，口徑待 Owner 確認（D-31）**；只支援單一費率＋固定費；本文件沒有新增任何分潤順序。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-FEA-01 | 輸入、假設來源與版本：預估訂單數、團購價、退款率、單位商品成本、運費／單、平台費（比例或每單）、其他變動成本／單、固定費用、品牌端服務費（比例與固定額）、團主分潤比例、分潤基礎（NSV／GMV）、團主分潤付款方（公司／品牌）、收款模式（品牌自收／團主代收／公司代收居中）、各成本負擔方（品牌／公司／團主）；欄位嚴格驗證（比例 0–100、金額非負整數、多餘欄位被拒）；**每個填入的輸入都必須註明假設來源**（廠商報價、試用／小團實際、歷史資料、合約、人工估計）否則 422 並列出缺哪些；每次儲存＝新版本（在上一版基礎上套用本次提供的欄位，沒提供的沿用）；可關聯檔期、團主、試用（須同商品） | MUST | Given 儲存完整情境 Then v1、讀回輸入／來源／結果一致；再存 `expectedOrders:200` Then v2，其餘欄位沿用、v1 不變；少填來源 422；比例 120、金額 -5、小數訂單數、未知欄位皆 422；關聯不存在的試用 404 | feasibility ›「可行性：版本、假設來源、不捏造」（前 4 項）；unit/feasibility-calc ›「輸入檢查：嚴格欄位…」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §6.1 | ✅ |
+| FR-FEA-02 | 公式與不捏造：GMV＝訂單 × 團購價；退款＝GMV × 退款率；有效淨銷售額 NSV＝GMV − 退款；商品成本＝單位成本 × 預估訂單；公司營業收入（品牌端服務費）＝比例 × 分潤基礎 ＋ 固定額；團主分潤＝比例 × 分潤基礎；公司貢獻利潤＝公司營業收入 −（付款方為公司時的團主分潤）− 公司負擔的成本；品牌利潤＝NSV − 商品成本 − 公司營業收入 −（付款方為品牌時的團主分潤）− 品牌負擔的成本；團主收入＝團主分潤 − 團主負擔的成本；金額四捨五入到整數元（half-up，費率以千分位整數運算）；**GMV、NSV、品牌利潤、公司營業收入是四個不同的數字，GMV 與代收款不是公司收入**；公司代收居中時另列「應付品牌貨款」＝NSV − 公司營業收入（負債）；**任何必要輸入缺少，對應結果為 null（未知）並列出缺哪些輸入**，明確填 0 與沒填不同；有金額的成本沒指定負擔方、沒指定付款方 → 利潤未知 | MUST | Given 100 單×1,000、退款 10%、單位成本 500、運費 60、平台費 3%、固定費 2,000、服務費 10%、分潤 5%（NSV 基礎，公司付）、運費與平台費由品牌扛 Then GMV 100,000、NSV 90,000、公司營業收入 9,000、團主分潤 4,500、公司貢獻 2,500、品牌利潤 22,000；沒填退款率 Then NSV 與利潤為 null；服務費 0% Then 公司營業收入 0（不是未知）；金額 0 的成本不需負擔方 | unit/feasibility-calc ›「可行性試算：口徑與手算對照」（9 項）「缺資料不捏造」（8 項）；feasibility ›「缺少資料就是未知…」「GMV 不等於公司營業收入…」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §6.2、biz-model 04 | ✅ |
+| FR-FEA-03 | 敏感欄位沿用 `product.cost.read`：成本、運費、平台費、其他變動成本、固定費用、品牌端服務費、團主分潤比例與基礎、付款方、各負擔方，以及由它們算出的成本、公司營業收入、分潤、利潤、抽成率、應付品牌貨款；沒有權限者**寫入 403（含「清空」、含來源說明）**、讀取時為 null 並標 `restricted`（GMV、退款、NSV 與非敏感輸入可見，缺漏與備註不外露）；營運小編新增新版本時上一版的敏感欄位原樣沿用（不被清掉），結果仍以完整輸入計算；商品主檔的團購價範圍可參考，成本範圍只給有權限者；稽核不記敏感數值（只記個數） | MUST | Given 小編填 `unitCost` 或 `hostCommissionPct` Then 403；小編讀情境 Then 敏感輸入與利潤 null、`restricted:true`、原始回應不含成本數字；小編改預估訂單存新版後，主管讀到的成本仍在且 `productCost` 以新訂單數計算；稽核不含成本數字 | feasibility ›「可行性：成本與分潤是敏感資料」（7 項）；unit/feasibility-calc ›「可行性：敏感欄位遮罩」（4 項） | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §9 | ✅ |
+| FR-FEA-04 | 不可變與小規模測試團實際回寫：情境的輸入、來源、結果、商品、檔期、團主、版本號建立後不可改（資料庫觸發器），禁止實體刪除，只可補寫實際回寫欄位；回寫（`selection.write`）從該檔期訂單（排除取消）、售後案件、出貨單讀取實際有效訂單、GMV、退款、NSV、客單價、退款率、客訴／退款／換貨件數、出貨例外率，與預測並列差異；指定團主時只算歸因給該團主的訂單（客訴與出貨例外為檔期層級）；**不回寫利潤**；可重複回寫（以最新為準，稽核保留前後值）；沒有關聯檔期的情境不能回寫（412）；別人負責的檔期 404 | MUST | Given 3 筆有效訂單（800 元）、1 筆部分退款 200、1 筆取消 Then orders 3、GMV 2,400、refund 200、NSV 2,200、客單價 800、客訴 1、退款件數 1，訂單差異 predicted 5／actual 3／−40%；指定團主甲 Then 2 單 1,600；回寫兩次 Then 稽核 2 筆且第二筆有前值；直接 UPDATE inputs 或 results Then 資料庫拒絕 | feasibility ›「可行性：版本、假設來源、不捏造」›「試算假設與結果不可修改…」；feasibility ›「小規模測試團：實際回寫」（5 項） | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §6.3 | ✅ |
+| FR-FEA-05 | 階梯費率、保底（抵佣／加佣）、費用規則更正與重算、依收款模式的完整分潤流程、與結算模組串接 | COULD | （未實作；只支援單一費率＋固定費，屬 biz-model 的費用規則提案，見 D-31；本功能不改分潤、財務、發票模組） | — | NOT_STARTED | PRODUCT_SELECTION_TRIAL §6.2、§15 | — |
+
+### 4.23 G1S G1 統一決策摘要（SOP 02／03）
+
+模組：`decision-summary.ts`、`lib/decision-risk.ts`（風險規則純函式）。**唯讀**：不改 `gates.ts`、`state.ts`、`products.ts` 審核流程、`tasks.ts`。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-G1S-01 | `GET /campaigns/:id/g1-summary`：對檔期內每個商品彙整現行選品評估（分數、建議、合規、覆核、設定版本）、廠商合作資格審查（商品專屬優先，其次整個廠商；狀態、有效性、準備度）、商品資格與本檔試用（最新一次）、最新商業可行性（本檔優先，其次商品層級）、SOP 01 客群適配統計（需 `fit.read`）與風險清單、總燈號；摘要附說明「不是 G1 的檢查項」及評分設定狀態；檔期頁新增「選品與試用」分頁，G1 核准區顯示簡短提示並連過去；**摘要不寫任何資料** | MUST | Given 全部齊備 Then 綠燈且彙整分數 80、PROCEED、調查已核准且有效、資格仍有效、可行性結果；商品沒有專屬調查但廠商有 Then 採廠商層級；呼叫摘要前後各表列數不變 | selection-g1 ›「G1 統一決策摘要」（`全部齊備 → 綠燈`、`廠商層級的調查也算`、`SOP 01 客群適配統計以唯讀方式併入`）；selection-g1 ›「G1–G5 與商品審核語意不變」›「唯讀摘要不寫入任何資料」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §8 | ✅ |
+| FR-G1S-02 | 風險規則與燈號（`buildRisks`、`lightOf`）：🔴阻礙＝商品審核被退回、合規未過、評估被退回、調查被退回或撤銷、法務封鎖、核准後證據過期致調查失效、商品資格或本檔試用不通過、試用結論被覆核退回；🟡缺口＝商品尚未核准、尚無評估／調查／試用／可行性、合規未查核或需法務、評估未覆核或要求補資料或建議暫緩／補測／資料不足、調查未核准或只是到期、法務未結案、有風險項、資格已失效、試用進行中／需重測／有條件通過／結論未覆核、可行性不完整或品牌利潤／公司貢獻為負；試用每組（層級×類型×團主）只看最新一次，取消的不算；有任何阻礙為紅燈，否則有缺口為黃燈，否則綠燈；沒有商品的檔期為黃燈 | MUST | Given 什麼都沒做 Then 全為缺口（黃燈）、領域涵蓋評估／調查／試用／可行性；各阻礙情境 Then 紅燈；試用失敗後重測通過 Then 紅燈解除；商品資料改變使資格失效 Then 缺口並說明原因；只是調查到期（證據未過期）Then 黃燈 | unit/decision-risk ›「G1 決策摘要風險規則」（6 項）；selection-g1 ›「G1 統一決策摘要」（`什麼都沒做`、`阻礙性風險（紅燈）`、`試用只看最新一次`、`商品資料改變使資格失效`） | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §8 | ✅ |
+| FR-G1S-03 | G1–G5 與商品審核語意不變（回歸）：摘要的 `gateImpact` 恆為 `NONE`；有無評估／調查／試用／可行性（含紅燈）G1 檢查項清單與結果完全相同、不新增任何 G1 檢查項、不新增核准列、通知與任務、不改檔期狀態；紅燈時 G1 仍可申請並由核准者核准（營運小編仍不能核准）；商品審核 DRAFT→PENDING_REVIEW→APPROVED／REJECTED 與權限照舊，評估被退回不影響商品狀態 | MUST | Given 同一檔期建立並覆核全部資料 Then 前後 G1 檢查一致、核准／通知／任務列數與狀態不變；G1 檢查項鍵仍為 `deps_done`、`has_confirmed_host`、`has_products`、`vendor_info`、`vendor_ok`；紅燈下申請 G1 成功、小編核准被拒、主管核准後進入 PREPARING | selection-g1 ›「G1–G5 與商品審核語意不變（回歸）」（4 項）；selection-g1 ›「gateImpact 恆為 NONE…」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §8、D-26 | ✅ |
+| FR-G1S-04 | 權限與敏感資料：需 `selection.read` 且檔期在資料範圍內（他人負責的檔期 404；團主、廠商 403；財務可讀）；沒有成本檢視權限者摘要的可行性只有 GMV／NSV、利潤與成本為 null，風險訊息也不洩漏利潤正負，原始回應不含成本數字 | MUST | Given 虧損的可行性情境 When 主管讀摘要 Then 風險含「品牌利潤為負」；小編讀 Then 風險不含「為負」、`canSeeMoney:false`、回應不含成本數字；小編 B 讀小編 A 的檔期 404 | selection-g1 ›「G1 統一決策摘要」›「敏感資料…」「檔期資料範圍…」；unit/decision-risk ›「可行性：沒有成本權限時，不會透過風險訊息洩漏利潤正負」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §9 | ✅ |
+
 ---
 
 ## 5 非功能需求
@@ -740,7 +866,7 @@
 
 ## 6 資料需求與資料品質規則
 
-### 6.1 資料實體（58 張表，由 migrations 001–011、013 建立）
+### 6.1 資料實體（65 張表，由 migrations 001–011、013、014 建立）
 
 | 領域 | 資料表 | migration |
 |---|---|---|
@@ -754,11 +880,12 @@
 | 售後 | `service_cases`、`case_events`、`refund_requests` | 010 |
 | 財務 | `settlement_adjustments`、`payments`、`invoices`、`expenses` | 011 |
 | 客群分析與適配（SOP 01） | `customer_segments`、`segment_preferences`、`partner_segment_links`、`segment_evidence`、`product_fit_assessments`；另 `hosts` 新增可空欄位 `partner_type`；評分設定存於 `system_settings['fit.scoring']`（無新表） | 013 |
+| 選品、合作資格審查、試用與可行性（SOP 02／03） | `evidence_items`、`vendor_dd_records`、`vendor_dd_items`、`product_evaluations`、`product_trials`、`trial_checks`、`feasibility_scenarios`；評分與有效期設定存於 `system_settings['selection.scoring']`（無新表）；既有表不改 | 014 |
 
 （007 角色種子、008 冪等雜湊欄位無新表。）欄位級定義見 `docs/generated/DATA_DICTIONARY.md`；業務欄位定義（藍圖 §3.5 要求的五個核心字典）仍是 PROPOSED。
 
 ### 6.2 識別碼
-業務 ID 即主鍵，由資料庫計數器原子遞增產生，不依名稱或列號（ADR-014）：`VEN`、`OWN`（團主）、`GRP`（社群）、`PRD`、`SKU`、`CMP-YYYYMM-NNNN`、`TSK-YYYYMMDD-NNNN`、`ORD`、`IMP-YYYYMMDD-NNNN`、`CMR`、`APR`、`EXC`、`FBT`、`SHP`、`CAS`、`RFD`、`SET-YYYYMMDD-NNNN`、`SIT`、`ADJ`、`PAY`、`EXP`，以及 SOP 01 的 `SEG`（客群）、`SPF`（偏好）、`LNK`（團主↔客群連結）、`EVD`（證據）、`FIT`（適配評估）等。**注意**：發票使用 `INV-`；庫存異動於整合時改用 `STK-`（012 之前建立的紀錄沿用 `INV-`，見落差 G-06）。
+業務 ID 即主鍵，由資料庫計數器原子遞增產生，不依名稱或列號（ADR-014）：`VEN`、`OWN`（團主）、`GRP`（社群）、`PRD`、`SKU`、`CMP-YYYYMM-NNNN`、`TSK-YYYYMMDD-NNNN`、`ORD`、`IMP-YYYYMMDD-NNNN`、`CMR`、`APR`、`EXC`、`FBT`、`SHP`、`CAS`、`RFD`、`SET-YYYYMMDD-NNNN`、`SIT`、`ADJ`、`PAY`、`EXP`，以及 SOP 01 的 `SEG`（客群）、`SPF`（偏好）、`LNK`（團主↔客群連結）、`EVD`（證據）、`FIT`（適配評估）；SOP 02／03 的 `EVI`（證據連結，與 SOP 01 的 `EVD` 不同）、`VDD`（調查）、`VDI`（調查項目）、`SEL`（選品評估）、`TRL`（試用）、`TCK`（試用檢核項）、`FSB`（可行性情境）等。**注意**：發票使用 `INV-`；庫存異動於整合時改用 `STK-`（012 之前建立的紀錄沿用 `INV-`，見落差 G-06）。
 
 ### 6.3 資料品質規則
 
@@ -776,6 +903,9 @@
 | DQ-10 不可變 | 稽核、庫存異動、案件處理紀錄、結算調整項、已確認結算只增不改（資料庫層強制） | FR-AUD-01、FR-FUL-07、FR-AFT-09、FR-FIN-02、FR-FIN-03 |
 | DQ-11 未知不當零分 | 客群欄位空值＝未知（不是「無」）；適配評分的資料不足維度標示未知、不計分（總分只用已知維度重新正規化），並如實回報資料完整度與信心 | FR-SEG-02、FR-FIT-03 |
 | DQ-12 事實需來源 | 標為「事實」的研究證據必須有來源說明或連結（API 與資料庫 CHECK）；客群文字不得含個人資料 | FR-SEG-04 |
+| DQ-13 證據需有效 | 證據過期就不算證據：品質／供應評分、調查項目「已確認」、法務「確認無虞」都只認未過期的證據；核准後證據過期使調查自動失效；證據只存連結，拒絕 javascript:／data:／帶帳密的連結，文字不含個人資料 | FR-SEL-04、FR-DD-03、FR-DD-04、FR-DD-06、FR-EVI-01 |
+| DQ-14 缺資料不捏造（試算） | 可行性輸入缺少時，對應結果為 null（未知）並列出缺哪些輸入；明確填 0 與沒填不同；每個輸入須註明假設來源；GMV、NSV、品牌利潤、公司營業收入分開呈現 | FR-FEA-01、FR-FEA-02 |
+| DQ-15 敏感欄位 | 成本、費用、分潤與利潤沿用 `product.cost.read`：無權限者寫入 403、讀取為 null 並標 `restricted`，稽核與風險訊息不洩漏數值 | FR-DD-05、FR-FEA-03、FR-EVI-03、FR-G1S-04 |
 
 ---
 
@@ -798,6 +928,11 @@
 7. 履約：庫存不隨出貨自動扣除；沒有訂單層級出貨對應；`DELIVERED` 後不可退回（FULFILLMENT.md）。
 8. 售後：退款寫回訂單後，重新匯入較舊的 CSV 會覆蓋 `refund_amount`（KNOWN_ISSUES P2-3）。
 9. 結算：以「檔期」為單位；試算以目前訂單為基準（不分期間）；一筆入帳最多關聯一個檔期與一個結算項目（FINANCE.md §8）。
+10. 選品／試用：「疑似受規範品類」是關鍵字比對，會漏判也會誤判，只作提醒；系統不判斷任何法規是否合法（PRODUCT_SELECTION_TRIAL §15）。
+11. 可行性試算只支援單一費率＋固定費；商品成本以預估訂單（出貨量）計算、不扣退貨回收；平台費比例以 GMV 為基礎；階梯、保底、更正等進階口徑未納入，口徑待 Owner 確認（D-31）。
+12. 證據只存連結，連結失效不會被偵測；檔案本體不在系統內（D-32）。
+13. 商品指紋不含價格：價格變動不使商品資格失效；名稱、類別、啟用規格編號、合規備註變動才會。
+14. 試用結果與評分由人工填寫，沒有 AI 或外部資料來源；試用品回收逾期只記錄、不追蹤（D-34）。
 
 ---
 
@@ -817,6 +952,7 @@
 | 客服／履約、稽核唯讀角色；匯出個資 | NOT_STARTED | 藍圖有、任務未列 |
 | 合作協議（agreements）、素材檔案上傳 | NOT_STARTED | 僅 Schema／連結 |
 | 工作流程步驟編輯器、模板發佈介面 | NOT_STARTED | 現況只能呼叫服務函式（FR-WF-11） |
+| 選品／試用：把評估或調查納入 G1 檢查（WARN／BLOCK）、商品送審前強制要有評估、強制商品資格試用、協議（`agreements`）CRUD 與調查關聯、試用品回收逾期自動化、可行性的階梯／保底／更正等進階費用規則、AI 或外部資料來源 | NOT_STARTED | 見 D-26、D-28、D-31、D-33、D-34、D-36；目前只查閱，不自動核准、不發通知、不改 G1–G5 與商品審核流程 |
 | 客群適配：AI／外部客群研究與社群 API 資料來源、結案成效回寫的自動排程（目前為人工按鈕）、關鍵字別名管理介面、把適配納入 G1 檢查 | NOT_STARTED | 見 D-19、D-20、D-22；所有判斷只用系統內資料，且不自動核准、不發通知 |
 
 ---
@@ -851,6 +987,18 @@
 | D-22 | 關鍵字別名表（需求、品類比對）由誰維護 | A) 程式　B) 管理介面 | A 程式內（記錄 `lexiconVersion`） | `FR-FIT-02`、`FR-FIT-14` |
 | D-23 | 供應履約的例外率（2／5／10／20%）與案件率（每百筆訂單 1／3／6／10 件）切點是否合理 | 沿用／調整 | 暫用建議切點 | `FR-FIT-02` |
 | D-24 | 客群「事實」的認定標準 | A) 單一來源說明即可　B) 需雙來源 | A（填寫者負責） | `FR-SEG-04` |
+| D-25 | 選品評分權重（25／25／20／15／10／5）與門檻（建議進入商務審查 80、補測／補件 65）是否採用（PRODUCT_SELECTION_TRIAL §14） | A) 採用　B) 調整數值 | 暫用建議值（`approved:false`），可在 `/selection` 設定，版本化 | `FR-SEL-01`、`FR-SEL-04` |
+| D-26 | 商品評估、廠商合作資格審查是否納入 G1 檢查 | A) 僅查閱　B) 以 WARN 提醒　C) 以 BLOCK 要求 | A（`gateImpact` 恆為 NONE，G1 語意不變） | `FR-G1S-03`、`FR-DD-06`；B／C 需改 `gates.ts` 與 G1 測試 |
+| D-27 | 合作資格審查與商品資格試用的有效期 | A) 365／180 天　B) 其他天數 | 365／180 天，可在設定調整 | `FR-DD-06`、`FR-TRL-05`、`FR-TRL-06` |
+| D-28 | 新商品是否一律要做商品資格試用 | A) 必要　B) 建議　C) 不強制 | C（不強制，不動既有流程） | `FR-TRL-09` |
+| D-29 | 受規範品類清單與法務／合規審查的負責人與流程 | 指定窗口與清單 | 只標示「需法務／合規審查」，不判斷合法；`product.review` 角色可確認無虞（須附法務意見證據） | `FR-DD-04`、`FR-DD-08` |
+| D-30 | 敏感欄位的可見範圍（營運小編是否可見成本與分潤） | A) 維持不可見　B) 開放 | A（沿用 `product.cost.read`） | `FR-DD-05`、`FR-FEA-03`、`FR-EVI-03` |
+| D-31 | 可行性試算口徑（公司營業收入、分潤基礎、付款方；同 biz-model B-01、B-08、B-09） | 待確認 | 單一費率＋固定費，結果標「試算」 | `FR-FEA-02`、`FR-FEA-05` |
+| D-32 | 附件存放位置與網域白名單 | 指定雲端與網域 | 只存連結，白名單預設空（不限制） | `FR-EVI-01` |
+| D-33 | 商品送審前是否必須有已送出的評估 | A) 必須　B) 不必須 | B（不動商品審核流程） | `FR-SEL-10`、`FR-G1S-03` |
+| D-34 | 試用品回收逾期的處理與責任 | A) 人工追蹤　B) 例外／自動化 | A（只記錄，不追蹤逾期） | `FR-TRL-02`、`FR-TRL-09` |
+| D-35 | 哪些調查類別須附證據才能標「已確認」 | 目前為第 1、7、8、9、10、11 類 | 如左，程式內定（`lib/dd-catalog.ts`） | `FR-DD-03` |
+| D-36 | 是否建立協議（`agreements`）CRUD 並與調查關聯 | A) 做　B) 維持文字版本 | B（以合約版本與合約編號文字記錄） | `FR-DD-01`、`FR-DD-08` |
 
 ---
 
@@ -1024,6 +1172,46 @@
 | FR-FIT-12 | fit.ts | fit | IMPLEMENTED | ✅ |
 | FR-FIT-13 | fit.ts | fit | IMPLEMENTED | ✅ |
 | FR-FIT-14 | — | — | NOT_STARTED | — |
+| FR-SEL-01 | selection.ts, lib/selection-score.ts | selection、unit/selection-score | IMPLEMENTED | ✅ |
+| FR-SEL-02 | lib/selection-score.ts, selection.ts | unit/selection-score、selection | IMPLEMENTED | ✅ |
+| FR-SEL-03 | lib/selection-score.ts | unit/selection-score、selection | IMPLEMENTED | ✅ |
+| FR-SEL-04 | lib/selection-score.ts | unit/selection-score、selection | IMPLEMENTED | ✅ |
+| FR-SEL-05 | selection.ts, migrations/014 | selection | IMPLEMENTED | ✅ |
+| FR-SEL-06 | selection.ts | selection | IMPLEMENTED | ✅ |
+| FR-SEL-07 | selection.ts | selection | IMPLEMENTED | ✅ |
+| FR-SEL-08 | lib/permissions.ts, selection.ts | selection | IMPLEMENTED | ✅ |
+| FR-SEL-09 | selection.ts | selection | IMPLEMENTED | ✅ |
+| FR-SEL-10 | — | — | NOT_STARTED | — |
+| FR-SEL-11 | src/app, src/ui | E2E | PARTIAL | ❌ |
+| FR-EVI-01 | evidence.ts, lib/dd-catalog.ts | selection、unit/dd-catalog | IMPLEMENTED | ✅ |
+| FR-EVI-02 | evidence.ts, migrations/014 | selection、diligence、trials | IMPLEMENTED | ✅ |
+| FR-EVI-03 | evidence.ts | diligence、feasibility | IMPLEMENTED | ✅ |
+| FR-DD-01 | diligence.ts, migrations/014 | diligence、unit/dd-catalog | IMPLEMENTED | ✅ |
+| FR-DD-02 | diligence.ts, lib/dd-catalog.ts | diligence、unit/dd-catalog | IMPLEMENTED | ✅ |
+| FR-DD-03 | diligence.ts | diligence | IMPLEMENTED | ✅ |
+| FR-DD-04 | diligence.ts, lib/dd-catalog.ts | diligence、unit/dd-catalog | IMPLEMENTED | ✅ |
+| FR-DD-05 | diligence.ts, lib/dd-catalog.ts | diligence、unit/dd-catalog | IMPLEMENTED | ✅ |
+| FR-DD-06 | diligence.ts, lib/dd-catalog.ts, migrations/014 | diligence | IMPLEMENTED | ✅ |
+| FR-DD-07 | lib/permissions.ts, diligence.ts | diligence | IMPLEMENTED | ✅ |
+| FR-DD-08 | — | — | NOT_STARTED | — |
+| FR-TRL-01 | trials.ts, migrations/014 | trials | IMPLEMENTED | ✅ |
+| FR-TRL-02 | trials.ts, migrations/014 | trials | IMPLEMENTED | ✅ |
+| FR-TRL-03 | trials.ts, lib/trial-catalog.ts | trials、unit/trial-catalog | IMPLEMENTED | ✅ |
+| FR-TRL-04 | trials.ts, lib/trial-catalog.ts | trials、unit/trial-catalog | IMPLEMENTED | ✅ |
+| FR-TRL-05 | trials.ts, migrations/014 | trials | IMPLEMENTED | ✅ |
+| FR-TRL-06 | trials.ts, lib/trial-catalog.ts | trials、unit/trial-catalog | IMPLEMENTED | ✅ |
+| FR-TRL-07 | trials.ts, lib/scope.ts | trials | IMPLEMENTED | ✅ |
+| FR-TRL-08 | lib/permissions.ts, trials.ts | trials | IMPLEMENTED | ✅ |
+| FR-TRL-09 | — | — | NOT_STARTED | — |
+| FR-FEA-01 | feasibility.ts, lib/feasibility-calc.ts | feasibility、unit/feasibility-calc | IMPLEMENTED | ✅ |
+| FR-FEA-02 | lib/feasibility-calc.ts | unit/feasibility-calc、feasibility | IMPLEMENTED | ✅ |
+| FR-FEA-03 | feasibility.ts, lib/feasibility-calc.ts | feasibility、unit/feasibility-calc | IMPLEMENTED | ✅ |
+| FR-FEA-04 | feasibility.ts, migrations/014 | feasibility | IMPLEMENTED | ✅ |
+| FR-FEA-05 | — | — | NOT_STARTED | — |
+| FR-G1S-01 | decision-summary.ts | selection-g1 | IMPLEMENTED | ✅ |
+| FR-G1S-02 | lib/decision-risk.ts, decision-summary.ts | unit/decision-risk、selection-g1 | IMPLEMENTED | ✅ |
+| FR-G1S-03 | decision-summary.ts, gates.ts（未修改）, products.ts（未修改） | selection-g1 | IMPLEMENTED | ✅ |
+| FR-G1S-04 | decision-summary.ts, lib/scope.ts | selection-g1、unit/decision-risk | IMPLEMENTED | ✅ |
 
 
 ---
@@ -1038,7 +1226,7 @@
 5. 驗欄 ❌ 的 7 條：程式存在，但找不到任何自動化測試保護；已標 PARTIAL，不當成已驗證。
 
 ### 11.2 測試重跑結果
-`npx vitest run`（真實 PostgreSQL 16）：本文件初版基準為 14 個測試檔 245 項；SOP 01 整合後最新為 **20 個測試檔、405 項全部通過**（新增 `unit/fit-score` 32、`segments` 23、`fit` 27，既有 323 項不變），約 33 秒；E2E 煙霧測試 **86 項**（原 49 項＋SOP 01 新增 37 項）。這只證明「已寫的測試通過」，不代表所有需求都有測試——沒有測試保護的需求見 11.3 的 T 系列。
+`npx vitest run`（真實 PostgreSQL 16）：本文件初版基準為 14 個測試檔 245 項；SOP 01 整合後為 20 個測試檔、405 項；SOP 02／03 整合後再新增 10 個測試檔、187 項（`unit/selection-score` 14、`unit/dd-catalog` 13、`unit/trial-catalog` 12、`unit/decision-risk` 6、`unit/feasibility-calc` 21、`selection` 27、`diligence` 30、`trials` 31、`feasibility` 18、`selection-g1` 15），合計 **30 個測試檔、592 項**（以 `grep` 統計 `it(` 得出；全部通過的結果見 `docs/TEST_REPORT.md`，既有 405 項不變）；E2E 煙霧測試：原 49 項＋SOP 01 新增 37 項＝86 項，SOP 02／03 另新增「選品與試用」主管、營運小編與非授權角色區塊（最終項數見 `docs/uat/e2e-results.json`）。這只證明「已寫的測試通過」，不代表所有需求都有測試——沒有測試保護的需求見 11.3 的 T 系列。
 
 ### 11.3 規格與程式的落差（需 Owner 決定改程式或改規格）
 
@@ -1067,7 +1255,7 @@
 | T-07 | `kpiDefinitions`／KPI 的來源與公式欄位 | FR-DSH-10 |
 | T-08 | 內部角色讀取檔期稽核的 API 層斷言；G5 與 G1 部分檢查項的個別斷言 | FR-CMP-10、FR-GATE-09 |
 | T-09 | 鎖定帳號 15 分鐘後自動解鎖、session 12 小時的常數值 | FR-AUTH-02、FR-AUTH-04 |
-| T-10 | E2E 煙霧測試（86 項，含 SOP 01 的 37 項）不在 CI；客群分析／適配的畫面只有 E2E 覆蓋 | FR-UI-01、FR-SEG-08 |
+| T-10 | E2E 煙霧測試（含 SOP 01、SOP 02／03 的區塊）不在 CI；客群分析／適配與選品／試用／可行性的畫面只有 E2E 覆蓋 | FR-UI-01、FR-SEG-08、FR-SEL-11 |
 
 ### 11.4 本文件的限制
 - 需求描述是從程式與既有文件推導；沒有與真實使用者訪談或實際營運流程核對。

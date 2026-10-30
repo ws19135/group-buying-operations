@@ -43,6 +43,12 @@
 | 通知 | `GET /notifications`、`POST /notifications/:id/read`、`GET /notifications/all` | 本人；`/all` 需 `automation.manage` |
 | 客群分析 | `GET/POST /segments`、`GET/PATCH /segments/:id`、`POST /segments/:id/archive`、`POST /segments/:id/evidence`、`POST /segment-evidence/:id/remove`、`GET/POST /hosts/:id/segments`、`PATCH /segment-links/:id`、`POST /segment-links/:id/end` | 讀 `segment.read`；寫 `segment.write`（營運主管、營運小編、管理者；團主／廠商／財務無權限） |
 | 商品適配 | `GET/PUT /fit/config`、`GET /fit`、`GET /fit/overview`、`GET /fit/:id`、`POST /fit/:id/review`、`GET/POST /products/:id/fit`、`GET/POST /campaigns/:id/fit`、`POST /campaigns/:id/fit/outcome` | 讀 `fit.read`；產生評估與回寫 `fit.assess`；覆核 `fit.review`（主管／管理者）；設定 `fit.config`；檔期層級另受檔期資料範圍限制（越權 404）。設計見 [phase2/SEGMENT_FIT.md](phase2/SEGMENT_FIT.md) |
+| 選品評估與設定 | `GET/PUT /selection/config`、`GET /selection/overview`、`GET/POST /products/:id/evaluations`、`GET/PATCH /evaluations/:id`、`POST /evaluations/:id/submit`、`POST /evaluations/:id/review` | 讀 `selection.read`；填寫與送出 `selection.write`；覆核 `product.review`（只記錄意見，不改商品審核狀態、不核准 G1）；設定 `selection.config`。設計見 [phase2/PRODUCT_SELECTION_TRIAL.md](phase2/PRODUCT_SELECTION_TRIAL.md) |
+| 廠商合作資格審查（12 類） | `GET/POST /vendors/:id/diligence`、`GET/PATCH /diligence/:id`、`POST /diligence/:id/submit`、`POST /diligence/:id/review`、`PATCH /diligence-items/:id`、`POST /diligence-items/:id/legal` | 讀 `selection.read`；填報 `selection.write`；核准／退回／撤銷與法務「確認無虞／封鎖／解除」需 `product.review`；第 10 類（分潤）條款屬敏感，需 `product.cost.read`，否則讀到空值並標 `restricted`、寫入 403 |
+| 證據連結 | `POST /evidence`、`POST /evidence/:id/remove` | `selection.write`；只接受 http(s)，拒絕內嵌帳密與（若設定）白名單外網域；移除＝軟刪除；父層鎖定後不可增減；分潤／成本／報價類證據需 `product.cost.read` |
+| 試用（SOP 03） | `GET/POST /products/:id/trials`、`GET/PATCH /trials/:id`、`PATCH /trial-checks/:id`、`POST /trials/:id/conclude`、`POST /trials/:id/review`、`POST /trials/:id/cancel`、`GET /campaigns/:id/trials` | 讀 `selection.read`；寫 `selection.write`；結論比系統建議樂觀需 `product.review` ＋覆寫原因；覆核 `product.review`；檔期層級另受檔期資料範圍限制（越權 404）；不新增任務狀態機 |
+| 商業可行性 | `GET/POST /products/:id/feasibility`、`GET /feasibility/:id`、`POST /feasibility/:id/actuals` | 讀寫 `selection.read`／`selection.write`；成本、費用、分潤、付款安排與由它們算出的利潤需 `product.cost.read`（否則欄位為 null、寫入 403）；實際回寫不寫利潤 |
+| G1 統一決策摘要 | `GET /campaigns/:id/g1-summary` | `selection.read` ＋ 檔期資料範圍；唯讀，`gateImpact` 恆為 `NONE`，不改 G1 檢查項與核准結果 |
 | 稽核 | `GET /audit`、`GET /campaigns/:id/audit` | `audit.read`（財務僅限財務相關實體）；檔期稽核限內部角色且在資料範圍內 |
 
 權限與角色的完整對應：`src/server/lib/permissions.ts`；`GET /auth/me` 會回傳目前使用者的權限清單（供前端決定要顯示哪些按鈕，**後端仍會再次檢查**）。

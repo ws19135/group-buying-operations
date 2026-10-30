@@ -20,6 +20,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     { href: '/aftersales', label: '售後', testid: 'nav-aftersales', group: '營運', show: has('aftersales.read') },
     { href: '/fulfillment', label: '履約出貨', testid: 'nav-fulfillment', group: '營運', show: has('fulfillment.read') },
     { href: '/fit', label: '客群適配', testid: 'nav-fit', group: '營運', show: has('fit.read') },
+    { href: '/selection', label: '選品與試用', testid: 'nav-selection', group: '營運', show: has('selection.read') },
     { href: '/vendors', label: '廠商', testid: 'nav-vendors', group: '主檔', show: has('vendor.read') || has('vendor.self') },
     { href: '/hosts', label: '團主', testid: 'nav-hosts', group: '主檔', show: has('host.read') || has('host.self') },
     { href: '/communities', label: '社群', testid: 'nav-communities', group: '主檔', show: has('community.read') },

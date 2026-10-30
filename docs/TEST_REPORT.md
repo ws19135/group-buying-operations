@@ -69,3 +69,22 @@
 | 突變驗證 | 「未知當 0 分」→ 8 項轉紅；「硬性 FAIL 可抵銷」→ 4 項轉紅；「相同輸入也新增版本」→ 2 項轉紅；還原後 59/59 |
 
 > 注意：本節只涵蓋 SOP 01 切片；第 1～2 節的數字是 2026-10-28 的紀錄，最新總數以本節與 CI 為準。
+
+## 6. SOP 02／03 選品、合作資格審查、試用與商業可行性驗證（2026-10-29，分支 `feat/sop02-03-selection-trial`）
+
+| 檢查 | 結果 |
+|---|---|
+| `npm test` | **30 個檔案、592 項通過**（開工前 20 檔 405 項；新增 187 項：`unit/selection-score` 14、`unit/dd-catalog` 13、`unit/trial-catalog` 12、`unit/feasibility-calc` 21、`unit/decision-risk` 6、`selection` 27、`diligence` 30、`trials` 31、`feasibility` 18、`selection-g1` 15；既有 `security-fuzz` 自動涵蓋 33 條新路由，無 5xx） |
+| `npm run typecheck`／`npm run lint` | 無錯誤、0 warning |
+| `npm run build` | 成功（新增 4 個頁面路由：`/selection`、`/diligence/[id]`、`/trials/[id]`、`/feasibility/[id]`） |
+| E2E | **122/122**（既有 86 ＋ SOP 02／03 區塊 36；對重設並灌入全部 DEMO 種子的資料庫跑；新增截圖 `docs/uat/screens/26～33`） |
+| `npm run docs:gen` | 65 張表、154 個外鍵、185 個端點 |
+| 突變驗證（規則 7） | 22 種刻意弄壞的版本全部使測試轉紅（清單見 DEVELOPMENT_LOG 同日條目）；還原後全綠 |
+| G1／商品審核回歸 | `tests/selection-g1.test.ts`：建立並覆核全部資料前後，G1 檢查項、核准結果、核准列數、通知數、任務數、檔期狀態不變；摘要唯讀（呼叫前後各表列數相同） |
+
+**測試方法**：整合測試使用真實 PostgreSQL；API 測試走正式 `dispatch()` 與真實登入。權限隔離同時檢查服務層與原始 API 回應（敏感數值不得出現在小編的回應與稽核裡）。資料庫層保證（送出後不可改、結論後不可改、禁止實體刪除、進行中試用不可重複、核准需有效期）以直接下 SQL 驗證。
+
+**開發中抓到的缺陷**：① 試用詳情把 `Date` 傳進客戶端元件造成 500（E2E 抓到，改傳純 JSON）；② E2E 腳本結束時留下 `next-server`，下一次會測到舊版本（已改為行程群組結束並在啟動前檢查埠）；③ 商品頁新增的試用表單選單列出團主名稱，使既有 SOP 01 的 E2E 定位器命中隱藏選項（E2E 定位器限定在適配表內）。
+
+**未執行／限制**：沒有使用任何真實資料、真實通知或真實金流；證據連結不偵測失效；瀏覽器僅測 Chromium；未做負載測試。
+

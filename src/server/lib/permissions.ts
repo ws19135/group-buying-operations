@@ -34,7 +34,8 @@ export type Permission =
   | 'fulfillment.read' | 'fulfillment.write'
   | 'intake.write'
   | 'segment.read' | 'segment.write'
-  | 'fit.read' | 'fit.assess' | 'fit.review' | 'fit.config';
+  | 'fit.read' | 'fit.assess' | 'fit.review' | 'fit.config'
+  | 'selection.read' | 'selection.write' | 'selection.config';
 
 const ALL: Permission[] = [
   'user.manage', 'audit.read',
@@ -56,6 +57,7 @@ const ALL: Permission[] = [
   'intake.write',
   'segment.read', 'segment.write',
   'fit.read', 'fit.assess', 'fit.review', 'fit.config',
+  'selection.read', 'selection.write', 'selection.config',
 ];
 
 /**
@@ -73,6 +75,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     'fulfillment.read', 'fulfillment.write',
     'aftersales.read', 'aftersales.write',
     'segment.read', 'segment.write', 'fit.read', 'fit.assess',
+    'selection.read', 'selection.write',
   ],
   FINANCE: [
     'vendor.read', 'host.read', 'community.read', 'product.read', 'product.cost.read',
@@ -81,6 +84,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     'fulfillment.read',
     'exception.read', 'aftersales.read', 'refund.complete',
     'finance.read', 'finance.write', 'settlement.confirm',
+    'selection.read',
   ],
   HOST: ['host.self', 'community.read', 'product.read', 'campaign.read', 'task.read', 'task.complete', 'dashboard.host', 'commission.read', 'fulfillment.read', 'aftersales.read'],
   VENDOR: ['vendor.self', 'product.read', 'campaign.read', 'task.read', 'task.complete', 'fulfillment.read', 'aftersales.read'],

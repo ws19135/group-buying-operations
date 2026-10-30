@@ -78,5 +78,12 @@ export const ids = {
   segmentPreference: async (db: Queryable) => `SPF-${pad(await next(db, 'SPF', ''), 6)}`,
   segmentLink: async (db: Queryable) => `LNK-${pad(await next(db, 'LNK', ''), 6)}`,
   segmentEvidence: async (db: Queryable) => `EVD-${pad(await next(db, 'EVD', ''), 6)}`,
+  evidence: async (db: Queryable) => `EVI-${pad(await next(db, 'EVI', ''), 6)}`,
+  ddRecord: async (db: Queryable) => `VDD-${pad(await next(db, 'VDD', ''), 6)}`,
+  ddItem: async (db: Queryable) => `VDI-${pad(await next(db, 'VDI', ''), 6)}`,
+  evaluation: async (db: Queryable) => `SEL-${pad(await next(db, 'SEL', ''), 6)}`,
+  trial: async (db: Queryable) => `TRL-${pad(await next(db, 'TRL', ''), 6)}`,
+  trialCheck: async (db: Queryable) => `TCK-${pad(await next(db, 'TCK', ''), 6)}`,
+  feasibility: async (db: Queryable) => `FSB-${pad(await next(db, 'FSB', ''), 6)}`,
   fitAssessment: async (db: Queryable) => `FIT-${pad(await next(db, 'FIT', ''), 6)}`,
 };
