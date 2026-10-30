@@ -79,7 +79,9 @@ async function salesAgg(db: Queryable, scopeSql: string, scopeParams: unknown[],
 }
 
 // ===================== 管理者 Dashboard =====================
-export async function getAdminDashboard(actor: Actor, periodYm?: string | null, range?: string | null) {
+export interface HostChartFilter { vendorId?: string | null; productId?: string | null }
+
+export async function getAdminDashboard(actor: Actor, periodYm?: string | null, range?: string | null, filter: HostChartFilter = {}) {
   requirePerm(actor, 'dashboard.admin');
   const sc = campaignScope(actor, 1, 'c');
   if (sc.sql === 'FALSE') throw forbidden();
@@ -145,6 +147,8 @@ export async function getAdminDashboard(actor: Actor, periodYm?: string | null, 
       }));
   }
 
+  const hostChart = showSales ? await hostComparison(db, sc, p, filter) : null;
+
   const taskRows = (await db.query(
     `SELECT count(*) FILTER (WHERE t.status IN ('TODO','IN_PROGRESS','BLOCKED','WAITING_APPROVAL'))::int AS open,
             count(*) FILTER (WHERE t.status IN ('TODO','IN_PROGRESS','BLOCKED','WAITING_APPROVAL') AND t.planned_end < $${sc.params.length + 1}::date)::int AS overdue,
@@ -207,6 +211,7 @@ export async function getAdminDashboard(actor: Actor, periodYm?: string | null, 
     pipeline: camelize(pipeline),
     upcoming: camelize(upcoming),
     hostPerformance: hostPerf,
+    hostChart,
     communities: { byPlatform: camelize(communities), plannedPlacementsNext7Days: placementsNext },
     hosts: camelize(hostCounts),
     tasks: camelize(taskRows),
@@ -332,3 +337,49 @@ export async function getHostDashboard(actor: Actor, hostIdParam?: string | null
 }
 
 export { query };
+
+
+/**
+ * 「跨團主業績比較」：可依廠商、商品篩選（先選廠商，再選該廠商的商品）。
+ * 廠商＝檔期的廠商；商品＝訂單明細的規格所屬商品，訂單淨額依該商品明細占訂單總額的比例分攤（有退款時按比例扣），再依歸因比例分給團主。
+ * 選項只列出使用者資料範圍內有檔期的廠商與商品；不在選項內的廠商／商品一律 422，不靜默忽略。
+ */
+async function hostComparison(db: Queryable, sc: { sql: string; params: unknown[] }, p: { from: string; to: string }, filter: HostChartFilter) {
+  const vendorRows = (await db.query<{ id: string; name: string }>(
+    `SELECT DISTINCT v.id, v.name FROM campaigns c JOIN vendors v ON v.id=c.vendor_id WHERE (${sc.sql}) AND v.deleted_at IS NULL ORDER BY v.name, v.id`, sc.params)).rows;
+  const productRows = (await db.query<{ id: string; name: string; vendor_id: string }>(
+    `SELECT DISTINCT pr.id, pr.name, c.vendor_id FROM campaigns c JOIN campaign_products cp ON cp.campaign_id=c.id AND cp.deleted_at IS NULL JOIN products pr ON pr.id=cp.product_id AND pr.deleted_at IS NULL
+     WHERE (${sc.sql}) ORDER BY pr.name, pr.id`, sc.params)).rows;
+  const vendorId = filter.vendorId?.trim() || null;
+  const productId = filter.productId?.trim() || null;
+  if (vendorId && !vendorRows.some((v) => v.id === vendorId)) throw validation('找不到這個廠商，或你沒有檢視它的權限');
+  if (productId) {
+    const pr = productRows.find((x) => x.id === productId && (!vendorId || x.vendor_id === vendorId));
+    if (!pr) throw validation(vendorId ? '這個商品不屬於所選廠商（或不在你的資料範圍內）' : '找不到這個商品，或你沒有檢視它的權限');
+  }
+  const n = sc.params.length;
+  const params: unknown[] = [...sc.params, p.from, p.to, [...SALES_STATUSES]];
+  let vendorSql = '';
+  if (vendorId) { params.push(vendorId); vendorSql = ` AND c.vendor_id = $${params.length}`; }
+  let orders = `SELECT o.id, o.campaign_id, o.status, o.gross_amount, o.refund_amount, o.ordered_at, o.gross_amount AS pline FROM orders o`;
+  if (productId) {
+    params.push(productId);
+    orders = `SELECT o.id, o.campaign_id, o.status, o.gross_amount, o.refund_amount, o.ordered_at, sum(oi.line_amount) AS pline
+              FROM orders o JOIN order_items oi ON oi.order_id=o.id JOIN skus k ON k.id=oi.sku_id WHERE k.product_id = $${params.length}
+              GROUP BY o.id, o.campaign_id, o.status, o.gross_amount, o.refund_amount, o.ordered_at`;
+  }
+  const rows = (await db.query(
+    `SELECT h.id AS host_id, h.display_name,
+       coalesce(sum(CASE WHEN o.status = ANY($${n + 3}::text[]) THEN (o.gross_amount - o.refund_amount) * (o.pline::numeric / NULLIF(o.gross_amount, 0)) * a.share_percent / 100.0 END),0) AS net,
+       coalesce(sum(CASE WHEN o.status IN ('PAID','PARTIAL_REFUND') THEN a.share_percent / 100.0 END),0) AS orders
+     FROM (${orders}) o JOIN attributions a ON a.order_id=o.id JOIN campaigns c ON c.id=o.campaign_id JOIN hosts h ON h.id=a.host_id
+     WHERE (${sc.sql}) AND o.ordered_at >= $${n + 1} AND o.ordered_at < $${n + 2}${vendorSql}
+     GROUP BY h.id, h.display_name ORDER BY net DESC, h.id LIMIT 50`, params)).rows.map((r) => ({
+    hostId: r.host_id as string, name: r.display_name as string, net: Math.round(Number(r.net)), orders: Math.round(Number(r.orders)),
+  }));
+  return {
+    items: rows,
+    filter: { vendorId, productId },
+    options: { vendors: vendorRows, products: productRows.map((x) => ({ id: x.id, name: x.name, vendorId: x.vendor_id })) },
+  };
+}

@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { withActor, sp1, type SP } from '@/server/ui/session';
 import { getAdminDashboard } from '@/server/modules/dashboard';
+import { AppError } from '@/server/lib/errors';
+import { HostChartFilter } from '@/ui/HostChartFilter';
 import { Banner, Badge, Card, EmptyState, KpiCard, PageHeader, StatusBadge, Table } from '@/ui/components';
 import { CAMPAIGN_STATUS, SEVERITY, ownerRoleLabel, PLATFORM } from '@/ui/labels';
 import { fmtDateTime, money, num, pct } from '@/ui/format';
@@ -21,7 +23,15 @@ const shiftMonth = (ym: string, d: number) => { const [y, m] = ym.split('-').map
 
 export default withActor(async (actor, props: { searchParams: SP }) => {
   const q = await sp1(props.searchParams);
-  const d = as<AdminDash>(await getAdminDashboard(actor, q.month, q.range));
+  let filterError: string | null = null;
+  let raw;
+  try { raw = await getAdminDashboard(actor, q.month, q.range, { vendorId: q.vendor, productId: q.product }); }
+  catch (e) {
+    if (!(e instanceof AppError) || e.code !== 'VALIDATION' || !(q.vendor || q.product)) throw e;
+    filterError = e.message;   // 網址帶了無效的廠商／商品：回到不篩選，並說明原因
+    raw = await getAdminDashboard(actor, q.month, q.range);
+  }
+  const d = as<AdminDash>(raw);
   const dq = d.dataQuality;
   const s = d.sales;
   const ordersHref = `/orders?from=${d.period.from}&to=${d.period.to}`;
@@ -82,22 +92,31 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
       </div>
 
       <div className="grid cols-2">
-        <Card title="跨團主業績比較" testid="host-chart-card">
-          {!s ? <EmptyState title="無檢視權限" /> : d.hostPerformance.length === 0 ? <EmptyState title="本期沒有歸因到團主的訂單" hint={dq.status === 'NO_DATA' ? '待串接訂單資料' : undefined} /> : (() => {
-            const max = Math.max(1, ...d.hostPerformance.map((h) => h.net));
+        <Card title="跨團主業績比較" testid="host-chart-card" actions={d.hostChart ? <HostChartFilter vendors={d.hostChart.options.vendors} products={d.hostChart.options.products} vendorId={d.hostChart.filter.vendorId} productId={d.hostChart.filter.productId} /> : undefined}>
+          {filterError ? <Banner kind="warn" testid="host-chart-filter-error">篩選條件無效（{filterError}），已改為顯示全部。</Banner> : null}
+          {(() => {
+            const hc = d.hostChart;
+            const vName = hc?.options.vendors.find((v) => v.id === hc.filter.vendorId)?.name;
+            const pName = hc?.options.products.find((x) => x.id === hc.filter.productId)?.name;
+            const scope = vName ? `${vName}・${pName ?? '全部商品'}` : '全部廠商';
+            if (!s || !hc) return <EmptyState title="無檢視權限" />;
+            if (hc.items.length === 0) return <EmptyState title={vName ? `「${scope}」本期沒有歸因到團主的訂單` : '本期沒有歸因到團主的訂單'} hint={dq.status === 'NO_DATA' ? '待串接訂單資料' : undefined} />;
+            const max = Math.max(1, ...hc.items.map((h) => h.net));
             return (
-              <div className="vbars" data-testid="host-chart">
-                {d.hostPerformance.slice(0, 8).map((h) => (
-                  <Link key={h.hostId} href={`/hosts/${h.hostId}`} className="vbar" title={`${h.name}：${money(h.net)}（${h.orders} 筆）`} data-testid={`hostbar-${h.hostId}`}>
-                    <span className="vbar-val">{money(h.net)}</span>
-                    <span className="vbar-track"><span className="vbar-fill" style={{ height: `${Math.max(2, (h.net / max) * 100)}%` }} /></span>
-                    <span className="vbar-label">{h.name}</span>
-                  </Link>
-                ))}
-              </div>
+              <>
+                <div className="vbars" data-testid="host-chart">
+                  {hc.items.slice(0, 8).map((h) => (
+                    <Link key={h.hostId} href={`/hosts/${h.hostId}`} className="vbar" title={`${h.name}：${money(h.net)}（${h.orders} 筆）`} data-testid={`hostbar-${h.hostId}`}>
+                      <span className="vbar-val">{money(h.net)}</span>
+                      <span className="vbar-track"><span className="vbar-fill" style={{ height: `${Math.max(2, (h.net / max) * 100)}%` }} /></span>
+                      <span className="vbar-label">{h.name}</span>
+                    </Link>
+                  ))}
+                </div>
+                <p className="small muted" data-testid="host-chart-scope">有效淨銷售額（依歸因分攤）；目前篩選：<strong>{scope}</strong>；點長條進入團主頁。{hc.filter.productId ? '商品金額依訂單明細占比分攤（有退款時按比例扣除）。' : ''}</p>
+              </>
             );
           })()}
-          <p className="small muted">有效淨銷售額（依歸因分攤）；點長條進入團主頁。</p>
         </Card>
         <Card title="營運異常與待辦（依緊急程度排序）" testid="attention" flush>
           {d.attention.length === 0 ? <EmptyState title="目前沒有需要處理的異常 🎉" /> : (
