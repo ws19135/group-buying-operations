@@ -124,6 +124,20 @@ async function main() {
         const chosen = (await page.getByTestId('host-chart-product').locator('option:checked').innerText()).trim();
         record('再選商品後：圖表標示「廠商・商品」，網址保留篩選條件', sc2.includes(chosen) && /晴空保養/.test(sc2) && /vendor=VEN-.*product=PRD-|product=PRD-.*vendor=VEN-/.test(page.url()), sc2.slice(0, 80));
         await page.screenshot({ path: path.join(SHOTS, '35-dashboard-host-chart-product.png'), fullPage: true });
+        // 進件來的新廠商也有示範商品（seed-demo-catalog），選了廠商就一定有商品可選
+        const newVid = await page.getByTestId('host-chart-vendor').locator('option', { hasText: '新進件品牌' }).getAttribute('value');
+        await page.getByTestId('host-chart-vendor').selectOption({ label: '[DEMO] 新進件品牌' });
+        // 選下去的當下商品下拉就要更新（不必等圖表重畫）
+        const instantOpts = await page.getByTestId('host-chart-product').locator('option').allInnerTexts();
+        record('選廠商的當下，商品下拉立刻改列該廠商的商品（不等圖表重畫）', await page.getByTestId('host-chart-product').isEnabled() && instantOpts.some((t) => /燕麥脆片/.test(t)) && !instantOpts.some((t) => /護手霜/.test(t)), instantOpts.join('｜'));
+        await page.waitForURL((u) => u.searchParams.get('vendor') === newVid, { timeout: 15_000 });
+        await page.waitForLoadState('networkidle');
+        const newOpts = await page.getByTestId('host-chart-product').locator('option').allInnerTexts();
+        record('新進件品牌也有數個團購商品可選（不再是停用的「請先選廠商」）', await page.getByTestId('host-chart-product').isEnabled() && newOpts[0] === '全部商品' && newOpts.length >= 3 && newOpts.some((t) => /燕麥脆片/.test(t)) && newOpts.some((t) => /咖啡包/.test(t)), newOpts.join('｜'));
+        await page.getByTestId('host-chart-product').selectOption({ label: '[DEMO] 冷萃咖啡包' });
+        await page.waitForURL(/product=PRD-/, { timeout: 15_000 });
+        await page.waitForLoadState('networkidle');
+        record('選到有訂單的商品：圖表標示該商品，且畫得出團主長條', (await page.getByTestId('host-chart-scope').innerText()).includes('冷萃咖啡包') && (await page.getByTestId('host-chart').count()) > 0);
         await page.getByTestId('host-chart-vendor').selectOption('');
         await page.waitForURL((u) => !u.search.includes('vendor='), { timeout: 15_000 });
         record('改回「全部廠商」會清掉商品篩選', !page.url().includes('product=') && await page.getByTestId('host-chart-product').isDisabled());
@@ -137,6 +151,7 @@ async function main() {
         ['/campaigns/new', '新增檔期', ''], ['/vendors/new', '新增廠商', ''], ['/hosts/new', '新增團主', ''], ['/communities/new', '新增社群', ''], ['/products/new', '新增商品', ''],
       ] as const) {
         const body = await visit(page, w, url, label, { shot: shot || undefined });
+        if (url === '/audit') record('稽核頁：動作與對象保留英文代碼並補中文（例如 campaign（檔期））', /[a-z_]+\.[a-z_.]+（[^）]+）/.test(body) && /（檔期）|（任務）|（廠商）|（商品）/.test(body), body.match(/[a-z_]+\.[a-z_.]+（[^）]+）/)?.[0] ?? '');
         if (url === '/automation') record('自動化頁面明示預設停用／僅測試 Adapter／不對真人發送', /預設全部停用/.test(body) && /測試 Adapter/.test(body) && /不會對任何真人發送/.test(body));
       }
 

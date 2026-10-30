@@ -85,7 +85,11 @@ async function main() {
       const finalUrl = new URL(page.url());
       if (finalUrl.pathname.startsWith('/login')) continue;
       const key = canonical(u);
-      const links: string[] = await page.evaluate(() => [...document.querySelectorAll('a[href]')].map((a) => (a as HTMLAnchorElement).href));
+      // 下拉選單的選項（data-nav）也算連結：快照站沒有 script，改用下面那一小段導覽程式換頁
+      const links: string[] = await page.evaluate(() => [
+        ...[...document.querySelectorAll('a[href]')].map((a) => (a as HTMLAnchorElement).href),
+        ...[...document.querySelectorAll('select[data-nav-select] option[data-nav]')].map((o) => new URL((o as HTMLElement).dataset.nav as string, location.href).href),
+      ]);
       for (const l of links) {
         try {
           const lu = new URL(l);
@@ -99,6 +103,11 @@ async function main() {
       const html = await page.evaluate(() => {
         document.querySelectorAll('script, link[rel="preload"], link[rel="modulepreload"], noscript').forEach((n) => n.remove());
         document.querySelectorAll('a[href]').forEach((a) => a.setAttribute('href', `@@SNAP:${encodeURIComponent((a as HTMLAnchorElement).href)}@@`));
+        document.querySelectorAll('select[data-nav-select] option').forEach((o) => {
+          const opt = o as HTMLOptionElement;
+          if (opt.selected) opt.setAttribute('selected', ''); else opt.removeAttribute('selected');
+          if (opt.dataset.nav) opt.setAttribute('data-snap', `@@SNAP:${encodeURIComponent(new URL(opt.dataset.nav, location.href).href)}@@`);
+        });
         return '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
       });
       const title = await page.title();
@@ -113,6 +122,8 @@ async function main() {
       // 內嵌在「單頁檢視」時，橫幅由外層提供，這裡隱藏（唯一保留的 script，只做這件事）
       `<script>if(window.top!==window.self){var b=document.getElementById('snap-banner');if(b)b.style.display='none'}</script>`;
     const freeze = '<style>form button,form input,form select,form textarea,button{pointer-events:none!important;opacity:.55}</style>';
+    // 唯一例外：標了 data-nav-select 的篩選下拉只負責換頁（讀取不同網址的快照），不會寫入任何資料
+    const nav = `<script>document.querySelectorAll('select[data-nav-select]').forEach(function(s){s.addEventListener('change',function(){var o=s.options[s.selectedIndex];if(o&&o.getAttribute('data-snap'))location.href=o.getAttribute('data-snap')})})</script>`;
 
     for (const [key, s] of saved) {
       const html = s.html
@@ -125,7 +136,8 @@ async function main() {
           return f ? `${PUBLISH_BASE}${f}` : '#snapshot-not-captured';
         })
         .replace('</head>', `${freeze}</head>`)
-        .replace(/<body([^>]*)>/, `<body$1>${banner}`);
+        .replace(/<body([^>]*)>/, `<body$1>${banner}`)
+        .replace('</body>', `${nav}</body>`);
       const f = fileOf.get(key)!;
       const dest = path.join(OUT, f);
       fs.mkdirSync(path.dirname(dest), { recursive: true });

@@ -17,7 +17,7 @@
 | 項目 | 現況（✅ 已核對） |
 |---|---|
 | 技術棧 | Next.js 15.5（App Router）、React 19、TypeScript 5.9、PostgreSQL 16、`pg` 8（無 ORM）、zod 3.25、vitest 3、Playwright 1.63（`package.json`） |
-| 規模 | 65 張資料表（14 支 migration，含 013 客群分析與適配的 5 張、014 選品與試用的 7 張）、185 個 API 端點（`routes.ts` 的 `R(`／`P(` 計數，含 SOP 01 的 22 條、SOP 02／03 的 33 條）、6 個角色、52 項權限（含 SOP 01 的 6 項、SOP 02／03 的 3 項）、14 種檔期狀態、8 個自動化工作 |
+| 規模 | 65 張資料表（15 支 migration，含 013 客群分析與適配的 5 張、014 選品與試用的 7 張；015 只更新模板說明文字）、185 個 API 端點（`routes.ts` 的 `R(`／`P(` 計數，含 SOP 01 的 22 條、SOP 02／03 的 33 條）、6 個角色、52 項權限（含 SOP 01 的 6 項、SOP 02／03 的 3 項）、14 種檔期狀態、8 個自動化工作 |
 | 使用者介面 | 繁體中文、桌面為主；`src/app` 共 45 個頁面檔（`page.tsx`，含登入頁與首頁導向；SOP 01 新增 `/fit`、`/segments`、`/segments/[id]`，團主、商品、檔期頁另加面板；SOP 02／03 新增 `/selection`、`/diligence/[id]`、`/trials/[id]`、`/feasibility/[id]`，廠商、商品、檔期頁另加面板） |
 | 測試 | 30 個測試檔、592 項（含 SOP 01 新增的 3 檔 82 項、SOP 02／03 新增的 10 檔 187 項），使用真實 PostgreSQL；另有 Playwright E2E（`scripts/e2e-smoke.ts`，SOP 02／03 另加「選品與試用」區塊；`scripts/e2e-aftersales.ts`） |
 

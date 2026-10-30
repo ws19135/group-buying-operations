@@ -1,14 +1,14 @@
 {
-  "ranAt": "2026-10-30T02:30:07.815Z",
+  "ranAt": "2026-10-30T03:33:44.259Z",
   "base": "http://127.0.0.1:3100",
-  "total": 127,
-  "passed": 127,
+  "total": 131,
+  "passed": 131,
   "failed": 0,
   "checks": [
     {
       "name": "健康檢查含資料庫連線",
       "ok": true,
-      "detail": "{\"ok\":true,\"db\":\"up\",\"latencyMs\":1,\"env\":\"development\",\"time\":\"2026-10-30T02:28:51.515Z\"}"
+      "detail": "{\"ok\":true,\"db\":\"up\",\"latencyMs\":2,\"env\":\"development\",\"time\":\"2026-10-30T03:32:27.588Z\"}"
     },
     {
       "name": "未登入造訪 /dashboard 會被導到登入頁",
@@ -44,12 +44,26 @@
     {
       "name": "選廠商後：圖表標示目前篩選的廠商，商品下拉只列該廠商的商品（含「全部商品」）",
       "ok": true,
-      "detail": "全部商品｜[DEMO] 保濕面膜｜[DEMO] 清爽防曬噴霧"
+      "detail": "全部商品｜[DEMO] 保濕面膜｜[DEMO] 清爽防曬噴霧｜[DEMO] 溫和潔顏慕斯｜[DEMO] 舒緩護手霜"
     },
     {
       "name": "再選商品後：圖表標示「廠商・商品」，網址保留篩選條件",
       "ok": true,
       "detail": "有效淨銷售額（依歸因分攤）；目前篩選：[DEMO] 晴空保養・[DEMO] 保濕面膜；點長條進入團主頁。商品金額依訂單明細占比分攤（有退款時按比例扣除）。"
+    },
+    {
+      "name": "選廠商的當下，商品下拉立刻改列該廠商的商品（不等圖表重畫）",
+      "ok": true,
+      "detail": "全部商品｜[DEMO] 冷萃咖啡包｜[DEMO] 有機燕麥脆片｜[DEMO] 進件示範商品"
+    },
+    {
+      "name": "新進件品牌也有數個團購商品可選（不再是停用的「請先選廠商」）",
+      "ok": true,
+      "detail": "全部商品｜[DEMO] 冷萃咖啡包｜[DEMO] 有機燕麥脆片｜[DEMO] 進件示範商品"
+    },
+    {
+      "name": "選到有訂單的商品：圖表標示該商品，且畫得出團主長條",
+      "ok": true
     },
     {
       "name": "改回「全部廠商」會清掉商品篩選",
@@ -125,6 +139,11 @@
       "detail": "HTTP 200"
     },
     {
+      "name": "稽核頁：動作與對象保留英文代碼並補中文（例如 campaign（檔期））",
+      "ok": true,
+      "detail": "user.login（使用者・login）"
+    },
+    {
       "name": "通知（/notifications）",
       "ok": true,
       "detail": "HTTP 200"
@@ -186,7 +205,7 @@
       "detail": "HTTP 200"
     },
     {
-      "name": "以名稱篩出新團主（/hosts?q=%5BE2E%5D%20%E6%96%B0%E5%9C%98%E4%B8%BB%20mvucszxa）",
+      "name": "以名稱篩出新團主（/hosts?q=%5BE2E%5D%20%E6%96%B0%E5%9C%98%E4%B8%BB%20mvuf2tmi）",
       "ok": true,
       "detail": "HTTP 200"
     },

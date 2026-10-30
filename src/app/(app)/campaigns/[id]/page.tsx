@@ -3,6 +3,7 @@ import { withActor, sp1, type SP, type Params } from '@/server/ui/session';
 import { getCampaign } from '@/server/modules/campaigns';
 import { gateCheck } from '@/server/modules/gates';
 import { listCampaignAudit } from '@/server/modules/audit-read';
+import { auditCodeLabel, auditRoleLabel, glossAuditJson } from '@/ui/audit-labels';
 import { can, GATE_APPROVER_ROLES, isInternal } from '@/server/lib/permissions';
 import { GATE_REQUEST } from '@/server/workflow/state';
 import { PHASES } from '@/server/workflow/template-default';
@@ -282,14 +283,14 @@ async function ApprovalsTab({ c, actor }: { c: CampaignV; actor: A }) {
 
 async function AuditTab({ id, actor }: { id: string; actor: A }) {
   const rows = as<AuditV[]>(await listCampaignAudit(actor, id));
-  const j = (v: unknown) => (v == null ? '' : JSON.stringify(v));
+  const j = (v: unknown) => glossAuditJson(v);
   return (
     <Card title="異動紀錄（誰、何時、改了什麼）" flush testid="tab-audit">
       {rows.length === 0 ? <EmptyState title="沒有紀錄" /> : (
         <Table head={['時間', '操作者', '動作', '對象', '前後值', '原因']}>
           {rows.map((a) => (
-            <tr key={a.id}><td className="nowrap small">{fmtDateTime(a.occurredAt)}</td><td className="small">{a.actorName ?? (a.actorType === 'SYSTEM' ? '系統' : '—')}<div className="muted">{a.actorRole ? roleLabel(a.actorRole) : ''}</div></td>
-              <td className="small">{a.action}</td><td className="small">{a.entityType}<div className="muted">{a.entityId}</div></td>
+            <tr key={a.id}><td className="nowrap small">{fmtDateTime(a.occurredAt)}</td><td className="small">{a.actorName ?? (a.actorType === 'SYSTEM' ? '系統' : '—')}<div className="muted">{auditRoleLabel(a.actorRole)}</div></td>
+              <td className="small">{auditCodeLabel(a.action)}</td><td className="small">{auditCodeLabel(a.entityType)}<div className="muted">{a.entityId}</div></td>
               <td>{a.beforeData ? <pre className="diff">前：{j(a.beforeData)}</pre> : null}{a.afterData ? <pre className="diff">後：{j(a.afterData)}</pre> : null}</td><td className="small">{a.reason}</td></tr>
           ))}
         </Table>

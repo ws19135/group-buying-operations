@@ -1359,6 +1359,7 @@ NSV            = GMV − 退款
 ### 18B.12 DEMO 種子與測試
 
 - 種子 `scripts/seed-demo-selection.ts`（`npm run db:seed:demo:selection`，已加入 `bootstrap:demo`）：需先跑 `db:seed:demo`；冪等（已有 `[DEMO]` 證據即略過）；拒絕在 production 執行（除非明確允許公開示範環境）；證據連結一律是保留網域 `docs.example.invalid`；建立 3 份評估（1 份 PROCEED 已覆核、1 份需法務審查、1 份草稿）、2 份調查（1 份已核准、1 份草稿含風險與法務標示）、3 筆試用、2 筆可行性。
+- 種子 `scripts/seed-demo-catalog.ts`（`npm run db:seed:demo:catalog`，已加入 `bootstrap:demo`）：需先跑 `db:seed:demo`；冪等（已有 `[DEMO] 舒緩護手霜` 即略過）；拒絕在 production 執行；為 4 家 [DEMO] 廠商（含「新進件品牌」）各建 2 個商品與 1 檔進行中團購、共 144 張虛構訂單，讓儀表板「跨團主業績比較」的廠商→商品兩層下拉有東西可展示。
 - 測試對應見 §21。突變驗證（未知當 0、合規被總分抵銷、過期證據仍有效、小編讀／寫敏感欄位、結論可更樂觀、資格不隨商品變更失效、允許重複進行中試用、G1 檢查項被改…）共 22 項，每項在錯誤版本下都使對應測試變紅。
 
 ## 19. 橫切設計
