@@ -43,9 +43,9 @@ export function ProductCreateForm({ vendors, canCost }: { vendors: { value: stri
       <div className="form-grid">
         <label className="field"><span className="lbl">規格編號</span><input name="skuCode" data-testid="field-skuCode" /></label>
         <label className="field"><span className="lbl">規格名稱</span><input name="skuName" /></label>
-        <label className="field"><span className="lbl">原價（TWD）</span><input type="number" min={0} name="listPrice" data-testid="field-listPrice" /></label>
-        <label className="field"><span className="lbl">團購價（TWD）</span><input type="number" min={0} name="groupPrice" data-testid="field-groupPrice" /></label>
-        {canCost ? <label className="field"><span className="lbl">成本（TWD，敏感）</span><input type="number" min={0} name="costPrice" /></label> : null}
+        <label className="field"><span className="lbl">原價（新台幣）</span><input type="number" min={0} name="listPrice" data-testid="field-listPrice" /></label>
+        <label className="field"><span className="lbl">團購價（新台幣）</span><input type="number" min={0} name="groupPrice" data-testid="field-groupPrice" /></label>
+        {canCost ? <label className="field"><span className="lbl">成本（新台幣，敏感）</span><input type="number" min={0} name="costPrice" /></label> : null}
       </div>
       <button className="btn primary" type="submit" disabled={busy} data-testid="product-create-submit">{busy ? '建立中…' : '建立商品'}</button>
     </form>

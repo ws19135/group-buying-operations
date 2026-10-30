@@ -25,7 +25,7 @@ export function Shell({ nav, userName, roleLabel, unread, children }: { nav: Nav
     <ToastProvider>
       <div className="shell">
         <aside className={`sidebar${open ? ' open' : ''}`} data-testid="sidebar">
-          <Link className="brand" href="/">🛒 團購 ERP</Link>
+          <Link className="brand" href="/">🛒 團購 ERP<small style={{ display: 'block', fontSize: 11, fontWeight: 400, opacity: 0.8 }}>企業資源規劃系統</small></Link>
           <nav aria-label="主選單">
             {nav.map((n) => {
               const head = n.group && n.group !== lastGroup ? <div className="nav-group" key={`g-${n.group}`}>{n.group}</div> : null;

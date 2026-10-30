@@ -39,7 +39,7 @@ export async function FitTab({ campaignId, actor }: { campaignId: string; actor:
   );
 }
 
-/** G1 核准區的唯讀提示：讓核准者知道有沒有評估與覆核；不影響申請與核准 */
+/** G1（選品核准）核准區的唯讀提示：讓核准者知道有沒有評估與覆核；不影響申請與核准 */
 export async function FitG1Note({ campaignId, actor }: { campaignId: string; actor: Actor }) {
   const d = as<CampaignFit>(await listCampaignFit(actor, campaignId));
   const s = d.summary;

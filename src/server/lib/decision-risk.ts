@@ -2,6 +2,7 @@
  * G1 統一決策摘要的風險規則（純函式）。只彙整、不阻擋：摘要的 gateImpact 恆為 NONE，不改 G1 的檢查項與核准結果。
  * 🔴 BLOCKING＝有阻礙性風險（合規未過、法務封鎖、試用不通過、關鍵證據過期、被退回）；🟡 GAP＝有缺口；🟢＝沒有已知缺口。
  */
+const REVIEW_NAME: Record<string, string> = { DRAFT: '草稿', PENDING_REVIEW: '待審核', APPROVED: '已通過', REJECTED: '已退回' };
 export type RiskLevel = 'BLOCKING' | 'GAP';
 export type RiskArea = 'PRODUCT' | 'EVALUATION' | 'DILIGENCE' | 'TRIAL' | 'FEASIBILITY';
 export interface Risk { level: RiskLevel; area: RiskArea; message: string }
@@ -22,7 +23,7 @@ export function buildRisks(i: SummaryInput): Risk[] {
   const add = (level: RiskLevel, area: RiskArea, message: string) => out.push({ level, area, message });
 
   if (i.reviewStatus === 'REJECTED') add('BLOCKING', 'PRODUCT', '商品審核被退回');
-  else if (i.reviewStatus !== 'APPROVED') add('GAP', 'PRODUCT', `商品尚未核准（目前 ${i.reviewStatus}）`);
+  else if (i.reviewStatus !== 'APPROVED') add('GAP', 'PRODUCT', `商品尚未核准（目前${REVIEW_NAME[i.reviewStatus] ?? i.reviewStatus}）`);
 
   const e = i.evaluation;
   if (!e) add('GAP', 'EVALUATION', '尚無已送出的選品評估');

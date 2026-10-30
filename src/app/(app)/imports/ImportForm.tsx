@@ -43,8 +43,8 @@ export function ImportForm() {
         <label className="field"><span className="lbl">來源系統名稱<span className="req"> *</span></span><input name="sourceSystem" required defaultValue="CSV_UPLOAD" data-testid="field-sourceSystem" /><span className="help">與「來源訂單編號」一起作為去重鍵</span></label>
         <label className="field"><span className="lbl">資料截至時間（選填）</span><input type="datetime-local" name="dataAsOf" data-testid="field-dataAsOf" /><span className="help">未填則取檔案中最新的下單時間</span></label>
       </div>
-      <label className="field"><span className="lbl">選擇 CSV 檔</span><input type="file" accept=".csv,text/csv" onChange={onFile} data-testid="field-file" /></label>
-      <label className="field"><span className="lbl">或直接貼上 CSV 內容<span className="req"> *</span></span><textarea value={csv} onChange={(e) => setCsv(e.target.value)} rows={8} required style={{ fontFamily: 'monospace' }} data-testid="field-csv" /></label>
+      <label className="field"><span className="lbl">選擇 CSV（逗號分隔檔）檔案</span><input type="file" accept=".csv,text/csv" onChange={onFile} data-testid="field-file" /></label>
+      <label className="field"><span className="lbl">或直接貼上 CSV（逗號分隔檔）內容<span className="req"> *</span></span><textarea value={csv} onChange={(e) => setCsv(e.target.value)} rows={8} required style={{ fontFamily: 'monospace' }} data-testid="field-csv" /></label>
       <button className="btn primary" type="submit" disabled={busy || !csv.trim()} data-testid="import-submit">{busy ? '匯入中…' : '匯入'}</button>
     </form>
   );

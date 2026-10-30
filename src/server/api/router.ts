@@ -100,7 +100,7 @@ export async function dispatch(req: Request, pathSegments: string[]): Promise<Re
     }
     if (!hit) {
       const otherMethod = [...compiled.entries()].some(([m2, arr]) => m2 !== method && arr.some((c) => c.re.test(path)));
-      return json(otherMethod ? 405 : 404, { error: { code: 'NOT_FOUND', message: otherMethod ? '不支援的請求方法' : '找不到此 API', requestId } });
+      return json(otherMethod ? 405 : 404, { error: { code: 'NOT_FOUND', message: otherMethod ? '不支援的請求方法' : '找不到此 API（應用程式介面）', requestId } });
     }
     // NUL 字元無法存進 PostgreSQL 文字欄位；在入口就擋下，避免各個查詢各自出現 5xx
     for (const [k, v] of url.searchParams) if (k.includes('\u0000') || v.includes('\u0000')) return json(422, { error: { code: 'VALIDATION', message: '查詢參數含不允許的字元', requestId } });

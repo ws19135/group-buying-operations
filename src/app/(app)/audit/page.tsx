@@ -16,8 +16,8 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
       <PageHeader title="稽核紀錄" sub="所有變更都留痕（誰、何時、對什麼、前後值）；稽核紀錄不可修改或刪除" />
       <Filters>
         <label>對象類型<input name="entityType" defaultValue={q.entityType} placeholder="campaign、task…" data-testid="filter-entityType" /></label>
-        <label>對象 ID<input name="entityId" defaultValue={q.entityId} /></label>
-        <label>檔期 ID<input name="campaignId" defaultValue={q.campaignId} /></label>
+        <label>對象編號（ID）<input name="entityId" defaultValue={q.entityId} /></label>
+        <label>檔期編號（ID）<input name="campaignId" defaultValue={q.campaignId} /></label>
         <label>動作<input name="action" defaultValue={q.action} placeholder="campaign.reschedule" /></label>
       </Filters>
       <Card flush testid="audit-list">

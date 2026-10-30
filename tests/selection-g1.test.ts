@@ -166,7 +166,7 @@ describe('G1 統一決策摘要', () => {
     const id = await mkCamp(w.editor, []);
     const s = await g1Summary(w.manager, id);
     expect(s).toMatchObject({ gateImpact: 'NONE', light: 'YELLOW', products: [] });
-    expect(s.note).toContain('不是 G1 的檢查項');
+    expect(s.note).toContain('不是 G1（選品核准）的檢查項');
   });
   it('什麼都沒做：每個面向都是缺口（黃燈），沒有阻礙', async () => {
     const p = await mkProduct(w, vendorId, { approve: true });

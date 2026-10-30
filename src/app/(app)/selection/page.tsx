@@ -26,11 +26,11 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
   const c = o.config;
   return (
     <>
-      <PageHeader title="選品與試用" sub="SOP 02 商品選品與廠商開發・SOP 03 商品試用與商業可行性，供 G1 選品核准查閱" testid="selection-header" />
+      <PageHeader title="選品與試用" sub="標準作業流程（SOP）02 商品選品與廠商開發・03 商品試用與商業可行性，供 G1 選品核准查閱" testid="selection-header" />
       <Banner kind={c.approved ? 'ok' : 'warn'} testid="selection-config-banner">
         選品評分設定 v{c.version}：<strong>{c.status}</strong>。權重 {Object.entries(c.weights).map(([k, v]) => `${SEL_DIM[k]} ${v}%`).join('、')}；
         ≥ {c.thresholds.proceed} 分建議進入商務審查、≥ {c.thresholds.supplement} 分補測／補件；合作資格審查有效 {c.ddValidDays} 天、商品資格試用有效 {c.trialValidDays} 天。
-        分數與評估只是決策建議，<strong>不會</strong>自動核准商品或 G1。
+        分數與評估只是決策建議，<strong>不會</strong>自動核准商品或 G1（選品核准）。
       </Banner>
       <Tabs tabs={[{ key: 'todo', label: '待辦與提醒' }, { key: 'config', label: '評分與有效期設定' }]} current={tab} base="/selection" />
       {tab === 'config' ? (

@@ -97,7 +97,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
               { name: 'direction', label: '方向', type: 'select', required: true, options: toOptions(DIRECTION), half: true },
               { name: 'counterpartyType', label: '對象類型', type: 'select', required: true, options: toOptions(COUNTERPARTY), half: true },
               { name: 'counterpartyId', label: '對象（廠商／團主；平台免選）', type: 'select', options: parties, half: true },
-              { name: 'amount', label: '金額（TWD，整數）', type: 'number', required: true, min: 1, half: true },
+              { name: 'amount', label: '金額（新台幣，整數）', type: 'number', required: true, min: 1, half: true },
               { name: 'paidOn', label: '日期', type: 'date', required: true, half: true }, { name: 'referenceNo', label: '參考號（佔位字即可）', half: true },
               { name: 'campaignId', label: '關聯檔期（選填）', type: 'select', options: campaigns, half: true }, { name: 'note', label: '備註', half: true }]} />
           </Card>) : null}
@@ -139,7 +139,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
           <Card title="新增發票紀錄" testid="invoice-create">
             <ApiForm endpoint="/api/invoices" submitLabel="新增（草稿）" idempotent testid="invoice-create-form" fields={[
               { name: 'invoiceNo', label: '發票號碼（或佔位字）', required: true, half: true }, { name: 'invoiceDate', label: '日期', type: 'date', required: true, half: true },
-              { name: 'amount', label: '金額（TWD，整數）', type: 'number', required: true, min: 0, half: true }, { name: 'campaignId', label: '關聯檔期（選填）', type: 'select', options: campaigns, half: true },
+              { name: 'amount', label: '金額（新台幣，整數）', type: 'number', required: true, min: 0, half: true }, { name: 'campaignId', label: '關聯檔期（選填）', type: 'select', options: campaigns, half: true },
               { name: 'titleText', label: '抬頭（佔位）', half: true }, { name: 'taxIdText', label: '統編（佔位）', half: true }, { name: 'note', label: '備註', half: true }]} />
           </Card>) : null}
         <Card title="發票紀錄" flush testid="invoice-list">
@@ -168,7 +168,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
         {w ? (
           <Card title="新增費用" testid="expense-create">
             <ApiForm endpoint="/api/expenses" submitLabel="新增費用" idempotent testid="expense-create-form" fields={[
-              { name: 'category', label: '類別', type: 'select', required: true, options: toOptions(EXPENSE_CATEGORY), half: true }, { name: 'amount', label: '金額（TWD，整數）', type: 'number', required: true, min: 1, half: true },
+              { name: 'category', label: '類別', type: 'select', required: true, options: toOptions(EXPENSE_CATEGORY), half: true }, { name: 'amount', label: '金額（新台幣，整數）', type: 'number', required: true, min: 1, half: true },
               { name: 'incurredOn', label: '發生日期', type: 'date', required: true, half: true }, { name: 'campaignId', label: '關聯檔期（選填）', type: 'select', options: campaigns, half: true }, { name: 'note', label: '備註', half: true }]} />
           </Card>) : null}
         <Card title="費用紀錄" flush testid="expense-list">

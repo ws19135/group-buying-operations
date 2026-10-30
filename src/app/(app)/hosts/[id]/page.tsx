@@ -7,7 +7,7 @@ import { ActionButton } from '@/ui/ActionButton';
 import { ApiForm } from '@/ui/ApiForm';
 import { Modal } from '@/ui/Modal';
 import { Badge, Card, EmptyState, PageHeader, StatusBadge, Table } from '@/ui/components';
-import { AVAIL_KIND, CAMPAIGN_STATUS, HOST_PART, HOST_STATUS, PLATFORM } from '@/ui/labels';
+import { AVAIL_KIND, CAMPAIGN_STATUS, HOST_PART, HOST_STATUS, PLATFORM, COMMUNITY_ROLE } from '@/ui/labels';
 import { as } from '@/ui/types';
 import { PARTNER_TYPE_LABEL } from '@/server/lib/segment-vocab';
 import { HostSegments } from './HostSegments';
@@ -35,7 +35,7 @@ export default withActor(async (actor, props: { params: Params }) => {
         <Card title="基本資料" testid="host-info">
           {w ? <ApiForm endpoint={`/api/hosts/${h.id}`} method="PATCH" extra={{ version: h.version }} submitLabel="儲存" testid="host-edit-form" fields={[
             { name: 'displayName', label: '團主名稱', defaultValue: h.displayName, required: true }, { name: 'legalName', label: '法定名稱', defaultValue: h.legalName },
-            { name: 'contactEmail', label: 'Email', type: 'email', defaultValue: h.contactEmail }, { name: 'contactPhone', label: '電話', defaultValue: h.contactPhone }, { name: 'lineId', label: 'LINE ID', defaultValue: h.lineId },
+            { name: 'contactEmail', label: 'Email', type: 'email', defaultValue: h.contactEmail }, { name: 'contactPhone', label: '電話', defaultValue: h.contactPhone }, { name: 'lineId', label: 'LINE 帳號（ID）', defaultValue: h.lineId },
             { name: 'status', label: '狀態', type: 'select', required: true, defaultValue: h.status, options: Object.entries(HOST_STATUS).map(([k, l]) => ({ value: k, label: l.label })) },
             { name: 'partnerType', label: '合作對象類型', type: 'select', defaultValue: h.partnerType, options: Object.entries(PARTNER_TYPE_LABEL).map(([value, label]) => ({ value, label })), help: '未填＝未知' },
             { name: 'audienceNote', label: '客群描述（一句話；結構化輪廓請見下方「客群分析」）', type: 'textarea', defaultValue: h.audienceNote }, { name: 'cooperationTerms', label: '合作條件', type: 'textarea', defaultValue: h.cooperationTerms }, { name: 'internalNote', label: '內部備註', type: 'textarea', defaultValue: h.internalNote }]} />
@@ -46,7 +46,7 @@ export default withActor(async (actor, props: { params: Params }) => {
             <ApiForm endpoint={`/api/hosts/${h.id}/communities`} submitLabel="連結" fields={[{ name: 'communityId', label: '社群', type: 'select', required: true, options: allComm.map((o) => ({ value: o.value, label: o.label })) }, { name: 'role', label: '身分', type: 'select', options: [{ value: 'OWNER', label: '擁有者' }, { value: 'ADMIN', label: '管理者' }, { value: 'MEMBER', label: '成員' }] }]} />
           </Modal> : undefined}>
             {h.communities.length === 0 ? <EmptyState title="尚未連結社群" /> : <ul className="list-plain">{h.communities.map((c) => (
-              <li key={c.id} data-testid={`hcomm-${c.id}`} style={{ display: 'flex', justifyContent: 'space-between' }}><span><Link href={`/communities/${c.id}`}>{c.name}</Link> <Badge>{PLATFORM[c.platform] ?? c.platform}</Badge> <span className="small muted">{c.role}</span></span>
+              <li key={c.id} data-testid={`hcomm-${c.id}`} style={{ display: 'flex', justifyContent: 'space-between' }}><span><Link href={`/communities/${c.id}`}>{c.name}</Link> <Badge>{PLATFORM[c.platform] ?? c.platform}</Badge> <span className="small muted">{COMMUNITY_ROLE[c.role] ?? c.role}</span></span>
                 {cw ? <ActionButton endpoint={`/api/hosts/${h.id}/communities/${c.id}/unlink`} label="解除" small variant="danger" confirm="確定解除與此社群的關聯？" testid={`btn-unlink-${c.id}`} /> : null}</li>))}</ul>}
           </Card>
           <Card title="可承接／不可承接檔期" testid="host-availability" actions={w ? <Modal label="＋ 新增區間" title="新增可承接／不可承接區間" size="btn sm" testid="btn-add-availability">

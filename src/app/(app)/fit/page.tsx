@@ -23,7 +23,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
   const canReview = can(actor, 'fit.review');
   return (
     <>
-      <PageHeader title="客群適配" sub="SOP 01 市場定位：客群輪廓 × 商品 × 團主的適配評估，供 G1 選品核准查閱" testid="fit-header" />
+      <PageHeader title="客群適配" sub="標準作業流程 SOP 01 市場定位：客群輪廓 × 商品 × 團主的適配評估，供 G1 選品核准查閱" testid="fit-header" />
       <Banner kind={o.config.approved ? 'ok' : 'warn'} testid="fit-config-banner">
         評分設定 v{o.config.version}：<strong>{o.config.status}</strong>。權重 {Object.entries(o.config.weights).map(([k, v]) => `${DIM_LABEL[k] ?? k} ${v}%`).join('、')}；
         建議合作 ≥ {o.config.thresholds.recommend} 分、需人工評估 ≥ {o.config.thresholds.review} 分。

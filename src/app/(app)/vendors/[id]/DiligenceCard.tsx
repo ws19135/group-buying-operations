@@ -14,7 +14,7 @@ interface Rec {
   readiness: { ready: boolean; counts: Record<string, number>; expired: number; legalPending: number; risks: number; reasons: string[] }; validity: { valid: boolean; reasons: string[] };
 }
 
-/** 廠商詳情：合作資格審查（SOP 02 首次合作十二問）。核准結果只供查閱，不阻擋也不放行 G1 */
+/** 廠商詳情：合作資格審查（標準作業流程 SOP 02 首次合作十二問）。核准結果只供查閱，不阻擋也不放行 G1（選品核准） */
 export async function DiligenceCard({ actor, vendorId, products }: { actor: Actor; vendorId: string; products: { id: string; name: string }[] }) {
   const d = as<{ items: Rec[]; config: { ddValidDays: number; status: string } }>(await listVendorDiligence(actor, vendorId));
   const write = can(actor, 'selection.write');
@@ -27,7 +27,7 @@ export async function DiligenceCard({ actor, vendorId, products }: { actor: Acto
         { name: 'regulatedCategory', label: '受規範品類（食品、保健、醫材、化妝品、兒童用品…；選了會標示需法務／合規審查）', type: 'select', options: Object.entries(REGULATED).map(([value, label]) => ({ value, label })) },
         { name: 'note', label: '備註', type: 'textarea' }]} />
     </Modal> : undefined}>
-      <p className="small muted" style={{ padding: '10px 16px 0' }}>核准後有效 {d.config.ddValidDays} 天（{d.config.status}），到期或證據過期會自動標示失效。這份調查<strong>不會</strong>阻擋或放行 G1，只在 G1 決策摘要中顯示。</p>
+      <p className="small muted" style={{ padding: '10px 16px 0' }}>核准後有效 {d.config.ddValidDays} 天（{d.config.status}），到期或證據過期會自動標示失效。這份調查<strong>不會</strong>阻擋或放行 G1（選品核准），只在 G1（選品核准）決策摘要中顯示。</p>
       {d.items.length === 0 ? <EmptyState title="尚無合作資格審查" hint={write ? '首次合作前，請建立一份並逐項確認。' : undefined} /> : (
         <Table head={['合約版本', '範圍', '狀態', '進度', '有效期', '更新']} testid="dd-table">{d.items.map((r) => (
           <tr key={r.id} data-testid={`dd-row-${r.id}`}>

@@ -20,7 +20,7 @@ export function parseCsv(text: string): string[][] {
       row = [];
     } else cur += ch;
   }
-  if (inQ) throw new Error('CSV 格式錯誤：引號未結束');
+  if (inQ) throw new Error('CSV（逗號分隔檔）格式錯誤：引號未結束');
   row.push(cur);
   if (row.some((c) => c.trim() !== '')) rows.push(row);
   return rows;

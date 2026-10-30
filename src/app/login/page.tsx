@@ -9,7 +9,7 @@ export default async function LoginPage() {
   return (
     <div className="login-box">
       <div className="card">
-        <h1 style={{ marginBottom: 4 }}>🛒 團購 ERP</h1>
+        <h1 style={{ marginBottom: 4 }}>🛒 團購 ERP（企業資源規劃）</h1>
         <p className="muted" style={{ marginTop: 0 }}>請使用公司提供的帳號登入</p>
         <LoginForm />
       </div>

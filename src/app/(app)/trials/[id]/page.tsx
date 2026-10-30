@@ -35,7 +35,7 @@ export default withActor(async (actor, props: { params: Params }) => {
           {reviewer && t.status === 'CONCLUDED' ? <ActionButton endpoint={`${ep}/review`} body={{ decision: 'ACCEPTED' }} label="覆核：接受" variant="primary" reasonLabel="覆核意見（選填）" reasonKey="note" reasonRequired={false} testid="btn-trial-accept" /> : null}
           {reviewer && t.status === 'CONCLUDED' ? <ActionButton endpoint={`${ep}/review`} body={{ decision: 'REJECTED' }} label="覆核：不接受" variant="danger" reasonLabel="不接受的原因" reasonKey="note" testid="btn-trial-reject" /> : null}
         </div>} />
-      <Banner kind="nodata">試用紀錄只存「資料」：日期、物流、回收、四面向檢核、結論與覆核。<strong>寄樣、到貨、回饋與 G1 等任務仍在任務頁處理</strong>，這裡不會自動完成任務；任務的證據欄位可貼這一頁的連結。</Banner>
+      <Banner kind="nodata">試用紀錄只存「資料」：日期、物流、回收、四面向檢核、結論與覆核。<strong>寄樣、到貨、回饋與 G1（選品核准）等任務仍在任務頁處理</strong>，這裡不會自動完成任務；任務的證據欄位可貼這一頁的連結。</Banner>
       {t.status === 'CANCELLED' ? <Banner kind="warn">已取消：{t.cancelReason}</Banner> : null}
       {t.qualification && t.level === 'QUALIFICATION' ? <Banner kind={t.qualification.valid ? 'ok' : 'warn'} testid="trial-qual-banner">此商品最近一次資格試用：{t.qualification.conclusion ? CONCLUSION[t.qualification.conclusion]?.label : '—'}・{t.qualification.valid ? `仍有效，至 ${t.qualification.validUntil}（團主適配試用可沿用）` : `不可沿用：${t.qualification.reasons.join('；')}`}</Banner> : null}
       {t.linkedQualification ? <Banner kind="ok" testid="trial-reuse">已沿用商品資格試用 <Link href={`/trials/${t.linkedQualification.id}`}>{t.linkedQualification.id}</Link>（{CONCLUSION[t.linkedQualification.conclusion]?.label}，有效至 {t.linkedQualification.validUntil}）：本次只需補客戶、內容、商業三個面向。</Banner> : null}

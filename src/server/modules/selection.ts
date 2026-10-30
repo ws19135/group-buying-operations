@@ -18,8 +18,8 @@ import { evidenceState } from '../lib/dd-catalog';
 import { containsPii } from './aftersales';
 
 /**
- * SOP 02 商品選品評估與選品設定。評分規則在 lib/selection-score.ts（純函式）；這裡負責取資料、版本、覆核、稽核。
- * 評估只是決策建議：不改商品審核狀態、不核准 G1。設計見 docs/phase2/PRODUCT_SELECTION_TRIAL.md。
+ * 標準作業流程 SOP 02 商品選品評估與選品設定。評分規則在 lib/selection-score.ts（純函式）；這裡負責取資料、版本、覆核、稽核。
+ * 評估只是決策建議：不改商品審核狀態、不核准 G1（選品核准）。設計見 docs/phase2/PRODUCT_SELECTION_TRIAL.md。
  */
 const CONFIG_KEY = 'selection.scoring';
 
@@ -200,7 +200,7 @@ async function fitReference(db: Queryable, orgId: string, productId: string) {
   const r = await db.query<{ recommendation: string; n: number; top: number | null }>(
     `SELECT recommendation, count(*)::int AS n, max(total_score) AS top FROM product_fit_assessments
      WHERE organization_id=$1 AND product_id=$2 AND superseded_at IS NULL AND campaign_id IS NULL GROUP BY recommendation`, [orgId, productId]);
-  return { byRecommendation: Object.fromEntries(r.rows.map((x) => [x.recommendation, { hosts: Number(x.n), topScore: x.top == null ? null : Number(x.top) }])), note: '唯讀參考（SOP 01 客群適配）：不複製、不重算，請評估人自行判斷後填寫「客群需求符合度」' };
+  return { byRecommendation: Object.fromEntries(r.rows.map((x) => [x.recommendation, { hosts: Number(x.n), topScore: x.top == null ? null : Number(x.top) }])), note: '唯讀參考（標準作業流程 SOP 01 客群適配）：不複製、不重算，請評估人自行判斷後填寫「客群需求符合度」' };
 }
 
 export async function listProductEvaluations(actor: Actor, productId: string) {
@@ -312,7 +312,7 @@ export async function submitEvaluation(actor: Actor, id: string) {
 
 export const evalReviewSchema = z.object({ decision: z.enum(['ACCEPTED', 'REJECTED', 'NEEDS_MORE']), note: z.string().trim().max(1000).optional().or(z.literal('').transform(() => undefined)) });
 
-/** 覆核只記錄人的意見：不改評分、不改商品審核狀態、不核准 G1 */
+/** 覆核只記錄人的意見：不改評分、不改商品審核狀態、不核准 G1（選品核准） */
 export async function reviewEvaluation(actor: Actor, id: string, raw: z.input<typeof evalReviewSchema>) {
   requirePerm(actor, 'product.review');
   requirePerm(actor, 'selection.read');
@@ -330,7 +330,7 @@ export async function reviewEvaluation(actor: Actor, id: string, raw: z.input<ty
   });
 }
 
-/** 供 G1 摘要等唯讀使用：該商品現行（已送出、未被取代）的評估 */
+/** 供 G1（選品核准）摘要等唯讀使用：該商品現行（已送出、未被取代）的評估 */
 export async function currentEvaluation(db: Queryable, orgId: string, productId: string): Promise<EvaluationView | null> {
   const r = await db.query(`${SELECT_EVAL} WHERE e.organization_id=$1 AND e.product_id=$2 AND e.status='SUBMITTED' AND e.superseded_at IS NULL ORDER BY e.version_no DESC LIMIT 1`, [orgId, productId]);
   return r.rows[0] ? camelize<EvaluationView>(r.rows[0]) : null;

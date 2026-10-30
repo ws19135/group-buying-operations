@@ -238,7 +238,7 @@ async function main() {
         const rdlg = page.getByTestId(`btn-fit-review-${rid}-dialog`);
         await rdlg.getByTestId('field-decision').selectOption('NEEDS_DATA');
         await rdlg.getByTestId('field-note').fill('E2E：請先補價格帶與觀察來源');
-        await rdlg.getByTestId(`fit-review-form-${rid}-submit`).click();
+        await Promise.all([page.waitForResponse((r) => r.url().includes(`/api/fit/${rid}/review`) && r.request().method() === 'POST'), rdlg.getByTestId(`fit-review-form-${rid}-submit`).click()]);   // 等請求真的完成再換頁，避免競態
         await page.waitForLoadState('networkidle');
         await page.goto(`${BASE}/fit?tab=done`, { waitUntil: 'networkidle' });
         record('覆核後出現在「已覆核」並顯示覆核人、時間與意見', /需補資料/.test(await page.getByTestId(`fit-review-${rid}`).innerText()) && /E2E：請先補價格帶/.test(await page.getByTestId(`fit-review-${rid}`).innerText()));
@@ -260,7 +260,7 @@ async function main() {
       const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } }); const page = await ctx.newPage(); const w = new Watch(page);
       await login(ctx, page, 'demo-manager@example.invalid');
       const sel = await visit(page, w, '/selection', '選品與試用總覽', { shot: '26-selection.png', expectText: /建議值，待 Owner 確認/ });
-      record('導覽有「選品與試用」；說明分數不會自動核准商品或 G1', (await page.getByTestId('nav-selection').count()) > 0 && /不會.*自動核准商品或 G1/.test(sel));
+      record('導覽有「選品與試用」；說明分數不會自動核准商品或 G1', (await page.getByTestId('nav-selection').count()) > 0 && /不會.*自動核准商品或 G1（選品核准）/.test(sel));
       record('總覽列出待覆核的評估、審查中調查、待覆核試用、到期證據', ['待覆核的選品評估', '審查中的廠商合作資格審查', '待覆核的試用結論', '即將到期或已過期的證據'].every((t) => sel.includes(t)));
       await visit(page, w, '/selection?tab=config', '評分與有效期設定頁', { expectText: /建議值，待 Owner 確認/ });
       record('設定頁權重合計 100、可儲存', (await page.getByTestId('sel-sum').innerText()).includes('100%') && (await page.getByTestId('sel-submit').isEnabled()));
@@ -338,7 +338,7 @@ async function main() {
       const campUrl2 = page.url().split('?')[0];
       await page.goto(`${campUrl2}?tab=selection`, { waitUntil: 'networkidle' });
       const selTab = await page.locator('body').innerText();
-      record('檔期「選品與試用」分頁：決策摘要（燈號、風險）、本檔試用、相關任務；明講不是 G1 檢查項', (await page.getByTestId('g1-summary').count()) > 0 && /不是 G1 的檢查項/.test(selTab) && (await page.locator('[data-testid^="g1s-product-"]').count()) >= 1 && /風險與缺口/.test(selTab) && (await page.getByTestId('campaign-trials').count()) > 0);
+      record('檔期「選品與試用」分頁：決策摘要（燈號、風險）、本檔試用、相關任務；明講不是 G1 檢查項', (await page.getByTestId('g1-summary').count()) > 0 && /不是 G1（選品核准）的檢查項/.test(selTab) && (await page.locator('[data-testid^="g1s-product-"]').count()) >= 1 && /風險與缺口/.test(selTab) && (await page.getByTestId('campaign-trials').count()) > 0);
       await page.screenshot({ path: path.join(SHOTS, '30-campaign-selection.png'), fullPage: true });
       await page.goto(`${campUrl2}?tab=approvals`, { waitUntil: 'networkidle' });
       record('G1 核准區有唯讀的決策摘要提示（不影響申請）', (await page.getByTestId('g1-selection-note').count()) > 0 && /不影響核准/.test(await page.getByTestId('g1-selection-note').innerText()));

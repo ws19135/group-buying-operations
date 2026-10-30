@@ -26,7 +26,7 @@ const MAX_UNIT_PRICE = 100_000_000;
 export const importSchema = z.object({
   sourceSystem: z.string().trim().min(1).max(60),
   fileName: z.string().trim().max(200).optional(),
-  csv: z.string().min(1, 'CSV 內容不可為空'),
+  csv: z.string().min(1, 'CSV（逗號分隔檔）內容不可為空'),
   dataAsOf: z.string().datetime({ offset: true }).optional(),
   origin: z.enum(['IMPORT', 'DEMO']).default('IMPORT'),
 });
@@ -68,7 +68,7 @@ export async function importOrders(actor: Actor, raw: z.input<typeof importSchem
 
   let table: string[][];
   try { table = parseCsv(input.csv); } catch (e) { throw validation((e as Error).message); }
-  if (table.length < 2) throw validation('CSV 至少需要標題列與一筆資料');
+  if (table.length < 2) throw validation('CSV（逗號分隔檔）至少需要標題列與一筆資料');
   if (table.length - 1 > MAX_ROWS) throw validation(`資料列過多（上限 ${MAX_ROWS} 列）`);
   const header = table[0].map((h) => h.trim().toLowerCase());
   const missing = REQUIRED_COLUMNS.filter((c) => !header.includes(c));

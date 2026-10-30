@@ -84,11 +84,11 @@ export function computeSalesFromAgg(rows: SalesAggRow[]): SalesTotals {
 export interface KpiDef { key: string; label: string; unit: 'TWD' | 'count' | 'percent'; source: string; formula: string }
 
 export const KPI_DEFS: Record<string, KpiDef> = {
-  gmv: { key: 'gmv', label: 'GMV', unit: 'TWD', source: 'orders（狀態 PAID／PARTIAL_REFUND／REFUNDED）', formula: 'Σ gross_amount（下單時間落在本期）' },
-  refund: { key: 'refund', label: '退款金額', unit: 'TWD', source: 'orders', formula: 'Σ refund_amount（同 GMV 的訂單範圍）' },
-  net: { key: 'net', label: '有效淨銷售額', unit: 'TWD', source: 'orders', formula: 'GMV − 退款金額' },
-  orders: { key: 'orders', label: '有效訂單數', unit: 'count', source: 'orders', formula: '狀態為 PAID 或 PARTIAL_REFUND 的訂單數' },
-  aov: { key: 'aov', label: 'AOV 客單價', unit: 'TWD', source: '衍生', formula: '有效淨銷售額 ÷ 有效訂單數' },
+  gmv: { key: 'gmv', label: 'GMV（成交總額）', unit: 'TWD', source: 'orders 訂單（狀態：已付款 PAID／部分退款 PARTIAL_REFUND／已退款 REFUNDED）', formula: 'Σ gross_amount（下單時間落在本期）' },
+  refund: { key: 'refund', label: '退款金額', unit: 'TWD', source: 'orders', formula: 'Σ refund_amount（同 GMV（成交總額）的訂單範圍）' },
+  net: { key: 'net', label: '有效淨銷售額', unit: 'TWD', source: 'orders', formula: 'GMV（成交總額）− 退款金額' },
+  orders: { key: 'orders', label: '有效訂單數', unit: 'count', source: 'orders', formula: '狀態為已付款（PAID）或部分退款（PARTIAL_REFUND）的訂單數' },
+  aov: { key: 'aov', label: 'AOV（客單價）', unit: 'TWD', source: '衍生', formula: '有效淨銷售額 ÷ 有效訂單數' },
   refundRate: { key: 'refundRate', label: '退款率', unit: 'percent', source: '衍生', formula: '有退款的訂單數 ÷ 計入銷售的訂單數' },
   attainment: { key: 'attainment', label: '目標達成率', unit: 'percent', source: 'orders ÷ campaigns.target_revenue', formula: '與本期重疊且設有目標的檔期：累計有效淨銷售額 ÷ 目標合計' },
   estCommission: { key: 'estCommission', label: '預估佣金', unit: 'TWD', source: 'commission_rules × 歸因淨銷售額', formula: '歸因有效淨銷售額 × 佣金費率（預估，非正式結算）' },

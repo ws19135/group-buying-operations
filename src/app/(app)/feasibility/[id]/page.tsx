@@ -36,7 +36,7 @@ export default withActor(async (actor, props: { params: Params }) => {
       <PageHeader title={<>商業可行性試算 v{f.versionNo}{f.label ? `・${f.label}` : ''}</>} testid="fz-header"
         sub={<><Link href={`/products/${f.productId}`}>回商品頁</Link>{f.campaignId ? <>・檔期 <Link href={`/campaigns/${f.campaignId}?tab=selection`}>{f.campaignTitle}</Link></> : '・商品層級'}{f.hostName ? `・團主 ${f.hostName}` : ''}・{f.createdByName} {fmtDateTime(f.createdAt)}</>}
         actions={write && f.campaignId ? <ActionButton endpoint={`/api/feasibility/${f.id}/actuals`} label={a ? '重新回寫小團實際' : '回寫小規模測試團實際'} variant="primary" testid="btn-fz-actuals" successMessage="已回寫實際" confirm="從這檔的訂單、售後案件與出貨單讀取實際值並與預測並列（不回寫利潤）。可重複執行，以最新為準。" /> : undefined} />
-      <Banner kind="nodata">試算口徑沿用 <code>docs/biz-model/04</code> 的提案，<strong>待 Owner 確認</strong>；只支援單一費率＋固定費。GMV、有效淨銷售額、品牌利潤、公司營業收入是四個不同的數字。缺少的輸入顯示為「未知」，不會被當成 0。</Banner>
+      <Banner kind="nodata">試算口徑沿用 <code>docs/biz-model/04</code> 的提案，<strong>待 Owner 確認</strong>；只支援單一費率＋固定費。GMV（成交總額）、NSV（有效淨銷售額）、品牌利潤、公司營業收入是四個不同的數字。缺少的輸入顯示為「未知」，不會被當成 0。</Banner>
       <div className="grid cols-2">
         <Card title="試算結果" testid="fz-results-card"><FeasibilityResults results={f.results as never} /></Card>
         <Card title="輸入與假設來源" flush testid="fz-inputs">
@@ -52,7 +52,7 @@ export default withActor(async (actor, props: { params: Params }) => {
             <p className="small muted">回寫時間 {fmtDateTime(f.actualsAt)}・範圍：{a.scope === 'HOST' ? '指定團主歸因' : '整個檔期'}・檔期狀態 {a.campaignStatus}</p>
             <Kv rows={[
               ['實際有效訂單', a.variance.orders ? `${a.orders}（預測 ${a.variance.orders.predicted}，差 ${a.variance.orders.diff}${a.variance.orders.diffPct == null ? '' : `／${a.variance.orders.diffPct}%`}）` : String(a.orders)],
-              ['實際 GMV', a.variance.gmv ? `${money(a.gmv)}（預測 ${money(a.variance.gmv.predicted)}，差 ${money(a.variance.gmv.diff)}）` : money(a.gmv)],
+              ['實際 GMV（成交總額）', a.variance.gmv ? `${money(a.gmv)}（預測 ${money(a.variance.gmv.predicted)}，差 ${money(a.variance.gmv.diff)}）` : money(a.gmv)],
               ['退款 / 淨銷售額', `${money(a.refund)} / ${money(a.nsv)}`], ['客單價', money(a.aov)],
               ['退款率', a.refundRatePct == null ? '—' : `${a.refundRatePct}%${a.variance.refundRatePct ? `（預測 ${a.variance.refundRatePct.predicted}%）` : ''}`],
               ['客訴／退款／換貨件數', `${a.complaints}／${a.refundCases}／${a.exchangeCases}`], ['出貨例外', `${a.shipmentExceptions}／${a.shipments}${a.shipmentExceptionRatePct == null ? '' : `（${a.shipmentExceptionRatePct}%）`}`],

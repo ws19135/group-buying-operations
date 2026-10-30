@@ -71,3 +71,10 @@ export const RISK_LEVEL = m({ BLOCKING: ['阻礙', 'danger'], GAP: ['缺口', 'w
 export const REGULATED: Record<string, string> = { FOOD: '食品', SUPPLEMENT: '保健食品', MEDICAL_DEVICE: '醫療器材', COSMETIC: '化妝品', CHILD_PRODUCT: '兒童／嬰幼兒用品', OTHER_REGULATED: '其他受規範品類' };
 export const SOURCE_KIND: Record<string, string> = { VENDOR_QUOTE: '廠商報價', TRIAL_ACTUAL: '試用／小團實際', HISTORICAL_DATA: '歷史資料', CONTRACT: '合約', MANUAL_ESTIMATE: '人工估計' };
 export const SEL_DIM: Record<string, string> = { need: '客群需求符合度', quality: '商品品質與安全性', profit: '利潤與價格競爭力', supply: '供應商履約能力', content: '內容展示與說服力', repeat: '複購潛力' };
+
+// ---- 英文縮寫的中文名詞（畫面上出現縮寫時，一律附上中文）----
+export const GATE_NAME: Record<string, string> = { G1: '選品核准', G2: '開團核准', G3: '結單確認', G4: '結算確認', G5: '結案核准' };
+/** 關卡代號附中文：G1（選品核准） */
+export const gateLabel = (g: string): string => (GATE_NAME[g] ? `${g}（${GATE_NAME[g]}）` : g);
+export const ABBR: Record<string, string> = { GMV: '成交總額', NSV: '有效淨銷售額', AOV: '客單價', SKU: '規格', MOQ: '最低訂購量', KPI: '關鍵績效指標', SOP: '標準作業流程', ERP: '企業資源規劃', CSV: '逗號分隔檔', ID: '編號', TWD: '新台幣' };
+export const COMMUNITY_ROLE: Record<string, string> = { OWNER: '擁有者', ADMIN: '管理者', MEMBER: '成員' };

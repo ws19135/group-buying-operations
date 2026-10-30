@@ -11,5 +11,5 @@ export const EXPENSE_STATUS = m({ RECORDED: ['已記錄', 'ok'], VOID: ['已作�
 export const DIRECTION: Record<string, string> = { IN: '收入（入帳）', OUT: '支出（付款）' };
 export const COUNTERPARTY: Record<string, string> = { VENDOR: '廠商', HOST: '團主', PLATFORM: '平台' };
 export const EXPENSE_CATEGORY: Record<string, string> = { SHIPPING: '運費', MARKETING: '行銷', SAMPLE: '樣品', PLATFORM_FEE: '平台費用', OTHER: '其他' };
-export const DATA_STATUS: Record<string, string> = { NO_DATA: '無訂單資料', DEMO: 'DEMO 示範資料', IMPORT: 'CSV 匯入', MIXED: 'DEMO 與匯入混合' };
+export const DATA_STATUS: Record<string, string> = { NO_DATA: '無訂單資料', DEMO: 'DEMO 示範資料', IMPORT: 'CSV（逗號分隔檔）匯入', MIXED: 'DEMO 與匯入混合' };
 export const toOptions = (o: Record<string, string>) => Object.entries(o).map(([value, label]) => ({ value, label }));

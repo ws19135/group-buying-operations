@@ -1,6 +1,6 @@
 import { pool, query, withTx } from '../lib/db';
 import type { Actor } from '../lib/permissions';
-import { requirePerm, systemActor } from '../lib/permissions';
+import { requirePerm, systemActor, ROLE_LABEL, type RoleKey } from '../lib/permissions';
 import { AppError, validation } from '../lib/errors';
 import { audit } from '../lib/audit';
 import { ids, todayTaipei } from '../lib/ids';
@@ -253,7 +253,7 @@ const HANDLERS: Record<JobKey, Handler> = {
     for (const t of rows) {
       const late = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${t.planned_end}T00:00:00Z`)) / 86_400_000);
       const created = await openException(orgId, { type: 'TASK_OVERDUE', severity: late >= HIGH_AFTER_LATE_DAYS ? 'HIGH' : 'MEDIUM', entityType: 'task', entityId: t.id, campaignId: t.campaign_id,
-        title: `任務逾期：${t.name}`, detail: `${t.title}（${t.campaign_id}）預計 ${t.planned_end} 完成，已逾期 ${late} 天；負責角色 ${t.owner_role}`, ownerUserId: t.owner_user_id, dedupeKey: `task_overdue:${t.id}` });
+        title: `任務逾期：${t.name}`, detail: `${t.title}（${t.campaign_id}）預計 ${t.planned_end} 完成，已逾期 ${late} 天；負責角色 ${ROLE_LABEL[t.owner_role as RoleKey] ?? t.owner_role}`, ownerUserId: t.owner_user_id, dedupeKey: `task_overdue:${t.id}` });
       if (created) opened++;
       await query(`UPDATE tasks SET overdue_flagged_at=COALESCE(overdue_flagged_at, now()) WHERE id=$1`, [t.id]);
     }

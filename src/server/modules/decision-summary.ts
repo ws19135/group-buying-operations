@@ -11,7 +11,7 @@ import { latestFeasibility } from './feasibility';
 
 /**
  * G1 選品核准的統一決策摘要（唯讀）。把商品評估、廠商合作資格審查、試用、商業可行性與 SOP 01 客群適配彙整成一頁，
- * 附證據連結與風險清單。**gateImpact 恆為 NONE**：不改變 G1 的檢查項、申請與核准結果，也不新增核准列或通知。
+ * 附證據連結與風險清單。**gateImpact 恆為 NONE**：不改變 G1（選品核准）的檢查項、申請與核准結果，也不新增核准列或通知。
  */
 const WORST: Record<Light, number> = { GREEN: 0, YELLOW: 1, RED: 2 };
 
@@ -67,9 +67,9 @@ export async function g1Summary(actor: Actor, campaignId: string) {
   }
   return {
     campaignId, campaignTitle: camp.title as string, campaignStatus: camp.status as string,
-    /** 恆為 NONE：此摘要不改變 G1 的檢查項、申請與核准結果 */
+    /** 恆為 NONE：此摘要不改變 G1（選品核准）的檢查項、申請與核准結果 */
     gateImpact: 'NONE' as const,
-    note: '此摘要只供核准者查閱，不是 G1 的檢查項；是否核准仍由核准者依既有 G1 流程決定。',
+    note: '此摘要只供核准者查閱，不是 G1（選品核准）的檢查項；是否核准仍由核准者依既有 G1（選品核准）流程決定。',
     generatedAt: new Date().toISOString(), today: todayTaipei(),
     light: overall, lightLabel: LIGHT_LABEL[overall],
     counts: { products: products.length, blocking: allRisks.filter((r) => r.level === 'BLOCKING').length, gaps: allRisks.filter((r) => r.level === 'GAP').length },

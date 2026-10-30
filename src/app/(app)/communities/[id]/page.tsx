@@ -4,7 +4,7 @@ import { getCommunity } from '@/server/modules/hosts';
 import { can } from '@/server/lib/permissions';
 import { ApiForm } from '@/ui/ApiForm';
 import { Badge, Card, EmptyState, PageHeader, StatusBadge, Table } from '@/ui/components';
-import { HOST_STATUS, PLACEMENT_STATUS, PLACEMENT_TYPE, PLATFORM } from '@/ui/labels';
+import { HOST_STATUS, PLACEMENT_STATUS, PLACEMENT_TYPE, PLATFORM, COMMUNITY_ROLE } from '@/ui/labels';
 import { as } from '@/ui/types';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +30,7 @@ export default withActor(async (actor, props: { params: Params }) => {
             : <dl className="kv"><dt>連結</dt><dd>{c.url ?? '—'}</dd><dt>成員數</dt><dd>{c.memberCount ?? '—'}</dd></dl>}
         </Card>
         <Card title="團主與管理者" testid="community-hosts">
-          {c.hosts.length === 0 ? <EmptyState title="尚無團主" /> : <ul className="list-plain">{c.hosts.map((h) => <li key={h.id}><Link href={`/hosts/${h.id}`}>{h.displayName}</Link> <span className="small muted">{h.role}</span></li>)}</ul>}
+          {c.hosts.length === 0 ? <EmptyState title="尚無團主" /> : <ul className="list-plain">{c.hosts.map((h) => <li key={h.id}><Link href={`/hosts/${h.id}`}>{h.displayName}</Link> <span className="small muted">{COMMUNITY_ROLE[h.role] ?? h.role}</span></li>)}</ul>}
         </Card>
       </div>
       <Card title="開團安排與曝光紀錄" flush testid="community-placements">

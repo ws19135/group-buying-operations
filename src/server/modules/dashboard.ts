@@ -22,7 +22,7 @@ export interface DataQuality {
 const STATUS_LABEL: Record<DataStatus, string> = {
   NO_DATA: '待串接：尚無任何訂單資料',
   DEMO: 'DEMO 資料：以下業績為虛構的示範資料，不是真實營運數字',
-  IMPORT: '資料來自 CSV 匯入',
+  IMPORT: '資料來自 CSV（逗號分隔檔）匯入',
   MIXED: '含 DEMO 與匯入資料混合：請勿作為正式業績',
 };
 
