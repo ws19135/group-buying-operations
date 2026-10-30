@@ -79,11 +79,11 @@ export function calcFeasibility(i: FeasibilityInputs): FeasibilityResults {
     if (m.length) missing[res] = [...(missing[res] ?? []), ...m];
     return m.length === 0;
   };
-  const notes: string[] = ['試算：口徑待 Owner 確認（見 docs/biz-model/04）；只支援單一費率與固定費', '商品成本以出貨量（預估訂單數）計算，未扣除退貨回收', '平台費比例以 GMV 為基礎'];
+  const notes: string[] = ['試算：口徑待 Owner 確認（見 docs/biz-model/04）；只支援單一費率與固定費', '商品成本以出貨量（預估訂單數）計算，未扣除退貨回收', '平台費比例以 GMV（成交總額）為基礎'];
 
   const gmv = need('gmv', 'expectedOrders', 'unitPrice') ? (i.expectedOrders as number) * (i.unitPrice as number) : null;
   const refund = gmv != null && need('refund', 'refundRatePct') ? pctOf(gmv, i.refundRatePct as number) : null;
-  if (gmv == null) missing.refund = [...(missing.refund ?? []), 'GMV'];
+  if (gmv == null) missing.refund = [...(missing.refund ?? []), 'GMV（成交總額）'];
   const nsv = gmv != null && refund != null ? gmv - refund : null;
   if (nsv == null && !missing.nsv) missing.nsv = [...new Set([...(missing.gmv ?? []), ...(missing.refund ?? [])])];
 
@@ -93,7 +93,7 @@ export function calcFeasibility(i: FeasibilityInputs): FeasibilityResults {
   if (i.platformFeePct == null && i.platformFeePerOrder == null) missing.platformFeeTotal = [INPUT_LABEL.platformFeePct, INPUT_LABEL.platformFeePerOrder];
   else {
     let sum = 0, ok = true;
-    if (has(i.platformFeePct)) { if (gmv == null) { ok = false; missing.platformFeeTotal = ['GMV']; } else sum += pctOf(gmv, i.platformFeePct); }
+    if (has(i.platformFeePct)) { if (gmv == null) { ok = false; missing.platformFeeTotal = ['GMV（成交總額）']; } else sum += pctOf(gmv, i.platformFeePct); }
     if (has(i.platformFeePerOrder)) { if (!has(i.expectedOrders)) { ok = false; missing.platformFeeTotal = [...(missing.platformFeeTotal ?? []), INPUT_LABEL.expectedOrders]; } else sum += i.platformFeePerOrder * i.expectedOrders; }
     platformFeeTotal = ok ? sum : null;
   }
@@ -103,7 +103,7 @@ export function calcFeasibility(i: FeasibilityInputs): FeasibilityResults {
   const basisAmount = i.commissionBasis === 'NSV' ? nsv : i.commissionBasis === 'GMV' ? gmv : null;
   const basisMissing = (res: string) => {
     if (i.commissionBasis == null) missing[res] = [...(missing[res] ?? []), INPUT_LABEL.commissionBasis];
-    else if (basisAmount == null) missing[res] = [...(missing[res] ?? []), i.commissionBasis === 'NSV' ? '有效淨銷售額' : 'GMV'];
+    else if (basisAmount == null) missing[res] = [...(missing[res] ?? []), i.commissionBasis === 'NSV' ? '有效淨銷售額（NSV）' : 'GMV（成交總額）'];
   };
   let companyRevenue: number | null = null;
   if (need('companyRevenue', 'brandFeePct', 'serviceFeeFixed')) {

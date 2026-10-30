@@ -94,7 +94,7 @@ export default withActor(async (actor, props: { params: Params }) => {
         <Card title="退款申請" flush testid="case-refunds" actions={write && active ? <Modal label="＋ 申請退款" title="申請退款" size="btn sm" testid="btn-request-refund">
           <p className="small muted">金額不可超過訂單的可退餘額。核准後由財務完成；完成時才可選擇是否把金額寫回訂單。</p>
           <ApiForm endpoint={`/api/aftersales/cases/${c.id}/refunds`} idempotent submitLabel="送出申請" testid="refund-form" successMessage="退款申請已送出" fields={[
-            { name: 'amount', label: '退款金額（TWD，整數）', type: 'number', required: true, min: 1 },
+            { name: 'amount', label: '退款金額（新台幣，整數）', type: 'number', required: true, min: 1 },
             { name: 'reason', label: '退款原因', type: 'textarea', required: true },
             ...(c.orderId ? [] : [{ name: 'orderId', label: '關聯訂單（選填）', placeholder: 'ORD-000001' }]),
           ]} />

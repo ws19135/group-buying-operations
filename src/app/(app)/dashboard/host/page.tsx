@@ -33,7 +33,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
       </div>
 
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
-        <KpiCard id="gmv" label="本期 GMV（歸因給我）" value={money(d.performance.gmv.value)} source={d.performance.gmv.source} formula={d.performance.gmv.formula} />
+        <KpiCard id="gmv" label="本期 GMV（成交總額，歸因給我）" value={money(d.performance.gmv.value)} source={d.performance.gmv.source} formula={d.performance.gmv.formula} />
         <KpiCard id="net" label="本期有效淨銷售額" value={money(d.performance.net.value)} source={d.performance.net.source} formula={d.performance.net.formula} />
         <KpiCard id="orders" label="本期有效訂單數" value={num(d.performance.orders.value)} source={d.performance.orders.source} formula={d.performance.orders.formula} />
         <KpiCard id="estCommission" label="預估佣金（預估，非正式結算）" value={money(d.commission.estimatedTotal.value)} note={d.commission.basis} source={d.commission.estimatedTotal.source} formula={d.commission.estimatedTotal.formula} tag={<Badge tone="warn">預估</Badge>} />

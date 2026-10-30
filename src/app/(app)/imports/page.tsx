@@ -21,16 +21,16 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
   const base = Object.fromEntries(Object.entries(q).filter(([k]) => k !== 'page'));
   return (
     <>
-      <PageHeader title="訂單匯入" sub="以 CSV 匯入訂單；同一檔案不能重複匯入，重疊訂單依「來源系統＋來源訂單編號」去重；有問題的列會進錯誤佇列" />
-      {canImport ? <Card title="匯入 CSV"><ImportForm /></Card> : null}
-      <Card title="CSV 欄位說明" testid="csv-help">
+      <PageHeader title="訂單匯入" sub="以 CSV（逗號分隔檔）匯入訂單；同一檔案不能重複匯入，重疊訂單依「來源系統＋來源訂單編號」去重；有問題的列會進錯誤佇列" />
+      {canImport ? <Card title="匯入 CSV（逗號分隔檔）"><ImportForm /></Card> : null}
+      <Card title="CSV（逗號分隔檔）欄位說明" testid="csv-help">
         <p className="small">每一列是一個訂單品項；相同 <code>source_order_id</code> 的列會合併成一張訂單。第一列必須是欄位名稱。</p>
         <Table head={['欄位', '必填', '說明']}>
           <tr><td><code>source_order_id</code></td><td>是</td><td>來源平台的訂單編號（去重鍵）</td></tr>
           <tr><td><code>campaign_id</code></td><td>是</td><td>本系統檔期編號，例如 CMP-202610-0001（已取消的檔期不接受）</td></tr>
           <tr><td><code>ordered_at</code></td><td>是</td><td><code>YYYY-MM-DD HH:mm</code>（台北時間）或含時區的 ISO 8601，不可是未來時間</td></tr>
           <tr><td><code>status</code></td><td>是</td><td><code>PAID</code>／<code>PENDING</code>／<code>CANCELLED</code>／<code>REFUNDED</code>／<code>PARTIAL_REFUND</code></td></tr>
-          <tr><td><code>quantity</code>、<code>unit_price</code></td><td>是</td><td>正整數數量、非負整數單價（TWD）</td></tr>
+          <tr><td><code>quantity</code>、<code>unit_price</code></td><td>是</td><td>正整數數量、非負整數單價（新台幣）</td></tr>
           <tr><td><code>sku_code</code></td><td>否</td><td>需為該檔期內的規格編號</td></tr>
           <tr><td><code>refund_amount</code></td><td>否</td><td>全額退款可省略；部分退款需介於 0 與訂單金額之間</td></tr>
           <tr><td><code>host_id</code>、<code>community_id</code></td><td>否</td><td>歸因團主／社群（團主需在該檔期內）</td></tr>

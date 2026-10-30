@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { g1Summary } from '@/server/modules/decision-summary';
 import { Badge, Banner, Card, EmptyState, StatusBadge } from '../components';
-import { COMPLIANCE, CONCLUSION, DD_RECORD_STATUS, EVAL_REVIEW, LIGHT, RISK_LEVEL, SEL_REC, TRIAL_LEVEL, TRIAL_STATUS } from '../labels';
+import { COMPLIANCE, CONCLUSION, DD_RECORD_STATUS, EVAL_REVIEW, LIGHT, RISK_LEVEL, SEL_REC, TRIAL_LEVEL, TRIAL_STATUS, RECOMMENDATION } from '../labels';
 import { money } from '../format';
 
 type Summary = Awaited<ReturnType<typeof g1Summary>>;
@@ -51,12 +51,12 @@ function ProductBlock({ p }: { p: Prod }) {
           {fz ? (
             <div className="small">
               <Link href={`/feasibility/${fz.id}`}>v{fz.versionNo}{fz.label ? `・${fz.label}` : ''}</Link>（{fz.scope === 'CAMPAIGN' ? '本檔' : '商品層級'}）{fz.hasActuals ? <Badge tone="info">已有小團實際</Badge> : null}
-              <div>GMV {money(res.gmv)}・NSV {money(res.nsv)}</div>
+              <div>GMV（成交總額）{money(res.gmv)}・NSV（有效淨銷售額）{money(res.nsv)}</div>
               {fz.restricted ? <div className="muted">利潤與成本：無權限查看</div> : <div>品牌利潤 {res.brandProfit == null ? <span className="unknown">未知</span> : money(res.brandProfit)}・公司營業收入 {res.companyRevenue == null ? <span className="unknown">未知</span> : money(res.companyRevenue)}・公司貢獻 {res.companyContribution == null ? <span className="unknown">未知</span> : money(res.companyContribution)}</div>}
             </div>) : <span className="unknown">尚無試算</span>}
         </div>
       </div>
-      {p.fit ? <p className="small muted" data-testid={`g1s-fit-${p.productId}`}>客群適配（SOP 01，唯讀）：{Object.keys(p.fit).length ? Object.entries(p.fit as Record<string, { hosts: number; topScore: number | null }>).map(([k, v]) => `${k} ${v.hosts} 位`).join('、') : '本檔尚未評估'}</p> : null}
+      {p.fit ? <p className="small muted" data-testid={`g1s-fit-${p.productId}`}>客群適配（標準作業流程 SOP 01，唯讀）：{Object.keys(p.fit).length ? Object.entries(p.fit as Record<string, { hosts: number; topScore: number | null }>).map(([k, v]) => `${RECOMMENDATION[k]?.label ?? k} ${v.hosts} 位`).join('、') : '本檔尚未評估'}</p> : null}
       <h4>風險與缺口</h4>
       {p.risks.length === 0 ? <div className="small" data-testid={`g1s-risks-${p.productId}`}>🟢 沒有已知缺口</div> : (
         <ul className="list-plain" data-testid={`g1s-risks-${p.productId}`}>{p.risks.map((r) => <li key={r.message}><StatusBadge map={RISK_LEVEL} value={r.level} /> <span className="small muted">{AREA[r.area]}</span>&emsp;{r.message}</li>)}</ul>
@@ -65,7 +65,7 @@ function ProductBlock({ p }: { p: Prod }) {
   );
 }
 
-/** G1 統一決策摘要（唯讀）：評估、合作資格審查、試用、可行性、風險與證據一頁看完。不改變 G1 的檢查項與核准結果。 */
+/** G1（選品核准）統一決策摘要（唯讀）：評估、合作資格審查、試用、可行性、風險與證據一頁看完。不改變 G1（選品核准）的檢查項與核准結果。 */
 export function SummaryView({ s }: { s: Summary }) {
   return (
     <div data-testid="g1-summary">
@@ -78,7 +78,7 @@ export function SummaryView({ s }: { s: Summary }) {
   );
 }
 
-/** G1 核准區的簡短提示（連到完整摘要）；不影響申請與核准 */
+/** G1（選品核准）核准區的簡短提示（連到完整摘要）；不影響申請與核准 */
 export function SummaryNote({ s, campaignId }: { s: Summary; campaignId: string }) {
   return (
     <Banner kind={s.light === 'RED' ? 'error' : s.light === 'YELLOW' ? 'warn' : 'ok'} testid="g1-selection-note">

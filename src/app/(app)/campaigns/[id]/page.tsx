@@ -12,7 +12,7 @@ import { ActionButton } from '@/ui/ActionButton';
 import { ApiForm } from '@/ui/ApiForm';
 import { Modal } from '@/ui/Modal';
 import { Badge, Banner, Card, EmptyState, Kv, PageHeader, StatusBadge, Table, Tabs } from '@/ui/components';
-import { APPROVAL_STATUS, CAMPAIGN_STATUS, HOST_PART, PLACEMENT_STATUS, PLACEMENT_TYPE, PLATFORM, REVIEW_STATUS, SEVERITY, STATUS_LABEL_MAP, TASK_STATUS, ownerRoleLabel, roleLabel } from '@/ui/labels';
+import { APPROVAL_STATUS, CAMPAIGN_STATUS, HOST_PART, PLACEMENT_STATUS, PLACEMENT_TYPE, PLATFORM, REVIEW_STATUS, SEVERITY, STATUS_LABEL_MAP, TASK_STATUS, ownerRoleLabel, roleLabel, gateLabel } from '@/ui/labels';
 import { fmtDateTime, money } from '@/ui/format';
 import { as, type AuditV, type CampaignV, type CheckItemV } from '@/ui/types';
 import { TaskActions } from './TaskActions';
@@ -33,7 +33,7 @@ const NEXT_HINT: Record<string, string> = {
   RUNNING: '監控銷售與催單；過結團日後推進為「待結單確認」。',
   PENDING_CLOSE_CHECK: '核對訂單後，申請 G3 結單確認。',
   FULFILLING: '完成出貨與請款後，推進為「待結算」。',
-  PENDING_SETTLEMENT: '結算確認（G4）；佣金試算屬 Phase 2，目前以人工確認。',
+  PENDING_SETTLEMENT: '結算確認（G4 結算確認）；佣金試算屬 Phase 2，目前以人工確認。',
   SETTLED: '申請 G5 結案核准。',
   CLOSED: '已結案，僅供檢視。', CANCELLED: '已取消，僅供檢視。', ON_HOLD: '暫緩中；恢復後回到暫緩前的狀態。',
 };
@@ -244,7 +244,7 @@ async function ApprovalsTab({ c, actor }: { c: CampaignV; actor: A }) {
         const hasPending = pending.some((p) => p.gateKey === g);
         const blockFail = checks.filter((x) => x.level === 'BLOCK' && !x.ok && !x.ackable);
         return (
-          <Card key={g} title={`關卡 ${g} 檢查清單`} testid={`gate-${g}`}>
+          <Card key={g} title={`關卡 ${gateLabel(g)} 檢查清單`} testid={`gate-${g}`}>
             <ul className="list-plain" data-testid={`gate-checks-${g}`}>
               {checks.map((k) => (
                 <li key={k.key} data-testid={`check-${g}-${k.key}`}>{k.ok ? '✅' : k.level === 'BLOCK' ? '⛔' : '⚠️'} <strong>{k.label}</strong>{' '}
@@ -254,7 +254,7 @@ async function ApprovalsTab({ c, actor }: { c: CampaignV; actor: A }) {
             </ul>
             {GATE_REQUEST[g].from === c.status && can(actor, 'approval.request') && !hasPending ? (
               blockFail.length ? <p className="small" style={{ color: 'var(--danger)' }}>尚有 {blockFail.length} 項必要檢查未通過，無法申請。</p>
-                : <ActionButton endpoint={`/api/campaigns/${c.id}/gates/${g}/request`} label={`申請 ${g} 核准`} variant="primary" testid={`btn-request-${g}`} successMessage={`已送出 ${g} 核准申請`} />
+                : <ActionButton endpoint={`/api/campaigns/${c.id}/gates/${g}/request`} label={`申請 ${gateLabel(g)}`} variant="primary" testid={`btn-request-${g}`} successMessage={`已送出 ${gateLabel(g)} 申請`} />
             ) : null}
           </Card>
         );
@@ -263,10 +263,10 @@ async function ApprovalsTab({ c, actor }: { c: CampaignV; actor: A }) {
         {(c.approvals ?? []).length === 0 ? <EmptyState title="尚無核准申請" /> : (
           <Table head={['關卡', '狀態', '申請', '決定', '備註', '']}>
             {(c.approvals ?? []).map((a) => (
-              <tr key={a.id} data-testid={`approval-${a.id}`}><td><strong>{a.gateKey}</strong></td><td><StatusBadge map={APPROVAL_STATUS} value={a.status} /></td><td className="small">{fmtDateTime(a.requestedAt)}<div>{a.requestNote}</div></td>
+              <tr key={a.id} data-testid={`approval-${a.id}`}><td><strong>{gateLabel(a.gateKey)}</strong></td><td><StatusBadge map={APPROVAL_STATUS} value={a.status} /></td><td className="small">{fmtDateTime(a.requestedAt)}<div>{a.requestNote}</div></td>
                 <td className="small">{a.decidedAt ? fmtDateTime(a.decidedAt) : '—'}</td><td className="small">{a.decisionNote}</td>
                 <td>{a.status === 'PENDING' && GATE_APPROVER_ROLES[a.gateKey]?.includes(actor.role) ? (
-                  <Modal label="決定" title={`${a.gateKey} 核准決定`} variant="primary" size="btn sm" testid={`btn-decide-${a.id}`}>
+                  <Modal label="決定" title={`${gateLabel(a.gateKey)} 核准決定`} variant="primary" size="btn sm" testid={`btn-decide-${a.id}`}>
                     <p className="small muted">通過時系統會重新檢查；若有「可填原因放行」的高風險項目，請在風險確認欄填寫原因。允許決定的角色：{GATE_APPROVER_ROLES[a.gateKey].map(roleLabel).join('、')}</p>
                     <ApiForm endpoint={`/api/approvals/${a.id}/decision`} submitLabel="送出決定" testid={`decide-form-${a.id}`} fields={[
                       { name: 'decision', label: '決定', type: 'select', required: true, options: [{ value: 'APPROVED', label: '核准' }, { value: 'REJECTED', label: '退回' }] },

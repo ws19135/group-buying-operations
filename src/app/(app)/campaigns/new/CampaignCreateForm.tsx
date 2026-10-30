@@ -68,7 +68,7 @@ export function CampaignCreateForm({ vendors, hosts, canSetTarget }: { vendors: 
         <label className="field"><span className="lbl">開團日</span><input type="date" name="openDate" data-testid="field-openDate" /></label>
         <label className="field"><span className="lbl">結團日</span><input type="date" name="closeDate" data-testid="field-closeDate" /></label>
         <label className="field"><span className="lbl">Live Talk 日期（選填）</span><input type="date" name="liveTalkDate" data-testid="field-liveTalkDate" /><span className="help">有填才會產生 Live Talk 任務</span></label>
-        {canSetTarget ? <label className="field"><span className="lbl">檔期業績目標（TWD）</span><input type="number" min={0} name="targetRevenue" data-testid="field-targetRevenue" /></label> : null}
+        {canSetTarget ? <label className="field"><span className="lbl">檔期業績目標（新台幣）</span><input type="number" min={0} name="targetRevenue" data-testid="field-targetRevenue" /></label> : null}
         <label className="field"><span style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" name="needsSampleRecovery" data-testid="field-needsSampleRecovery" /><span className="lbl" style={{ margin: 0 }}>需要回收試用品</span></span></label>
         <label className="field" style={{ gridColumn: '1 / -1' }}><span className="lbl">說明</span><textarea name="description" /></label>
       </div>

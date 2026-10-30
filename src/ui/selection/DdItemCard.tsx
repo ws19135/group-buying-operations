@@ -91,7 +91,7 @@ export function DdItemCard({ item, fields, editable, canWrite, canReview, canSen
         </form>
       ) : (
         <Kv rows={[
-          ...fields.map((f): [string, React.ReactNode] => [f.label, item.terms[f.name] == null ? '—' : typeof item.terms[f.name] === 'boolean' ? (item.terms[f.name] ? '是' : '否') : String(item.terms[f.name])]),
+          ...fields.map((f): [string, React.ReactNode] => [f.label, item.terms[f.name] == null ? '—' : typeof item.terms[f.name] === 'boolean' ? (item.terms[f.name] ? '是' : '否') : (f.options?.find((o) => o.value === item.terms[f.name])?.label ?? String(item.terms[f.name]))]),
           ...(item.note ? [['備註', item.note] as [string, React.ReactNode]] : []), ...(item.naReason ? [['不適用原因', item.naReason] as [string, React.ReactNode]] : []), ...(item.riskNote ? [['風險', item.riskNote] as [string, React.ReactNode]] : []),
         ]} />
       )}

@@ -69,7 +69,7 @@ export async function listProductFeasibility(actor: Actor, productId: string) {
     productId, productName: p.name, canSeeSensitive: canCost, items: (rows as ScenarioRow[]).map((r) => present(r as never, canCost)),
     reference: await referenceFor(pool(), actor.orgId, productId, canCost),
     inputLabels: INPUT_LABEL, sensitiveKeys: canCost ? [] : [...SENSITIVE_INPUT_KEYS], editableKeys: canCost ? [...NON_SENSITIVE_INPUT_KEYS, ...SENSITIVE_INPUT_KEYS] : [...NON_SENSITIVE_INPUT_KEYS],
-    basisNote: '試算：口徑待 Owner 確認（docs/biz-model/04）。GMV 不等於公司收入；缺少的輸入顯示為「未知」，不會被當成 0。',
+    basisNote: '試算：口徑待 Owner 確認（docs/biz-model/04）。GMV（成交總額）不等於公司收入；缺少的輸入顯示為「未知」，不會被當成 0。',
   };
 }
 

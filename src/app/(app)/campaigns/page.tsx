@@ -22,7 +22,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
     <>
       <PageHeader title="檔期" sub="每一檔團購一個主檔；狀態、任務與核准都在這裡追蹤" actions={can(actor, 'campaign.write') ? <Link className="btn primary" href="/campaigns/new" data-testid="btn-create-campaign">＋ 建立檔期</Link> : null} />
       <Filters>
-        <label>關鍵字<input name="q" defaultValue={q.q} placeholder="名稱或 ID" data-testid="filter-q" /></label>
+        <label>關鍵字<input name="q" defaultValue={q.q} placeholder="名稱或編號（ID）" data-testid="filter-q" /></label>
         <label>狀態<select name="status" defaultValue={q.status ?? ''} data-testid="filter-status"><option value="">全部</option>{Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         {vendors.length > 1 ? <label>廠商<select name="vendorId" defaultValue={q.vendorId ?? ''}><option value="">全部</option>{vendors.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}</select></label> : null}
         {hosts.length ? <label>團主<select name="hostId" defaultValue={q.hostId ?? ''}><option value="">全部</option>{hosts.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}</select></label> : null}

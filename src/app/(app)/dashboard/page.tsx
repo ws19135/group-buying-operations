@@ -41,7 +41,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
         </div>} />
 
       {dq.status === 'DEMO' || dq.status === 'MIXED' ? <Banner kind="demo" testid="demo-banner">⚠️ {dq.status === 'MIXED' ? 'DEMO 示範資料：' : ''}{dq.statusLabel}</Banner> : null}
-      {dq.status === 'NO_DATA' ? <Banner kind="nodata" testid="nodata-banner">{dq.statusLabel}。業績指標在接上訂單來源（至「訂單匯入」匯入 CSV）之前不會顯示數字。</Banner> : null}
+      {dq.status === 'NO_DATA' ? <Banner kind="nodata" testid="nodata-banner">{dq.statusLabel}。業績指標在接上訂單來源（至「訂單匯入」匯入 CSV（逗號分隔檔））之前不會顯示數字。</Banner> : null}
       {dq.status === 'IMPORT' ? <Banner kind="ok" testid="import-banner">{dq.statusLabel}</Banner> : null}
       <div className="card" data-testid="data-quality" style={{ padding: '10px 14px' }}>
         <span className="small muted">最後匯入：</span> {dq.lastImport ? <><Link href="/imports">{dq.lastImport.id}</Link>（{dq.lastImport.sourceSystem}，{dq.lastImport.status}）完成於 {fmtDateTime(dq.lastImport.finishedAt)}，<strong>資料截至 {fmtDateTime(dq.lastImport.dataAsOf)}</strong></> : <span>尚無匯入紀錄</span>}
@@ -51,10 +51,10 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
 
       {s ? (
         <div className="grid cols-6" style={{ marginBottom: 16 }} data-testid="kpi-grid">
-          {kpi('gmv', 'GMV', money, s.gmv, undefined, ordersHref)}
+          {kpi('gmv', 'GMV（成交總額）', money, s.gmv, undefined, ordersHref)}
           {kpi('net', '有效淨銷售額', money, s.net, unattr != null && unattr !== 0 ? `未歸因團主：${money(unattr)}` : undefined, ordersHref)}
           {kpi('orders', '有效訂單數', num, s.orders, undefined, `${ordersHref}&status=PAID`)}
-          {kpi('aov', 'AOV', money, s.aov)}
+          {kpi('aov', 'AOV（客單價）', money, s.aov)}
           {kpi('refundRate', '退款率', (v) => pct(v), s.refundRate, undefined, `${ordersHref}&refunded=1`)}
           {d.targets ? kpi('attainment', '目標達成率', (v) => pct(v), d.targets.attainment, d.targets.total == null ? '尚未設定檔期目標' : `目標合計 ${money(d.targets.total)}`) : null}
         </div>
@@ -72,7 +72,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
           note={`本期入帳 ${d.finance.received.count} 筆（人工入帳紀錄）`}
           source="payments（方向＝入帳、狀態有效）" formula="Σ amount，入帳日落在本期；不含已作廢" href="/finance?tab=payments" /> : null}
       </div>
-      <p className="small muted" style={{ margin: '0 0 16px' }} data-testid="finance-note">GMV、預估佣金、已確認佣金、已收款金額是<strong>不同的指標</strong>，請勿混稱為「業績」。</p>
+      <p className="small muted" style={{ margin: '0 0 16px' }} data-testid="finance-note">GMV（成交總額）、預估佣金、已確認佣金、已收款金額是<strong>不同的指標</strong>，請勿混稱為「業績」。</p>
 
       <div className="grid cols-4" style={{ marginBottom: 16 }} data-testid="todo-grid">
         <Link href="/tasks?overdue=1" className="kpi" data-testid="todo-overdue"><div className="label">逾期任務</div><div className="value" style={{ color: d.tasks.overdue ? 'var(--danger)' : undefined }}>{d.tasks.overdue}</div></Link>

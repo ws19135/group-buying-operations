@@ -40,7 +40,7 @@ export default withActor(async (actor, props: { params: Params }) => {
           {reviewer && d.status === 'IN_REVIEW' ? <ActionButton endpoint={`${ep}/review`} body={{ decision: 'REJECTED' }} label="退回" variant="danger" reasonLabel="退回原因" reasonKey="note" testid="btn-dd-reject" /> : null}
           {reviewer && d.status === 'APPROVED' ? <ActionButton endpoint={`${ep}/review`} body={{ decision: 'REJECTED' }} label="撤銷核准" variant="danger" reasonLabel="撤銷原因" reasonKey="note" testid="btn-dd-revoke" /> : null}
         </div>} />
-      <Banner kind="nodata">這份調查記錄「首次合作前要確認的 12 類問題」與證據。<strong>核准結果不會阻擋也不會放行 G1</strong>，只在廠商頁與 G1 決策摘要顯示。涉及轉售價格限制、食品、保健、醫材、化妝品、兒童用品等，系統只標示「需法務或合規審查」，<strong>不判斷是否合法</strong>。證據只存連結，檔案請放公司核准的雲端空間。</Banner>
+      <Banner kind="nodata">這份調查記錄「首次合作前要確認的 12 類問題」與證據。<strong>核准結果不會阻擋也不會放行 G1（選品核准）</strong>，只在廠商頁與 G1（選品核准）決策摘要顯示。涉及轉售價格限制、食品、保健、醫材、化妝品、兒童用品等，系統只標示「需法務或合規審查」，<strong>不判斷是否合法</strong>。證據只存連結，檔案請放公司核准的雲端空間。</Banner>
       {d.status === 'APPROVED' ? <Banner kind={d.validity.valid ? 'ok' : 'error'} testid="dd-validity">{d.validity.valid ? `核准有效至 ${d.validUntil}（${d.reviewedByName ?? ''} ${fmtDateTime(d.reviewedAt)}）` : `核准已失效：${d.validity.reasons.join('；')}`}</Banner> : null}
       {d.status === 'REJECTED' && d.reviewNote ? <Banner kind="warn">退回／撤銷原因：{d.reviewNote}</Banner> : null}
       <div className="grid cols-2">

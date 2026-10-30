@@ -42,7 +42,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
         <label>下單迄<input type="date" name="to" defaultValue={q.to} /></label>
         <label><input type="checkbox" name="refunded" value="1" defaultChecked={q.refunded === '1'} /> 只看有退款</label>
       </Filters>
-      {res.items.length === 0 ? <EmptyState title="沒有符合條件的訂單" hint="可至「訂單匯入」匯入 CSV" /> : (
+      {res.items.length === 0 ? <EmptyState title="沒有符合條件的訂單" hint="可至「訂單匯入」匯入 CSV（逗號分隔檔）" /> : (
         <>
           <p className="small muted" data-testid="orders-summary">共 {res.total} 筆；本頁 {res.items.length} 筆，訂單金額合計 {money(gross)}</p>
           <Table head={['下單時間', '檔期', '團主', '來源', '訂單編號', '狀態', '金額', '退款', '資料性質']} testid="orders-table">

@@ -73,13 +73,13 @@ export default withActor(async (actor, props: { params: Params }) => {
                     <Modal label="覆寫" title={`覆寫 ${i.hostName} 的佣金`} size="btn sm" testid={`btn-override-${i.hostId}`}>
                       <p className="small muted">覆寫會取代自動試算值，必須填寫原因（寫入稽核）。需要加減請改用「調整」。</p>
                       <ApiForm endpoint={`/api/settlement-items/${i.id}/override`} submitLabel="儲存覆寫" fields={[
-                        { name: 'amount', label: '覆寫金額（TWD，整數，不可為負）', type: 'number', required: true, min: 0, defaultValue: i.commissionOverride }, { name: 'reason', label: '原因', type: 'textarea', required: true }]} />
+                        { name: 'amount', label: '覆寫金額（新台幣，整數，不可為負）', type: 'number', required: true, min: 0, defaultValue: i.commissionOverride }, { name: 'reason', label: '原因', type: 'textarea', required: true }]} />
                     </Modal>
                     {i.commissionOverride != null ? <ActionButton endpoint={`/api/settlement-items/${i.id}/override`} body={{ amount: null }} label="清除覆寫" small testid={`btn-clear-override-${i.hostId}`} /> : null}
                     <Modal label="調整" title={`新增調整項：${i.hostName}`} size="btn sm" testid={`btn-adjust-${i.hostId}`}>
                       <p className="small muted">調整項只能新增、不能修改或刪除；金額可為負數（扣減），原因必填。</p>
                       <ApiForm endpoint={`/api/settlements/${s.id}/adjustments`} extra={{ itemId: i.id }} submitLabel="新增調整" fields={[
-                        { name: 'amount', label: '調整金額（TWD，整數，可為負）', type: 'number', required: true }, { name: 'reason', label: '原因', type: 'textarea', required: true }]} />
+                        { name: 'amount', label: '調整金額（新台幣，整數，可為負）', type: 'number', required: true }, { name: 'reason', label: '原因', type: 'textarea', required: true }]} />
                     </Modal>
                   </div>) : null}</td>
               </tr>))}

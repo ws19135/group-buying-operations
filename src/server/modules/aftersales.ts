@@ -282,7 +282,7 @@ export async function setCaseStatus(actor: Actor, id: string, raw: z.input<typeo
 // ---------- 退款申請 ----------
 
 export const refundRequestSchema = z.object({
-  amount: z.number().int('金額需為整數（TWD）').positive('金額需大於 0').max(100_000_000),
+  amount: z.number().int('金額需為整數（新台幣）').positive('金額需大於 0').max(100_000_000),
   reason: z.string().trim().min(1, '請填寫退款原因').max(500),
   orderId: optText(40),
 });

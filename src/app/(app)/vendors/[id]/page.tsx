@@ -41,7 +41,7 @@ export default withActor(async (actor, props: { params: Params }) => {
             : <dl className="kv"><dt>統編</dt><dd>{v.taxId ?? '—'}</dd><dt>類別</dt><dd>{v.category ?? '—'}</dd><dt>官網</dt><dd>{v.website ?? '—'}</dd></dl>}
         </Card>
         <Card title="聯絡人" testid="vendor-contacts" actions={w ? <Modal label="＋ 新增聯絡人" title="新增聯絡人" size="btn sm" testid="btn-add-contact">
-          <ApiForm endpoint={`/api/vendors/${v.id}/contacts`} submitLabel="新增" fields={[{ name: 'name', label: '姓名', required: true }, { name: 'title', label: '職稱' }, { name: 'email', label: 'Email', type: 'email' }, { name: 'phone', label: '電話' }, { name: 'lineId', label: 'LINE ID' }, { name: 'isPrimary', label: '設為主要聯絡人', type: 'checkbox' }]} />
+          <ApiForm endpoint={`/api/vendors/${v.id}/contacts`} submitLabel="新增" fields={[{ name: 'name', label: '姓名', required: true }, { name: 'title', label: '職稱' }, { name: 'email', label: 'Email', type: 'email' }, { name: 'phone', label: '電話' }, { name: 'lineId', label: 'LINE 帳號（ID）' }, { name: 'isPrimary', label: '設為主要聯絡人', type: 'checkbox' }]} />
         </Modal> : undefined}>
           {v.contacts.length === 0 ? <EmptyState title="尚無聯絡人" /> : (
             <ul className="list-plain">{v.contacts.map((c) => (

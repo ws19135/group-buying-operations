@@ -13,13 +13,13 @@ interface CT {
   summary: { total: number; open: number; concluded: number; failed: number };
 }
 
-/** 檔期的「選品與試用」分頁：G1 統一決策摘要（唯讀）＋本檔試用清單與相關任務現況。不改變 G1 的檢查項與核准結果。 */
+/** 檔期的「選品與試用」分頁：G1（選品核准）統一決策摘要（唯讀）＋本檔試用清單與相關任務現況。不改變 G1（選品核准）的檢查項與核准結果。 */
 export async function SelectionTab({ campaignId, actor }: { campaignId: string; actor: Actor }) {
   const s = await g1Summary(actor, campaignId);
   const t = as<CT>(await campaignTrials(actor, campaignId));
   return (
     <div data-testid="tab-selection">
-      <Banner kind="nodata">這一頁把「商品評估、廠商合作資格審查、試用、商業可行性、客群適配」彙整成 G1 選品核准的決策摘要，附風險與證據。<strong>它不是 G1 的檢查項，不會阻擋或放行任何關卡，也不會自動核准</strong>；是否核准仍由核准者依既有 G1 流程決定。</Banner>
+      <Banner kind="nodata">這一頁把「商品評估、廠商合作資格審查、試用、商業可行性、客群適配」彙整成 G1 選品核准的決策摘要，附風險與證據。<strong>它不是 G1（選品核准）的檢查項，不會阻擋或放行任何關卡，也不會自動核准</strong>；是否核准仍由核准者依既有 G1（選品核准）流程決定。</Banner>
       <SummaryView s={s} />
       <Card title={`本檔試用（${t.summary.total}）`} flush testid="campaign-trials">
         {t.items.length === 0 ? <EmptyState title="本檔尚無試用紀錄" hint={<>到商品頁的「商品試用」新增（指定團主試用或小規模測試團）。寄樣、到貨、回饋任務在下方現況或<Link href={`/campaigns/${campaignId}?tab=tasks`}>任務</Link>處理。</>} /> : (
@@ -36,7 +36,7 @@ export async function SelectionTab({ campaignId, actor }: { campaignId: string; 
   );
 }
 
-/** G1 核准區的簡短提示 */
+/** G1（選品核准）核准區的簡短提示 */
 export async function SelectionG1Note({ campaignId, actor }: { campaignId: string; actor: Actor }) {
   const s = await g1Summary(actor, campaignId);
   return <SummaryNote s={s} campaignId={campaignId} />;

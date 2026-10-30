@@ -12,12 +12,12 @@ const GROUPS: { title: string; fields: FieldSpec[] }[] = [
     { key: 'expectedOrders', label: '預估訂單數', kind: 'int' }, { key: 'unitPrice', label: '團購價（元）', kind: 'int' }, { key: 'refundRatePct', label: '退款率（%）', kind: 'pct' },
     { key: 'cashFlowMode', label: '收款模式', kind: 'select', options: [{ value: 'BRAND_COLLECTS', label: '品牌自收' }, { value: 'HOST_COLLECTS', label: '團主代收' }, { value: 'COMPANY_ESCROW', label: '公司代收（居中）' }] }] },
   { title: '成本（敏感）', fields: [
-    { key: 'unitCost', label: '單位商品成本', kind: 'int' }, { key: 'shippingPerOrder', label: '運費／單', kind: 'int' }, { key: 'platformFeePct', label: '平台費比例（% of GMV）', kind: 'pct' },
+    { key: 'unitCost', label: '單位商品成本', kind: 'int' }, { key: 'shippingPerOrder', label: '運費／單', kind: 'int' }, { key: 'platformFeePct', label: '平台費比例（占 GMV 成交總額的 %）', kind: 'pct' },
     { key: 'platformFeePerOrder', label: '平台費／單', kind: 'int' }, { key: 'otherVariablePerOrder', label: '其他變動成本／單（無請填 0）', kind: 'int' }, { key: 'fixedCost', label: '固定費用（無請填 0）', kind: 'int' }] },
   { title: '服務費與分潤（敏感；口徑待 Owner 確認）', fields: [
     { key: 'brandFeePct', label: '品牌端服務費比例（%）', kind: 'pct', help: '公司營業收入＝比例 × 分潤基礎 ＋ 固定費；沒有請填 0' }, { key: 'serviceFeeFixed', label: '品牌端服務費固定額', kind: 'int' },
     { key: 'hostCommissionPct', label: '團主分潤比例（%）', kind: 'pct' },
-    { key: 'commissionBasis', label: '分潤基礎', kind: 'select', options: [{ value: 'NSV', label: '有效淨銷售額 NSV' }, { value: 'GMV', label: 'GMV' }] },
+    { key: 'commissionBasis', label: '分潤基礎', kind: 'select', options: [{ value: 'NSV', label: 'NSV（有效淨銷售額）' }, { value: 'GMV', label: 'GMV（成交總額）' }] },
     { key: 'hostPaidBy', label: '團主分潤付款方', kind: 'select', options: [{ value: 'COMPANY', label: '公司' }, { value: 'BRAND', label: '品牌' }] }] },
   { title: '成本負擔方（金額大於 0 的項目必選；敏感）', fields: [
     { key: 'shippingBorneBy', label: '運費由誰負擔', kind: 'select', options: PARTY_OPTS }, { key: 'platformFeeBorneBy', label: '平台費由誰負擔', kind: 'select', options: PARTY_OPTS },

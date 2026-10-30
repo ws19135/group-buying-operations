@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
-export const metadata: Metadata = { title: '團購 ERP', description: '團購營運管理系統' };
+export const metadata: Metadata = { title: '團購 ERP（企業資源規劃）', description: '團購營運管理系統' };
 export const viewport: Viewport = { width: 'device-width', initialScale: 1 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

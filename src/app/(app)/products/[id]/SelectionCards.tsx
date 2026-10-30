@@ -12,7 +12,7 @@ import { ActionButton } from '@/ui/ActionButton';
 import { ApiForm } from '@/ui/ApiForm';
 import { Modal } from '@/ui/Modal';
 import { Badge, Banner, Card, EmptyState, StatusBadge, Table } from '@/ui/components';
-import { COMPLIANCE, CONCLUSION, CONFIDENCE, EVAL_REVIEW, RECOVERY, SEL_DIM, SEL_REC, TRIAL_LEVEL, TRIAL_STATUS, TRIAL_TYPE } from '@/ui/labels';
+import { COMPLIANCE, CONCLUSION, CONFIDENCE, EVAL_REVIEW, RECOVERY, SEL_DIM, SEL_REC, TRIAL_LEVEL, TRIAL_STATUS, TRIAL_TYPE, RECOMMENDATION } from '@/ui/labels';
 import { fmtDateTime, money } from '@/ui/format';
 import { EvaluationEditor } from '@/ui/selection/EvaluationEditor';
 import { EvidenceBox, type EvidenceV } from '@/ui/selection/EvidenceBox';
@@ -25,7 +25,7 @@ interface EvalList {
   draft: EvaluationView | null; current: EvaluationView | null; versions: EvaluationView[]; fitReference: { byRecommendation: Record<string, { hosts: number; topScore: number | null }>; note: string } | null;
 }
 
-/** 商品詳情：通用選品評估（SOP 02）。分數只是決策建議，不會自動核准商品或 G1；不含客群適配（那是 SOP 01，這裡只唯讀引用）。 */
+/** 商品詳情：通用選品評估（標準作業流程 SOP 02）。分數只是決策建議，不會自動核准商品或 G1；不含客群適配（那是 標準作業流程 SOP 01，這裡只唯讀引用）。 */
 export async function EvaluationCard({ actor, productId }: { actor: Actor; productId: string }) {
   const d = as<EvalList>(await listProductEvaluations(actor, productId));
   const write = can(actor, 'selection.write');
@@ -33,11 +33,11 @@ export async function EvaluationCard({ actor, productId }: { actor: Actor; produ
   const cur = d.current;
   const dr = d.draft;
   return (
-    <Card title="選品評估（SOP 02）" flush testid="product-evaluation" actions={write && !dr ? <ActionButton endpoint={`/api/products/${productId}/evaluations`} label={cur ? '重新評估（新版本）' : '開始評估'} variant="primary" small testid="btn-eval-new" successMessage="已建立評估草稿" /> : undefined}>
+    <Card title="選品評估（標準作業流程 SOP 02）" flush testid="product-evaluation" actions={write && !dr ? <ActionButton endpoint={`/api/products/${productId}/evaluations`} label={cur ? '重新評估（新版本）' : '開始評估'} variant="primary" small testid="btn-eval-new" successMessage="已建立評估草稿" /> : undefined}>
       <div style={{ padding: '10px 16px 0' }}>
         <p className="small muted">六項 1–5 分加權（{KEYS.map((k) => `${SEL_DIM[k]} ${d.config.weights[k]}%`).join('、')}）；≥ {d.config.thresholds.proceed} 分建議進入商務審查、≥ {d.config.thresholds.supplement} 分補測／補件。權重為{d.config.approved ? '已確認' : '「建議值，待 Owner 確認」'}（v{d.config.version}）。
-          未評分的項目是「未知」，不會當 0 分；<strong>安全與合規是獨立的必要查核</strong>，不會被總分抵銷；<strong>分數不會自動核准商品或 G1</strong>。</p>
-        {d.fitReference ? <p className="small muted" data-testid="eval-fit-ref">客群需求符合度的參考（SOP 01 客群適配，唯讀）：{Object.keys(d.fitReference.byRecommendation).length ? Object.entries(d.fitReference.byRecommendation).map(([k, v]) => `${k} ${v.hosts} 位${v.topScore != null ? `（最高 ${v.topScore}）` : ''}`).join('、') : '尚無適配評估'}。請自行判斷後填寫分數與理由。</p> : null}
+          未評分的項目是「未知」，不會當 0 分；<strong>安全與合規是獨立的必要查核</strong>，不會被總分抵銷；<strong>分數不會自動核准商品或 G1（選品核准）</strong>。</p>
+        {d.fitReference ? <p className="small muted" data-testid="eval-fit-ref">客群需求符合度的參考（標準作業流程 SOP 01 客群適配，唯讀）：{Object.keys(d.fitReference.byRecommendation).length ? Object.entries(d.fitReference.byRecommendation).map(([k, v]) => `${RECOMMENDATION[k]?.label ?? k} ${v.hosts} 位${v.topScore != null ? `（最高 ${v.topScore}）` : ''}`).join('、') : '尚無適配評估'}。請自行判斷後填寫分數與理由。</p> : null}
       </div>
       {dr ? (
         <div style={{ padding: '0 16px 16px' }} data-testid="eval-draft">
@@ -64,7 +64,7 @@ export async function EvaluationCard({ actor, productId }: { actor: Actor; produ
           })}</Table>
           <p data-testid="eval-review-line">覆核：{cur.reviewDecision ? <><StatusBadge map={EVAL_REVIEW} value={cur.reviewDecision} /> <span className="small muted">{cur.reviewedByName} {cur.reviewNote}</span></> : <Badge>待覆核</Badge>}
             {reviewer ? <> <Modal label={cur.reviewDecision ? '重新覆核' : '覆核'} title="覆核選品評估" size="btn sm" testid="btn-eval-review">
-              <p className="small muted">系統建議：{SEL_REC[cur.recommendation ?? '']?.label}。覆核只記錄你的判斷，<strong>不會</strong>改變商品審核狀態，也不會核准 G1。</p>
+              <p className="small muted">系統建議：{SEL_REC[cur.recommendation ?? '']?.label}。覆核只記錄你的判斷，<strong>不會</strong>改變商品審核狀態，也不會核准 G1（選品核准）。</p>
               <ApiForm endpoint={`/api/evaluations/${cur.id}/review`} submitLabel="送出覆核" testid="eval-review-form" fields={[
                 { name: 'decision', label: '覆核結果', type: 'select', required: true, defaultValue: cur.reviewDecision ?? 'ACCEPTED', options: Object.entries(EVAL_REVIEW).map(([value, l]) => ({ value, label: l.label })) },
                 { name: 'note', label: '意見（不採用或需補資料時必填）', type: 'textarea' }]} /></Modal></> : null}</p>
@@ -88,7 +88,7 @@ async function productCampaigns(actor: Actor, productId: string) {
   return rows.map((r) => ({ value: r.id, label: `${r.title}（${r.id}）` }));
 }
 
-/** 商品詳情：試用（SOP 03）。商品資格驗證與團主／檔期適配試用；同一商品可有多次試用，進行中的相同組合不可重複 */
+/** 商品詳情：試用（標準作業流程 SOP 03）。商品資格驗證與團主／檔期適配試用；同一商品可有多次試用，進行中的相同組合不可重複 */
 export async function TrialCard({ actor, productId }: { actor: Actor; productId: string }) {
   const d = as<{ items: TrialRowV[]; qualification: { trialId: string; conclusion: string | null; validUntil: string | null; valid: boolean; reasons: string[] } | null; config: { trialValidDays: number } }>(await listProductTrials(actor, productId));
   const write = can(actor, 'selection.write');
@@ -96,7 +96,7 @@ export async function TrialCard({ actor, productId }: { actor: Actor; productId:
   const camps = write ? await productCampaigns(actor, productId) : [];
   const q = d.qualification;
   return (
-    <Card title="商品試用（SOP 03）" flush testid="product-trials" actions={write ? <Modal label="＋ 新增試用" title="新增試用" size="btn sm" variant="primary" testid="btn-trial-new">
+    <Card title="商品試用（標準作業流程 SOP 03）" flush testid="product-trials" actions={write ? <Modal label="＋ 新增試用" title="新增試用" size="btn sm" variant="primary" testid="btn-trial-new">
       <p className="small muted">商品資格驗證：這個商品本身能不能賣。團主／檔期適配試用：這位團主、這個檔期適不適合；若商品資格仍有效會自動沿用，只補客戶、內容、商業三個面向。寄樣與回饋任務仍在任務頁處理。</p>
       <ApiForm endpoint={`/api/products/${productId}/trials`} submitLabel="建立" idempotent redirectTo="/trials/{id}" testid="trial-new-form" fields={[
         { name: 'level', label: '層級', type: 'select', required: true, defaultValue: 'QUALIFICATION', options: Object.entries(TRIAL_LEVEL).map(([value, label]) => ({ value, label })) },
@@ -133,7 +133,7 @@ export async function FeasibilityCard({ actor, productId }: { actor: Actor; prod
   const latest = d.items.find((i) => !i.campaignId && !i.hostId) ?? null;
   const r = d.reference;
   return (
-    <Card title="商業可行性（SOP 03）" flush testid="product-feasibility" actions={write ? <Modal label="＋ 新增試算" title="商業可行性試算" size="btn sm" variant="primary" testid="btn-fz-open">
+    <Card title="商業可行性（標準作業流程 SOP 03）" flush testid="product-feasibility" actions={write ? <Modal label="＋ 新增試算" title="商業可行性試算" size="btn sm" variant="primary" testid="btn-fz-open">
       <p className="small muted">{d.basisNote}</p>
       <FeasibilityForm productId={productId} current={(latest?.inputs ?? {}) as Record<string, unknown>} editableKeys={editableKeys} sources={(latest?.sources ?? {}) as Record<string, { kind: string }>} campaignOptions={camps} />
     </Modal> : undefined}>
@@ -143,7 +143,7 @@ export async function FeasibilityCard({ actor, productId }: { actor: Actor; prod
         {!d.canSeeSensitive ? <Banner kind="nodata">成本、費用、分潤與利潤屬敏感資料，您沒有成本檢視權限；可填寫預估訂單、團購價與退款率。</Banner> : null}
       </div>
       {d.items.length === 0 ? <EmptyState title="尚無試算" hint={write ? '按「新增試算」。每個數字都要註明假設來源；沒填的項目會顯示「未知」。' : undefined} /> : (
-        <Table head={['版本', '範圍', 'GMV', 'NSV', '品牌利潤', '公司營業收入', '實際回寫']} testid="fz-table">{d.items.map((f) => {
+        <Table head={['版本', '範圍', 'GMV（成交總額）', 'NSV（有效淨銷售額）', '品牌利潤', '公司營業收入', '實際回寫']} testid="fz-table">{d.items.map((f) => {
           const res = f.results as Record<string, number | null>;
           const v = (x: number | null | undefined, restricted = false) => (x == null ? (restricted ? <span className="muted">無權限</span> : <span className="unknown">未知</span>) : money(x));
           return (
