@@ -279,7 +279,7 @@ export const routes: RouteDef[] = [
   R('POST', '/expenses/:id/void', async (c) => finance.voidExpense(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
 
   // ---------- Dashboard ----------
-  R('GET', '/dashboard/admin', async (c) => dash.getAdminDashboard(c.actor, c.query.get('month'), c.query.get('range'))),
+  R('GET', '/dashboard/admin', async (c) => dash.getAdminDashboard(c.actor, c.query.get('month'), c.query.get('range'), { vendorId: c.query.get('vendorId'), productId: c.query.get('productId') })),
   R('GET', '/dashboard/host', async (c) => dash.getHostDashboard(c.actor, c.query.get('hostId'), c.query.get('month'))),
 
   // ---------- 售後：案件／退款申請（Phase 2） ----------

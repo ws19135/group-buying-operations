@@ -10,6 +10,7 @@ export interface AdminDash {
   pipeline: { status: string; n: number }[];
   upcoming: { id: string; title: string; status: string; event: string; eventDate: string; vendorId: string; vendorName: string; hosts: CampaignHostRef[] }[];
   hostPerformance: { hostId: string; name: string; campaigns: number; net: number; orders: number }[];
+  hostChart: { items: { hostId: string; name: string; net: number; orders: number }[]; filter: { vendorId: string | null; productId: string | null }; options: { vendors: { id: string; name: string }[]; products: { id: string; name: string; vendorId: string }[] } } | null;
   communities: { byPlatform: { platform: string; n: number }[]; plannedPlacementsNext7Days: number };
   hosts: { status: string; n: number }[];
   tasks: { open: number; overdue: number; dueToday: number; unassigned: number; blocked: number; waitingApproval: number };
