@@ -24,7 +24,7 @@ export async function ensureDefaultTemplate(db: Queryable, actor: Actor): Promis
   const id = await ids.template(db);
   await db.query(
     `INSERT INTO workflow_templates (id, organization_id, key, version, name, description, params, created_by)
-     VALUES ($1,$2,$3,1,'標準團購流程','由 groupbuy-flow-sop 11 步作業與 G1–G5 Gate 轉換而成（ADR-004）',$4,$5)`,
+     VALUES ($1,$2,$3,1,'標準團購流程','由 groupbuy-flow-sop（團購標準作業流程）11 步作業與 G1–G5 Gate（核准關卡）轉換而成（ADR-004，架構決策紀錄）',$4,$5)`,
     [id, actor.orgId, DEFAULT_TEMPLATE_KEY, JSON.stringify(DEFAULT_PARAMS), actor.userId]);
   await insertSteps(db, id, DEFAULT_STEPS);
   await audit(db, actor, { action: 'workflow_template.create', entityType: 'workflow_template', entityId: id, after: { key: DEFAULT_TEMPLATE_KEY, version: 1 } });

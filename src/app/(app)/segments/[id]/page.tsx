@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { auditCodeLabel, glossAuditJson } from '@/ui/audit-labels';
 import { withActor, type Params } from '@/server/ui/session';
 import { can } from '@/server/lib/permissions';
 import { getSegment } from '@/server/modules/segments';
@@ -18,7 +19,7 @@ interface S extends SegmentV {
   hosts: { linkId: string; hostId: string; hostName: string; sharePercent: number | null; basis: string }[];
   history: { id: number; occurredAt: string; actorName: string | null; actorRole: string | null; action: string; beforeData: unknown; afterData: unknown; reason: string | null }[];
 }
-const j = (v: unknown) => (v == null ? '' : JSON.stringify(v));
+const j = (v: unknown) => glossAuditJson(v);
 
 export default withActor(async (actor, props: { params: Params }) => {
   const { id } = await props.params;
@@ -60,7 +61,7 @@ export default withActor(async (actor, props: { params: Params }) => {
       <Card title="版本與變更紀錄" flush testid="segment-history">
         {s.history.length === 0 ? <EmptyState title="沒有紀錄" /> : (
           <Table head={['時間', '操作者', '動作', '前後值']}>
-            {s.history.map((a) => <tr key={a.id}><td className="nowrap small">{fmtDateTime(a.occurredAt)}</td><td className="small">{a.actorName ?? '—'}</td><td className="small">{a.action}</td>
+            {s.history.map((a) => <tr key={a.id}><td className="nowrap small">{fmtDateTime(a.occurredAt)}</td><td className="small">{a.actorName ?? '—'}</td><td className="small">{auditCodeLabel(a.action)}</td>
               <td>{a.beforeData ? <pre className="diff">前：{j(a.beforeData)}</pre> : null}{a.afterData ? <pre className="diff">後：{j(a.afterData)}</pre> : null}</td></tr>)}
           </Table>
         )}
