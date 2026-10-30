@@ -100,7 +100,8 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
             const pName = hc?.options.products.find((x) => x.id === hc.filter.productId)?.name;
             const scope = vName ? `${vName}・${pName ?? '全部商品'}` : '全部廠商';
             if (!s || !hc) return <EmptyState title="無檢視權限" />;
-            if (hc.items.length === 0) return <EmptyState title={vName ? `「${scope}」本期沒有歸因到團主的訂單` : '本期沒有歸因到團主的訂單'} hint={dq.status === 'NO_DATA' ? '待串接訂單資料' : undefined} />;
+            const note = <p className="small muted" data-testid="host-chart-scope">有效淨銷售額（依歸因分攤）；目前篩選：<strong>{scope}</strong>；點長條進入團主頁。{hc.filter.productId ? '商品金額依訂單明細占比分攤（有退款時按比例扣除）。' : ''}</p>;
+            if (hc.items.length === 0) return <><EmptyState title={vName ? `「${scope}」本期沒有歸因到團主的訂單` : '本期沒有歸因到團主的訂單'} hint={dq.status === 'NO_DATA' ? '待串接訂單資料' : undefined} />{note}</>;
             const max = Math.max(1, ...hc.items.map((h) => h.net));
             return (
               <>
@@ -113,7 +114,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
                     </Link>
                   ))}
                 </div>
-                <p className="small muted" data-testid="host-chart-scope">有效淨銷售額（依歸因分攤）；目前篩選：<strong>{scope}</strong>；點長條進入團主頁。{hc.filter.productId ? '商品金額依訂單明細占比分攤（有退款時按比例扣除）。' : ''}</p>
+                {note}
               </>
             );
           })()}

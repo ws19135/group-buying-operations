@@ -106,6 +106,30 @@ async function main() {
       const dash = await visit(page, w, '/dashboard', '管理者 Dashboard', { shot: '01-admin-dashboard.png', expectText: /DEMO/ });
       record('Dashboard 顯示 DEMO 橫幅與資料品質區塊', (await page.getByTestId('demo-banner').count()) > 0 && (await page.getByTestId('data-quality').count()) > 0);
       record('Dashboard 有 KPI 區塊與口徑', (await page.getByTestId('kpi-grid').count()) > 0 && /GMV|淨銷售/.test(dash));
+      // 跨團主業績比較：廠商 → 商品 兩層下拉
+      {
+        const filter = page.getByTestId('host-chart-filter');
+        record('跨團主業績比較旁有「廠商」與「團購商品」下拉；未選廠商時商品下拉停用', (await filter.count()) > 0 && await page.getByTestId('host-chart-product').isDisabled() && /全部廠商/.test(await page.getByTestId('host-chart-scope').innerText()));
+        await page.getByTestId('host-chart-vendor').selectOption({ label: '[DEMO] 晴空保養' });
+        await page.waitForURL(/vendor=VEN-/, { timeout: 15_000 });
+        await page.waitForLoadState('networkidle');
+        const sc1 = await page.getByTestId('host-chart-scope').innerText().catch(() => '');
+        const prodOpts = await page.getByTestId('host-chart-product').locator('option').allInnerTexts();
+        record('選廠商後：圖表標示目前篩選的廠商，商品下拉只列該廠商的商品（含「全部商品」）', /晴空保養/.test(sc1) && await page.getByTestId('host-chart-product').isEnabled() && prodOpts[0] === '全部商品' && prodOpts.length >= 3 && !prodOpts.some((t) => /餅乾|蠟燭/.test(t)), prodOpts.join('｜'));
+        await page.screenshot({ path: path.join(SHOTS, '34-dashboard-host-chart-vendor.png'), fullPage: true });
+        await page.getByTestId('host-chart-product').selectOption({ index: 1 });
+        await page.waitForURL(/product=PRD-/, { timeout: 15_000 });
+        await page.waitForLoadState('networkidle');
+        const sc2 = await page.getByTestId('host-chart-scope').innerText().catch(() => '');
+        const chosen = (await page.getByTestId('host-chart-product').locator('option:checked').innerText()).trim();
+        record('再選商品後：圖表標示「廠商・商品」，網址保留篩選條件', sc2.includes(chosen) && /晴空保養/.test(sc2) && /vendor=VEN-.*product=PRD-|product=PRD-.*vendor=VEN-/.test(page.url()), sc2.slice(0, 80));
+        await page.screenshot({ path: path.join(SHOTS, '35-dashboard-host-chart-product.png'), fullPage: true });
+        await page.getByTestId('host-chart-vendor').selectOption('');
+        await page.waitForURL((u) => !u.search.includes('vendor='), { timeout: 15_000 });
+        record('改回「全部廠商」會清掉商品篩選', !page.url().includes('product=') && await page.getByTestId('host-chart-product').isDisabled());
+        const bad = await visit(page, w, '/dashboard?vendor=VEN-9999', '無效的廠商篩選：回到全部並說明原因', { expectText: /篩選條件無效/ });
+        void bad;
+      }
       for (const [url, label, shot] of [
         ['/campaigns', '檔期列表', '02-campaigns.png'], ['/calendar', '排程日曆', '03-calendar.png'], ['/tasks', '任務', '04-tasks.png'], ['/approvals', '核准', '05-approvals.png'],
         ['/vendors', '廠商列表', '06-vendors.png'], ['/hosts', '團主列表', ''], ['/communities', '社群列表', ''], ['/products', '商品列表', ''],
