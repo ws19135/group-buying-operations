@@ -238,7 +238,7 @@ async function main() {
         const rdlg = page.getByTestId(`btn-fit-review-${rid}-dialog`);
         await rdlg.getByTestId('field-decision').selectOption('NEEDS_DATA');
         await rdlg.getByTestId('field-note').fill('E2E：請先補價格帶與觀察來源');
-        await rdlg.getByTestId(`fit-review-form-${rid}-submit`).click();
+        await Promise.all([page.waitForResponse((r) => r.url().includes(`/api/fit/${rid}/review`) && r.request().method() === 'POST'), rdlg.getByTestId(`fit-review-form-${rid}-submit`).click()]);   // 等請求真的完成再換頁，避免競態
         await page.waitForLoadState('networkidle');
         await page.goto(`${BASE}/fit?tab=done`, { waitUntil: 'networkidle' });
         record('覆核後出現在「已覆核」並顯示覆核人、時間與意見', /需補資料/.test(await page.getByTestId(`fit-review-${rid}`).innerText()) && /E2E：請先補價格帶/.test(await page.getByTestId(`fit-review-${rid}`).innerText()));
