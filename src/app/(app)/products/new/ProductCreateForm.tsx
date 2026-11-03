@@ -34,7 +34,7 @@ export function ProductCreateForm({ vendors, canCost }: { vendors: { value: stri
       <div className="form-grid">
         <label className="field"><span className="lbl">廠商<span className="req"> *</span></span><select name="vendorId" required data-testid="field-vendorId"><option value="">請選擇</option>{vendors.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}</select></label>
         <label className="field"><span className="lbl">商品名稱<span className="req"> *</span></span><input name="name" required data-testid="field-name" /></label>
-        <label className="field"><span className="lbl">類別</span><input name="category" /></label>
+        <label className="field"><span className="lbl">類別</span><input name="category" data-testid="field-category" /></label>
         <label className="field"><span className="lbl">品項介紹連結</span><input type="url" name="listingUrl" /></label>
         <label className="field" style={{ gridColumn: '1 / -1' }}><span className="lbl">賣點</span><textarea name="sellingPoints" /></label>
         <label className="field" style={{ gridColumn: '1 / -1' }}><span className="lbl">檢驗報告／認證／法規備註</span><textarea name="complianceNote" /></label>
@@ -45,7 +45,7 @@ export function ProductCreateForm({ vendors, canCost }: { vendors: { value: stri
         <label className="field"><span className="lbl">規格名稱</span><input name="skuName" /></label>
         <label className="field"><span className="lbl">原價（新台幣）</span><input type="number" min={0} name="listPrice" data-testid="field-listPrice" /></label>
         <label className="field"><span className="lbl">團購價（新台幣）</span><input type="number" min={0} name="groupPrice" data-testid="field-groupPrice" /></label>
-        {canCost ? <label className="field"><span className="lbl">成本（新台幣，敏感）</span><input type="number" min={0} name="costPrice" /></label> : null}
+        {canCost ? <label className="field"><span className="lbl">成本（新台幣，敏感）</span><input type="number" min={0} name="costPrice" data-testid="field-costPrice" /></label> : null}
       </div>
       <button className="btn primary" type="submit" disabled={busy} data-testid="product-create-submit">{busy ? '建立中…' : '建立商品'}</button>
     </form>

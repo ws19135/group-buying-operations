@@ -220,12 +220,19 @@ export function submitProblemsV2(input: V2Input, result: V2Result): string[] {
   return out;
 }
 
-/** 依權限遮蔽敏感子條件：沒有 product.cost.read 者只留狀態，看不到數值、分數與來源細節 */
-export function maskV2Result(r: V2Result, canSeeSensitive: boolean): V2Result {
-  if (canSeeSensitive) return r;
+/**
+ * 依權限遮蔽：① 敏感子條件（成本、利潤）需要 product.cost.read；② 取自 SOP 01 客群適配的子條件（autoKey 以 fit. 開頭）需要 fit.read。
+ * 沒有權限者只留狀態，看不到數值、分數與來源細節（財務等沒有 fit.read 的角色不可經由 V2 評估讀到適配分數）。
+ */
+export function maskV2Result(r: V2Result, canSeeSensitive: boolean, canSeeFit = true): V2Result {
+  if (canSeeSensitive && canSeeFit) return r;
+  const hide = (id: string) => {
+    const c = COND_BY_ID[id];
+    return (!canSeeSensitive && !!c?.sensitive) || (!canSeeFit && !!c?.autoKey?.startsWith('fit.'));
+  };
   return {
     ...r,
-    conditions: r.conditions.map((x) => (COND_BY_ID[x.id]?.sensitive
+    conditions: r.conditions.map((x) => (hide(x.id)
       ? { ...x, value: null, score: null, reason: x.status === 'UNKNOWN' ? x.reason : null, auto: undefined, masked: true } as CondResult
       : x)),
   };

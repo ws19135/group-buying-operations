@@ -299,7 +299,7 @@ export async function presentV2(db: Queryable, actor: Actor, row: V2Row & Record
   return {
     rubricVersion: 2 as const, commerceModel: row.commerce_model, ctx,
     input: row.v2_input ?? {},
-    result: maskV2Result(result, canCost),
+    result: maskV2Result(result, canCost, can(actor, 'fit.read')),
     canSeeSensitive: canCost,
     live: row.status !== 'SUBMITTED',
   };

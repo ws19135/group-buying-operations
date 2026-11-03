@@ -250,3 +250,18 @@ describe('V2 送出前檢查', () => {
     expect(submitProblemsV2(ideal(), scoreV2(ideal(), cfg))).toEqual([]);
   });
 });
+
+describe('V2 遮蔽：客群適配條件需要 fit.read', () => {
+  it('沒有 fit.read：autoKey 以 fit. 開頭的條件被遮蔽，其餘（含敏感以外）不動；兩種權限獨立', () => {
+    const i = ideal(); i.auto.NEED_FIT_SCORE = { value: 77.7, sourceRefs: ['FIT-000009'] };
+    const full = scoreV2(i, cfg);
+    const m = maskV2Result(full, true, false);
+    for (const id of ['NEED_FIT_SCORE', 'NEED_FIT_REVIEWED']) expect(m.conditions.find((c) => c.id === id)).toMatchObject({ masked: true, value: null, score: null });
+    expect(JSON.stringify(m)).not.toContain('77.7');
+    expect(JSON.stringify(m)).not.toContain('FIT-000009');
+    expect(m.conditions.find((c) => c.id === 'PROF_GROSS_MARGIN')!.value).not.toBeNull();   // 有成本權限：利潤條件可見
+    const both = maskV2Result(full, false, false);
+    expect(both.conditions.find((c) => c.id === 'PROF_GROSS_MARGIN')).toMatchObject({ masked: true });
+    expect(maskV2Result(full, true, true)).toEqual(full);
+  });
+});

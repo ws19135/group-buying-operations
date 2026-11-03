@@ -81,6 +81,7 @@
 | GET | `/api/products/:id/trials` | 是 |
 | POST | `/api/products/:id/trials` | 是 |
 | GET | `/api/trials/:id` | 是 |
+| GET | `/api/trials/:id/kpis` | 是 |
 | PATCH | `/api/trials/:id` | 是 |
 | POST | `/api/trials/:id/conclude` | 是 |
 | POST | `/api/trials/:id/review` | 是 |

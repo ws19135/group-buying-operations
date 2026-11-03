@@ -346,3 +346,17 @@ describe('V2：覆核與補件要求；G1 不受影響', () => {
     expect(after).toEqual(before);
   });
 });
+
+describe('V2：適配資料的權限（SOP 01 客群適配只給有 fit.read 的角色）', () => {
+  it('沒有 fit.read 的財務：來自客群適配的子條件只看到狀態；有 fit.read 的主管照常', async () => {
+    const p = await newProduct();
+    const { id } = await createEvaluation(w.editor, p.id);
+    const fin = await Client.forActor(w.finance);
+    const asFin = (await fin.call('GET', `/evaluations/${id}`)).data.v2.result.conditions;
+    for (const cid of ['NEED_FIT_SCORE', 'NEED_FIT_REVIEWED']) expect(asFin.find((x: { id: string }) => x.id === cid)).toMatchObject({ masked: true, value: null, score: null });
+    const asMgr = (await mgr.call('GET', `/evaluations/${id}`)).data.v2.result.conditions;
+    expect(asMgr.find((x: { id: string }) => x.id === 'NEED_FIT_SCORE').masked).toBeUndefined();
+    // 非適配條件不受影響
+    expect(asFin.find((x: { id: string }) => x.id === 'REP_CONSUMABLE').masked).toBeUndefined();
+  });
+});

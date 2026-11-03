@@ -80,12 +80,12 @@ export async function EvaluationCard({ actor, productId }: { actor: Actor; produ
             const s = cur.scores?.[k] as { score: number | null; reason: string | null; evidenceCount?: number } | undefined;
             return <tr key={k}><td>{SEL_DIM[k]}</td><td>{s?.score ?? <span className="unknown">未評（未知）</span>}</td><td className="small">{s?.reason ?? '—'}</td><td className="small">{s?.score != null ? `${s.evidenceCount ?? 0} 筆有效` : '—'}</td></tr>;
           })}</Table> : null}
-          <p data-testid="eval-review-line">覆核：{cur.reviewDecision ? <><StatusBadge map={EVAL_REVIEW} value={cur.reviewDecision} /> <span className="small muted">{cur.reviewedByName} {cur.reviewNote}</span></> : <Badge>待覆核</Badge>}
+          <div data-testid="eval-review-line" style={{ margin: '8px 0' }}>覆核：{cur.reviewDecision ? <><StatusBadge map={EVAL_REVIEW} value={cur.reviewDecision} /> <span className="small muted">{cur.reviewedByName} {cur.reviewNote}</span></> : <Badge>待覆核</Badge>}
             {reviewer ? <> <Modal label={cur.reviewDecision ? '重新覆核' : '覆核'} title="覆核選品評估" size="btn sm" testid="btn-eval-review">
               <p className="small muted">系統建議：{SEL_REC[cur.recommendation ?? '']?.label}。覆核只記錄你的判斷，<strong>不會</strong>改變商品審核狀態，也不會核准 G1（選品核准）。</p>
               <ApiForm endpoint={`/api/evaluations/${cur.id}/review`} submitLabel="送出覆核" testid="eval-review-form" fields={[
                 { name: 'decision', label: '覆核結果', type: 'select', required: true, defaultValue: cur.reviewDecision ?? 'ACCEPTED', options: Object.entries(EVAL_REVIEW).map(([value, l]) => ({ value, label: l.label })) },
-                { name: 'note', label: '意見（不採用或需補資料時必填）', type: 'textarea' }]} /></Modal></> : null}</p>
+                { name: 'note', label: '意見（不採用或需補資料時必填）', type: 'textarea' }]} /></Modal></> : null}</div>
           {cur.rubricVersion === 2 ? <SupplementPanel evalId={cur.id} items={supplements} catalog={catalog} canRequest={reviewer && !cur.supersededAt} canResolve={write} /> : null}
           <details><summary className="small">這份評估的證據連結（{cur.evidence.length}）</summary><EvidenceBox subjectType="EVALUATION" subjectId={cur.id} items={cur.evidence as EvidenceV[]} canEdit={false} testid="eval-evidence-readonly" /></details>
         </div>
