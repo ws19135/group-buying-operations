@@ -334,16 +334,16 @@ export async function getHostDashboard(actor: Actor, hostIdParam?: string | null
       current: cur ? { stepKey: cur.step_key as string, name: cur.name as string, ownerRole: cur.owner_role as string, status: cur.status as string, plannedEnd: (cur.planned_end as string | null) ?? null } : null,
     };
   });
-  // 接下來兩週（今天起連續 14 天）：未完成的 SOP 任務（含非團主負責的，標明誰負責）＋曝光＋開團／結團；團主自己逾期的另列
+  // 接下來兩週（今天起連續 14 天）：團主自己負責且未完成的 SOP 作業＋曝光＋開團／結團（廠商、營運負責的作業不列，避免干擾）；團主自己逾期的另列
   const windowEnd = addDays(today, UPCOMING_DAYS - 1);
-  const upcoming: { date: string; kind: 'TASK' | 'PLACEMENT' | 'OPEN' | 'CLOSE'; label: string; campaignId: string; campaignTitle: string; ownerRole: string | null; mine: boolean; status: string | null; communityName: string | null }[] = [];
+  const upcoming: { date: string; kind: 'TASK' | 'PLACEMENT' | 'OPEN' | 'CLOSE'; label: string; stepKey: string | null; campaignId: string; campaignTitle: string; ownerRole: string | null; mine: boolean; status: string | null; communityName: string | null }[] = [];
   for (const r of sopRows) {
-    if (!OPEN_TASK.includes(r.status) || !r.planned_end || r.planned_end < today || r.planned_end > windowEnd) continue;
-    upcoming.push({ date: r.planned_end, kind: 'TASK', label: r.name, campaignId: r.campaign_id, campaignTitle: r.campaign_title, ownerRole: r.owner_role, mine: r.owner_role === 'HOST', status: r.status, communityName: null });
+    if (r.owner_role !== 'HOST' || !OPEN_TASK.includes(r.status) || !r.planned_end || r.planned_end < today || r.planned_end > windowEnd) continue;
+    upcoming.push({ date: r.planned_end, kind: 'TASK', label: r.name, stepKey: r.step_key, campaignId: r.campaign_id, campaignTitle: r.campaign_title, ownerRole: r.owner_role, mine: true, status: r.status, communityName: null });
   }
   for (const c of calendar) {
     if (c.date > windowEnd) continue;
-    upcoming.push({ date: c.date, kind: c.kind, label: c.label, campaignId: c.campaign_id, campaignTitle: c.campaign_title, ownerRole: null, mine: true, status: c.status, communityName: c.community_name });
+    upcoming.push({ date: c.date, kind: c.kind, label: c.label, stepKey: null, campaignId: c.campaign_id, campaignTitle: c.campaign_title, ownerRole: null, mine: true, status: c.status, communityName: c.community_name });
   }
   const kindOrder = { OPEN: 0, TASK: 1, PLACEMENT: 2, CLOSE: 3 } as const;
   upcoming.sort((a, b) => a.date.localeCompare(b.date) || kindOrder[a.kind] - kindOrder[b.kind] || a.label.localeCompare(b.label));

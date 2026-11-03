@@ -161,3 +161,25 @@ pre.diff { background: var(--surface-2); border: 1px solid var(--border); paddin
 .fit-dims { margin: 6px 0; padding: 0; list-style: none; } .fit-dims li { padding: 3px 0; font-size: 13px; border-bottom: 1px dashed var(--border); } .fit-dims li:last-child { border-bottom: 0; }
 .fit-detail summary { cursor: pointer; color: var(--primary); font-size: 12px; } .fit-detail { max-width: 460px; }
 .share-bar { height: 6px; background: var(--neutral-bg); border-radius: 3px; min-width: 60px; } .share-bar > span { display: block; height: 100%; background: var(--primary); border-radius: 3px; }
+
+/* 團主總覽最上方：SOP 圖示流程＋兩週提醒 */
+.sop-flow { display: flex; flex-wrap: wrap; gap: 8px 2px; }
+.sop-node { width: 62px; text-align: center; font-size: 12px; line-height: 1.25; cursor: default; }
+.sop-node .ic { width: 38px; height: 38px; border-radius: 50%; background: var(--neutral-bg); display: flex; align-items: center; justify-content: center; font-size: 19px; margin: 0 auto 3px; }
+.sop-node.mine .ic { background: var(--primary-l); box-shadow: 0 0 0 2px var(--primary); }
+.sop-node.mine .nm { font-weight: 700; }
+.sop-node .tag { font-size: 10px; font-weight: 700; color: var(--primary-d); }
+.sop-prog { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 64px; gap: 10px; align-items: center; padding: 5px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.sop-prog .ttl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sop-prog .bar { height: 8px; border-radius: 6px; background: var(--neutral-bg); overflow: hidden; } .sop-prog .bar span { display: block; height: 100%; background: var(--primary); }
+.next-count { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.next-count .nc { display: flex; flex-direction: column; align-items: center; padding: 6px 4px; border: 1px solid var(--border); border-radius: 10px; opacity: .6; }
+.next-count .nc.on { opacity: 1; background: var(--primary-l); border-color: var(--primary); } .next-count .nc.hot { background: var(--warn-bg); border-color: #f0d28a; }
+.next-count .nc .ic { font-size: 20px; } .next-count .nc strong { font-size: 20px; line-height: 1.1; }
+.next-overdue { background: var(--danger-bg); color: var(--danger); border: 1px solid #f3b4ad; border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
+.next-empty { text-align: center; color: var(--muted); padding: 18px 0; margin: 0; }
+.next-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; padding: 7px 0; border-top: 1px solid var(--border); }
+.next-row .dt { display: flex; flex-direction: column; font-size: 13px; }
+.pill { display: inline-block; margin: 2px 6px 2px 0; padding: 2px 10px; border-radius: 14px; background: var(--neutral-bg); color: var(--text); font-size: 13px; max-width: 100%; }
+.pill.hot { background: var(--warn-bg); color: var(--warn); font-weight: 600; } .pill:hover { text-decoration: none; filter: brightness(.96); }
+.next-overdue .pill { background: #fff; color: var(--danger); }
