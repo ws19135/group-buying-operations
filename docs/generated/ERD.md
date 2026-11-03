@@ -75,6 +75,7 @@ erDiagram
     segment_evidence ||--o{ segment_preferences : "evidence_id"
     customer_segments ||--o{ segment_preferences : "segment_id"
     users ||--o{ service_cases : "assignee_user_id"
+    hosts ||--o{ service_cases : "attributed_host_id"
     campaigns ||--o{ service_cases : "campaign_id"
     orders ||--o{ service_cases : "order_id"
     users ||--o{ sessions : "user_id"

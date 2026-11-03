@@ -275,6 +275,10 @@ async function main() {
       await rdlg2.getByTestId('field-periodStart').fill(addDays(today, 14));
       await rdlg2.getByTestId('field-periodEnd').fill(addDays(today, 24));
       await rdlg2.getByTestId('field-credibility').selectOption(credibility);
+      if (metric === 'QUALIFIED_VISITORS') {
+        await rdlg2.getByTestId('field-evidenceRef').fill('[E2E] 短連結報表 R-001');
+        await rdlg2.getByTestId('field-dedupeMethod').selectOption('SHORT_LINK_UNIQUE_CLIENTS');
+      }
       return submitAndWait(page, () => rdlg2.getByTestId('reach-form-submit').click(), /\/api\/trials\/TRL-[^/]+\/reach$/);
     };
     await addReach('POTENTIAL_REACH', 120, 'LINE_GROUP_MEMBERS', '[E2E] LINE 群組成員數（團主截圖）', 'MEDIUM');
@@ -282,6 +286,22 @@ async function main() {
     await addReach('QUALIFIED_VISITORS', 60, 'SHORT_LINK_UNIQUE_VISITORS', '[E2E] 導購短連結後台', 'HIGH');
     const reachText = await page.getByTestId('trial-reach').innerText();
     record('K-2 觸及與導購資料（畫面）：潛在觸及、實際觸及、有效導購訪客三種分開填寫，每筆有來源、統計期間、填寫人、填寫日期與可信度', ['潛在觸及人數', '實際觸及人數', '有效導購訪客', '[E2E] 導購短連結後台', '導購短連結不重複訪客'].every((t) => reachText.includes(t)) && /\d{4}-\d{2}-\d{2}/.test(reachText));
+    // K-4：填寫者自選「高」不算已驗證：自己不能查核；另一位有權限的人（管理者）查核後才採用
+    const trialUrl = page.url();
+    const own = await page.locator('[data-testid^="reach-verify-status-"]').first().innerText();
+    record('K-4 有效導購訪客：填寫後是「未查核（填寫者自述）」，填寫者自己沒有查核按鈕，並提示需另一位有權限的人查核；畫面顯示佐證、去重方式與規則版本', /未查核/.test(own) && (await page.locator('[data-testid^="btn-reach-verify-"]').count()) === 0 && /需由另一位有權限的人查核/.test(await page.getByTestId('trial-reach').innerText()) && /佐證：\[E2E\] 短連結報表 R-001/.test(await page.getByTestId('trial-reach').innerText()) && /reach-rules\//.test(await page.getByTestId('reach-rules').innerText()));
+    const ctx2 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const page2 = await ctx2.newPage();
+    await login(page2, 'demo-admin@example.invalid');
+    await page2.goto(trialUrl, { waitUntil: 'networkidle' });
+    const vbtn = page2.locator('button[data-testid^="btn-reach-verify-"]').first();
+    const vid = (await vbtn.getAttribute('data-testid')) as string;
+    await vbtn.click();
+    await page2.getByTestId(`${vid}-dialog`).getByTestId('field-reason').fill('[E2E] 已對照短連結報表 R-001，去重方式為不重複用戶端');
+    await submitAndWait(page2, () => page2.getByTestId(`${vid}-submit`).click(), /\/api\/reach-records\/RCH-[^/]+\/verify$/);
+    await ctx2.close();
+    await page.goto(trialUrl, { waitUntil: 'networkidle' });
+    record('K-4 第二位有權限的人查核後：顯示「已查核」、查核者與說明；CVR 因為沒有有效訂單仍是資料不足，原因不再是「尚未查核」', /已查核/.test(await page.locator('[data-testid^="reach-verify-status-"]').first().innerText()) && !/尚未經第二位/.test(await page.getByTestId('kpi-conversionRate').innerText()));
     const cvrText = await page.getByTestId('kpi-conversionRate').innerText();
     record('K-2 沒有有效訂單時 CVR 仍是資料不足；群組成員訂單比另列且標明「不是 CVR、不代表實際觸及」；潛在與實際觸及不會被當成分母', /資料不足/.test(cvrText) && /群組成員訂單比/.test(cvrText) && /不是 CVR/.test(cvrText) && /不代表實際觸及/.test(cvrText) && /潛在觸及人數：120 人/.test(cvrText) && /實際觸及人數：80 人/.test(cvrText));
     record('K-3 每單貢獻利潤在條款不全或來源未確認時是資料不足（未知成本不當 0）', /資料不足/.test(await page.getByTestId('kpi-value-contributionPerOrder').innerText()));
@@ -336,6 +356,35 @@ async function main() {
     await page.goto(`${campUrl}?tab=approvals`, { waitUntil: 'networkidle' });
     await shot(page, '11-approvals-g1');
     record('G1 核准區（檔期推進到「評估中」後）有唯讀的決策摘要提示；必要檢查（前置任務、團主確認）未過時仍「無法申請」——評分與試用不會自動核准、也不會繞過 G1', (await page.getByTestId('g1-selection-note').count()) > 0 && /不影響核准/.test(await page.getByTestId('g1-selection-note').innerText()) && (await page.getByTestId('btn-request-G1').count()) === 0 && /必要檢查未通過，無法申請/.test(await page.locator('body').innerText()));
+    // ---- K-5：客訴歸屬團主（優先訂單歸因；無法辨識＝未歸屬；人工指定需說明並記錄來源） ----
+    await page.goto(`${BASE}/aftersales/new?campaignId=${campId}`, { waitUntil: 'networkidle' });
+    await page.getByTestId('field-title').fill('[E2E] 客訴：外盒破損');
+    await Promise.all([page.waitForURL(/\/aftersales\/CAS-/), page.getByTestId('case-create-form-submit').click()]);
+    await page.waitForLoadState('networkidle');
+    record('K-5 新客訴沒有關聯訂單：團主歸屬顯示「未歸屬（保留未歸屬，不任意分配）」，並明講客訴率不作為懲罰或停權依據', /未歸屬/.test(await page.getByTestId('case-host-attribution').innerText()) && /不作為團主懲罰、停權或自動處置的依據/.test(await page.getByTestId('case-host-attribution').innerText()));
+    await page.getByTestId('btn-case-host').click();
+    const cdlg = page.getByTestId('btn-case-host-dialog');
+    await cdlg.getByTestId('field-hostId').selectOption(hostId);
+    await cdlg.getByTestId('field-note').fill('[E2E] 買家說明是從這位團主的群組加入');
+    await submitAndWait(page, () => cdlg.getByTestId('case-host-form-submit').click(), /\/api\/aftersales\/cases\/CAS-[^/]+\/host-attribution$/);
+    record('K-5 人工指定團主（畫面）：顯示「人工指定」、團主名稱與說明', /人工指定/.test(await page.getByTestId('case-host-attribution').innerText()) && (await page.getByTestId('case-host-attribution').innerText()).includes(hostName) && /買家說明是從這位團主的群組加入/.test(await page.getByTestId('case-host-attribution').innerText()));
+    await shot(page, '14-case-host-attribution');
+    await page.goto(miniUrl, { waitUntil: 'networkidle' });
+    const cd = await page.getByTestId('kpi-complaintDefect').innerText();
+    record('K-5 KPI 的客訴率分成「檔期整體」與「此團主層級」，並列出歸屬件數與未歸屬件數', /客訴率（檔期整體/.test(cd) && /客訴率（此團主層級/.test(cd) && /歸屬此團主 1 件/.test(cd) && /未歸屬 0 件/.test(cd));
+
+    // ---- K-6／K-8／K-7：財務口徑核對（唯讀） ----
+    await page.goto(`${BASE}/finance/reconciliation`, { waitUntil: 'networkidle' });
+    const recon = await page.getByTestId('recon-summary').innerText();
+    const reconNote = await page.getByTestId('recon-note').innerText();
+    record('K-6 分潤口徑差異核對（畫面）：列出檔期×團主×商品的比較與待人工覆核清單；明講不自動覆蓋任何一方、不改結算；缺合約條件標示資料不足', /待人工覆核/.test(recon) && /不會自動以任何一方覆蓋另一方/.test(reconNote) && (await page.getByTestId('recon-review').innerText()).includes(`[E2E] 文具團 ${tag}`) && /資料不足|沒有填團主分潤比例/.test(await page.getByTestId('recon-table').innerText()));
+    await shot(page, '15-commission-reconciliation');
+    await page.goto(`${BASE}/finance/reconciliation?tab=fees`, { waitUntil: 'networkidle' });
+    const feeText = await page.getByTestId('fee-summary').innerText();
+    record('K-8 費用歸屬對照（畫面）：列出 KPI 與正式結算尚未一致的費用項目、可能的應收／應付與需確認事項；唯讀', /尚未一致的費用項目/.test(feeText) && (await page.locator('[data-testid^="fee-row-shipping"]').count()) >= 1 && /可能|無法判斷/.test(await page.locator('[data-testid^="fee-row-shipping"]').first().innerText()) && /不入帳|不改任何資料/.test(await page.getByTestId('fee-note').innerText()));
+    await shot(page, '16-fee-attribution');
+    await page.goto(`${BASE}/finance/reconciliation?tab=allocation&campaignId=${campId}`, { waitUntil: 'networkidle' });
+    record('K-7 多商品成本分攤提案（畫面）：明講提案、未生效、多商品維持資料不足；單一商品檔期不需要分攤', /提案，未生效/.test(await page.getByTestId('alloc-note').innerText()) && /不需要分攤/.test(await page.getByTestId('alloc-inventory').innerText()));
     // ---- K-1：測試團 KPI 累積彙整（只整理，不設門檻） ----
     await page.goto(`${BASE}/selection?tab=kpi`, { waitUntil: 'networkidle' });
     const sumText = await page.getByTestId('kpi-summary-view').innerText();

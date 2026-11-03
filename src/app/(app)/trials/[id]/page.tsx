@@ -84,7 +84,7 @@ export default withActor(async (actor, props: { params: Params }) => {
           ) : <p className="muted">{open ? '只有營運人員可以下結論。' : '—'}</p>}
         </Card>
       </div>
-      {reach ? <TrialReachCard trialId={t.id} records={reach} canWrite={write && t.status !== 'CANCELLED'} /> : null}
+      {reach ? <TrialReachCard trialId={t.id} records={reach} canWrite={write && t.status !== 'CANCELLED'} canVerify={can(actor, 'product.review')} userId={actor.userId as string} /> : null}
       {kpi ? <TrialKpiCard kpi={kpi} canWrite={write && t.status !== 'CANCELLED'} hostIntent={(t as unknown as { hostIntent: string | null }).hostIntent} /> : null}
       <Card title="四大面向檢核" testid="trial-checks-card">
         <TrialChecks trialId={t.id} editable={write && open} canCost={t.permissions.cost} checks={plain(t.checks) as never} />

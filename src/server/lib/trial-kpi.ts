@@ -7,7 +7,7 @@
  *      每單貢獻利潤（K-3）：由 lib/actual-profit 以「已確認的合作合約或正式商務條件」計算；條件不全或未確認一律資料不足，未知成本不當 0。
  */
 import type { ActualProfitResult } from './actual-profit';
-import { REACH_METRIC_LABEL, REACH_SOURCE_LABEL, CREDIBILITY_LABEL, type ReachRecord } from './trial-reach';
+import { REACH_METRIC_LABEL, REACH_SOURCE_LABEL, CREDIBILITY_LABEL, DEDUPE_LABEL, VERIFICATION_LABEL, type ReachRecord } from './trial-reach';
 
 export const HOST_INTENTS = ['WILLING', 'UNDECIDED', 'UNWILLING'] as const;
 export type HostIntent = (typeof HOST_INTENTS)[number];
@@ -34,12 +34,17 @@ export interface TrialKpiInput {
   reach: { potential: ReachRecord | null; actual: ReachRecord | null; visitors: ReachRecord | null; visitorsUsable: { usable: boolean; reason: string | null } };
   /** 實際貢獻利潤（lib/actual-profit）；沒有檔期為 null */
   contribution: ActualProfitResult | null;
-  /** 客服案件數（排除已取消；檔期層級，不分團主） */
-  complaintCases: number;
+  /**
+   * 客服案件（排除已取消）：total＝檔期整體件數（每件只算一次）；hostExclusive／hostShared＝歸屬此團主（單一歸屬或人工）／與其他團主共同歸因的件數（只有指定團主的試用才有）；
+   * unattributed＝無法歸屬任何團主的件數（保留未歸屬，不分配）；campaignValid＝檔期整體的有效訂單數（整體客訴率的分母）。Owner 決策 K-5。
+   */
+  complaints: { total: number; unattributed: number; sharedCases: number; hostExclusive: number; hostShared: number; campaignValid: number };
   /** 試用檢核項：已測項目數與其中未通過數 */
   checks: { tested: number; failed: number };
   shipments: { nonCancelled: number; withDates: number; onTime: number };
   hostIntent: HostIntent | null;
+  /** 試用有指定團主（訂單、客訴以該團主歸因為範圍） */
+  hostScoped: boolean;
   /** 可行性試算的預估每單貢獻利潤（僅供有成本權限者參考；null＝沒有試算或缺輸入） */
   estimatedContributionPerOrder: number | null;
   /** 樣本偏小的提醒門檻（只提醒，不隱藏數值） */
@@ -91,7 +96,7 @@ export function computeTrialKpis(i: TrialKpiInput): TrialKpiResult {
   // 2 導購轉換率（CVR）：分母只用「有效導購訪客」；群組成員數（潛在觸及）只能另列「群組成員訂單比」
   const k2 = { key: 'conversionRate', no: 2, label: '導購轉換率（CVR）', unit: '%', formula: 'CVR＝有效成交訂單數 ÷ 有效導購訪客數 × 100（分母只用「有效導購訪客」；群組人數與貼文觸及都不是分母）', source: '試用的「觸及與導購資料」（人工填寫，記錄來源、期間、填寫人、可信度）＋ orders', periodNote: '同上；導購訪客的統計期間需與檔期重疊' };
   const rc = i.reach;
-  const fact = (r: ReachRecord | null) => (r ? `${REACH_METRIC_LABEL[r.metric]}：${r.value} 人（${REACH_SOURCE_LABEL[r.sourceKind]}；來源：${r.sourceText}；統計 ${r.periodStart}～${r.periodEnd}；填寫 ${r.createdByName ?? r.createdBy} ${r.filledOn}；可信度${CREDIBILITY_LABEL[r.credibility].slice(0, 1)}）` : null);
+  const fact = (r: ReachRecord | null) => (r ? `${REACH_METRIC_LABEL[r.metric]}：${r.value} 人（${REACH_SOURCE_LABEL[r.sourceKind]}；來源：${r.sourceText}；統計 ${r.periodStart}～${r.periodEnd}；填寫 ${r.createdByName ?? r.createdBy} ${r.filledOn}；可信度${CREDIBILITY_LABEL[r.credibility].slice(0, 1)}${r.metric === 'QUALIFIED_VISITORS' ? `；${VERIFICATION_LABEL[r.verificationStatus]}；佐證：${r.evidenceRef ?? '無'}；去重：${r.dedupeMethod ? DEDUPE_LABEL[r.dedupeMethod] : '未記錄'}` : ''}）` : null);
   const facts2 = [fact(rc.potential), fact(rc.actual), fact(rc.visitors)].filter((x): x is string => x != null);
   const groupRatioPart = { key: 'groupMemberOrderRatio', label: '群組成員訂單比（有效訂單 ÷ 潛在觸及人數；不是 CVR，也不代表實際觸及）',
     value: rc.potential && rc.potential.value > 0 && o.valid > 0 ? pct(o.valid, rc.potential.value) : null, unit: '%',
@@ -127,16 +132,22 @@ export function computeTrialKpis(i: TrialKpiInput): TrialKpiResult {
           { key: 'refundRate', label: '退貨（款）比例', value: o.established > 0 ? pct(o.refunded, o.established) : null, unit: '%', reason: o.established > 0 ? null : '尚無計入銷售的訂單', sampleSize: o.established },
           { key: 'cancelRate', label: '取消比例', value: cancelBase > 0 ? pct(o.cancelled, cancelBase) : null, unit: '%', reason: cancelBase > 0 ? null : '尚無訂單', sampleSize: cancelBase }] });
 
-  // 6 客訴與缺陷率
-  const k6 = { key: 'complaintDefect', no: 6, label: '客訴與缺陷率', unit: '', formula: '客訴率＝客服案件數 ÷ 有效訂單數 × 100（每百單）；缺陷率＝試用檢核項中未通過的項目 ÷ 已測項目 × 100', source: 'service_cases（檔期層級，不分團主）、trial_checks', periodNote: '客訴：本檔期；缺陷：本次試用' };
-  const complaint = o.valid > 0 ? r2((i.complaintCases / o.valid) * 100) : null;
+  // 6 客訴與缺陷率（K-5：檔期整體與團主層級分開；客訴率只供觀察，不作為團主懲罰、停權或自動處置的依據）
+  const k6 = { key: 'complaintDefect', no: 6, label: '客訴與缺陷率', unit: '', formula: '檔期整體客訴率＝客服案件數（每件只算一次）÷ 檔期有效訂單數 × 100（每百單）；團主層級客訴率＝歸屬此團主的案件（訂單歸因為單一團主、或人工指定）＋與其他團主共同歸因的案件 ÷ 此團主歸因的有效訂單數 × 100；缺陷率＝試用檢核項中未通過的項目 ÷ 已測項目 × 100。無法辨識團主的客訴保留「未歸屬」，不任意分配。客訴率只供營運觀察，不作為團主懲罰、停權或任何自動處置的依據', source: 'service_cases（團主歸屬：優先由訂單歸因推導，無法推導者可人工指定並記錄來源）、attributions、trial_checks', periodNote: '客訴：本檔期；缺陷：本次試用' };
+  const cm = i.complaints;
+  const complaint = cm.campaignValid > 0 ? r2((cm.total / cm.campaignValid) * 100) : null;
+  const hostLevel = i.hostScoped ? (o.valid > 0 ? r2(((cm.hostExclusive + cm.hostShared) / o.valid) * 100) : null) : null;
   const defect = i.checks.tested > 0 ? pct(i.checks.failed, i.checks.tested) : null;
-  items.push(complaint == null && defect == null
-    ? insufficient(k6, '沒有有效訂單，也沒有已測的檢核項')
-    : { ...k6, status: 'OK', value: defect ?? complaint, completeness: (complaint == null ? 0 : 0.5) + (defect == null ? 0 : 0.5), sampleSize: o.valid + i.checks.tested, lowSample: low(o.valid), reason: complaint == null || defect == null ? '其中一項資料不足，請看下方分項' : null,
-        parts: [
-          { key: 'complaintPer100', label: '客訴率（每百單）', value: complaint, unit: '件／百單', reason: complaint == null ? '沒有有效訂單' : null, sampleSize: o.valid },
-          { key: 'defectRate', label: '缺陷率（試用檢核項）', value: defect, unit: '%', reason: defect == null ? '尚無已測的檢核項' : null, sampleSize: i.checks.tested }] });
+  const complaintFacts = [`客訴（客服案件）${cm.total} 件（檔期整體，每件只算一次）`, ...(i.hostScoped ? [`歸屬此團主 ${cm.hostExclusive} 件、與其他團主共同歸因 ${cm.hostShared} 件`] : []), `未歸屬 ${cm.unattributed} 件（保留未歸屬，不分配給任何團主）${cm.sharedCases ? `；多位團主共同歸因 ${cm.sharedCases} 件（整體只算一次）` : ''}`];
+  const k6parts = [
+    { key: 'complaintPer100', label: '客訴率（檔期整體，每百單）', value: complaint, unit: '件／百單', reason: complaint == null ? '檔期沒有有效訂單' : null, sampleSize: cm.campaignValid },
+    ...(i.hostScoped ? [{ key: 'hostComplaintPer100', label: '客訴率（此團主層級，每百單）', value: hostLevel, unit: '件／百單', reason: hostLevel == null ? '這位團主沒有歸因的有效訂單' : cm.unattributed > 0 ? `另有 ${cm.unattributed} 件未歸屬，未計入此團主` : null, sampleSize: o.valid }] : []),
+    { key: 'defectRate', label: '缺陷率（試用檢核項）', value: defect, unit: '%', reason: defect == null ? '尚無已測的檢核項' : null, sampleSize: i.checks.tested }];
+  // 即使比率因沒有有效訂單而資料不足，案件件數與歸屬狀況仍照實列出（不隱藏事實）
+  items.push(complaint == null && defect == null && hostLevel == null
+    ? { ...insufficient(k6, '沒有有效訂單，也沒有已測的檢核項'), facts: complaintFacts, parts: k6parts }
+    : { ...k6, status: 'OK', value: defect ?? complaint, completeness: (complaint == null ? 0 : 0.5) + (defect == null ? 0 : 0.5), sampleSize: cm.campaignValid + i.checks.tested, lowSample: low(cm.campaignValid), reason: complaint == null || defect == null ? '其中一項資料不足，請看下方分項' : null,
+        facts: complaintFacts, parts: k6parts });
 
   // 7 出貨準時率
   const k7 = { key: 'onTimeShip', no: 7, label: '出貨準時率', unit: '%', formula: '出貨日不晚於預計出貨日的出貨單 ÷ 有預計與實際出貨日的出貨單 × 100', source: 'shipments（本檔期、訂單出貨）', periodNote: '同上' };
@@ -162,7 +173,8 @@ function noticesOf(i: TrialKpiInput, items: KpiItem[]): string[] {
   if (partial.length) n.push(`資料完整度未達 100%：${partial.map((x) => `${x.label}（${Math.round(x.completeness * 100)}%）`).join('、')}`);
   if (i.orders.refunded > 0) n.push(`有 ${i.orders.refunded} 筆訂單發生退貨（款）`);
   if (i.orders.cancelled > 0) n.push(`有 ${i.orders.cancelled} 筆訂單被取消`);
-  if (i.complaintCases > 0) n.push(`本檔期有 ${i.complaintCases} 件客服案件（檔期層級）`);
+  if (i.complaints.total > 0) n.push(`本檔期有 ${i.complaints.total} 件客服案件（檔期整體）`);
+  if (i.complaints.unattributed > 0) n.push(`有 ${i.complaints.unattributed} 件客服案件無法歸屬團主（保留未歸屬，不任意分配）`);
   if (i.checks.failed > 0) n.push(`試用檢核有 ${i.checks.failed} 項未通過`);
   if (i.hostIntent === 'UNWILLING' || i.hostIntent === 'UNDECIDED') n.push(`團主再次合作意願：${HOST_INTENT_LABEL[i.hostIntent]}`);
   return n;

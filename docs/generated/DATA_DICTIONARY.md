@@ -1044,8 +1044,13 @@
 | created_by | text | 是 |  |  |
 | updated_by | text | 是 |  |  |
 | version | integer | 否 | `1` |  |
+| attributed_host_id | text | 是 |  | hosts.id |
+| host_attribution_source | text | 是 |  |  |
+| host_attribution_note | text | 是 |  |  |
+| host_attributed_by | text | 是 |  |  |
+| host_attributed_at | timestamp with time zone | 是 |  |  |
 
-索引：`service_cases_assignee_idx`、`service_cases_campaign_idx`、`service_cases_order_idx`、`service_cases_pkey`（唯一）、`service_cases_status_idx`
+索引：`service_cases_assignee_idx`、`service_cases_attr_host_idx`、`service_cases_campaign_idx`、`service_cases_order_idx`、`service_cases_pkey`（唯一）、`service_cases_status_idx`
 
 ## `sessions`
 
@@ -1286,6 +1291,15 @@
 | deleted_at | timestamp with time zone | 是 |  |  |
 | deleted_by | text | 是 |  |  |
 | delete_reason | text | 是 |  |  |
+| evidence_ref | text | 是 |  |  |
+| dedupe_method | text | 是 |  |  |
+| dedupe_note | text | 是 |  |  |
+| rules_version | text | 否 | `'reach-rules/legacy'::text` |  |
+| verification_status | text | 否 | `'UNVERIFIED'::text` |  |
+| verified_by | text | 是 |  |  |
+| verified_at | timestamp with time zone | 是 |  |  |
+| verify_note | text | 是 |  |  |
+| verify_rules_version | text | 是 |  |  |
 
 索引：`trial_reach_records_pkey`（唯一）、`trial_reach_trial_idx`
 

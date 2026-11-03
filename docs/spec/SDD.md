@@ -1386,6 +1386,15 @@ NSV            = GMV − 退款
 - **權限修補**：`listCampaignAudit` 依 `fit.read`／`segment.read` 過濾實體類型；`maskV2Result(r, canSeeSensitive, canSeeFit)` 遮罩 `fit.*` 自動條件。
 - **不變**：G1 檢查項、`lib/commission-calc`、結算、財務與發票模組、`lib/kpi.ts`。
 
+### 18B.11 K-4～K-8 營運規則落地（migration 019、020）
+
+規格見 `docs/phase2/TRIAL_KPI.md` §3.1／§3.2、`COMMISSION_RECONCILIATION.md`、`MULTI_PRODUCT_COST_ALLOCATION_PROPOSAL.md`、`FEE_ATTRIBUTION_REPORT.md`、`KPI_SETTLEMENT_INTEGRATION_PROPOSAL.md`。
+
+- **K-4（019）**：`trial_reach_records` 新增 `evidence_ref`、`dedupe_method`（`PLATFORM_UNIQUE_USERS`／`SHORT_LINK_UNIQUE_CLIENTS`／`MANUAL_DEDUP`／`NOT_DEDUPED`／`UNKNOWN`）、`dedupe_note`、`rules_version`、`verification_status`（`UNVERIFIED`／`VERIFIED`／`REJECTED`）、`verified_by/at`、`verify_note`、`verify_rules_version`；約束：有效導購訪客必有去重方式、查核欄位成組；觸發器 `trial_reach_guard` 內容不可改、查核只能從未查核改一次且查核者不得為填寫者。`lib/trial-reach.ts`：`REACH_RULES`（含版本與指紋）、`dedupeProvesUnique`、`visitorInputProblems`、`visitorsUsable`。API：`POST /api/reach-records/:id/verify`（`product.review`）。
+- **K-5（020）**：`service_cases` 新增 `attributed_host_id`、`host_attribution_source`（僅 `MANUAL`）、`host_attribution_note`、`host_attributed_by/at`；約束成組。`lib/complaint-attribution.ts`（`resolveCaseAttribution`、`summarizeComplaints`）；推導在讀取時計算、不改寫舊資料。API：`POST /api/aftersales/cases/:id/host-attribution`（`aftersales.write`）；案件詳情（內部角色）帶 `hostAttribution`。KPI 第 6 項改為檔期整體與團主層級分開。
+- **K-6／K-7／K-8（唯讀，無 migration）**：`GET /api/reconciliation/commission`、`GET /api/reconciliation/fees`、`GET /api/campaigns/:id/cost-allocation-analysis`（皆需 `finance.read`＋`product.cost.read`）；畫面 `/finance/reconciliation`。廠商審查第 10 題（`dd-catalog`）新增選填欄位 `hostCommissionPct`、`hostPaidBy`、`effectiveFrom`、`effectiveTo`（敏感）。
+- **不變**：`lib/commission-calc`、`lib/kpi.ts`、結算、財務、發票、G1–G5；多商品檔期每單貢獻利潤仍為資料不足。
+
 ## 19. 橫切設計
 
 ### 19.1 去重與冪等鍵總表

@@ -6,7 +6,8 @@ import type { ActualProfitResult } from '@/server/lib/actual-profit';
 
 const rec = (over: Partial<ReachRecord>): ReachRecord => ({
   id: 'RCH-000001', metric: 'QUALIFIED_VISITORS', value: 400, sourceKind: 'SHORT_LINK_UNIQUE_VISITORS', sourceText: '導購短連結後台（虛構）', periodStart: '2026-11-01', periodEnd: '2026-11-10',
-  credibility: 'HIGH', note: null, filledOn: '2026-11-11', createdBy: 'USR-1', createdByName: '營運人員', createdAt: '2026-11-11T01:00:00Z', deleted: false, deletedAt: null, deleteReason: null, ...over,
+  credibility: 'HIGH', note: null, filledOn: '2026-11-11', createdBy: 'USR-1', createdByName: '營運人員', createdAt: '2026-11-11T01:00:00Z', deleted: false, deletedAt: null, deleteReason: null,
+  evidenceRef: 'REPORT-001', dedupeMethod: 'SHORT_LINK_UNIQUE_CLIENTS', dedupeNote: null, rulesVersion: 'reach-rules/2026-11-04.1', verificationStatus: 'VERIFIED', verifiedBy: 'USR-2', verifiedByName: '主管', verifiedAt: '2026-11-12T01:00:00Z', verifyNote: '已對照後台報表', verifyRulesVersion: 'reach-rules/2026-11-04.1', ...over,
 });
 const noReach = (): TrialKpiInput['reach'] => ({ potential: null, actual: null, visitors: null, visitorsUsable: visitorsUsable(null, { from: '2026-11-01', to: '2026-11-10' }) });
 const withVisitors = (r: ReachRecord): TrialKpiInput['reach'] => ({ potential: null, actual: null, visitors: r, visitorsUsable: visitorsUsable(r, { from: '2026-11-01', to: '2026-11-10' }) });
@@ -16,7 +17,7 @@ const noProfit: ActualProfitResult = { status: 'INSUFFICIENT', total: null, perO
 const base = (): TrialKpiInput => ({
   period: { from: '2026-11-01', to: '2026-11-10' }, dataAsOf: '2026-11-10 09:00',
   orders: { total: 12, established: 10, valid: 8, refunded: 2, cancelled: 2, gmv: 8000, refund: 400 },
-  reach: noReach(), contribution: noProfit, complaintCases: 1, checks: { tested: 10, failed: 2 }, shipments: { nonCancelled: 8, withDates: 8, onTime: 6 }, hostIntent: 'WILLING', estimatedContributionPerOrder: 123, lowSampleBelow: 30,
+  reach: noReach(), contribution: noProfit, complaints: { total: 1, unattributed: 0, sharedCases: 0, hostExclusive: 0, hostShared: 0, campaignValid: 8 }, hostScoped: false, checks: { tested: 10, failed: 2 }, shipments: { nonCancelled: 8, withDates: 8, onTime: 6 }, hostIntent: 'WILLING', estimatedContributionPerOrder: 123, lowSampleBelow: 30,
 });
 const get = (r: ReturnType<typeof computeTrialKpis>, key: string) => r.items.find((x) => x.key === key)!;
 
@@ -106,7 +107,7 @@ describe('小規模測試團 KPI：資料不足，不捏造', () => {
     expect(k.reference!.label).toContain('預估');
   });
   it('沒有任何訂單：訂單類指標都是資料不足（不是 0）；其餘不受影響', () => {
-    const i = base(); i.orders = { total: 0, established: 0, valid: 0, refunded: 0, cancelled: 0, gmv: 0, refund: 0 }; i.shipments = { nonCancelled: 0, withDates: 0, onTime: 0 };
+    const i = base(); i.orders = { total: 0, established: 0, valid: 0, refunded: 0, cancelled: 0, gmv: 0, refund: 0 }; i.complaints = { ...i.complaints, campaignValid: 0 }; i.shipments = { nonCancelled: 0, withDates: 0, onTime: 0 };
     const r = computeTrialKpis(i);
     for (const key of ['validOrders', 'aov', 'refundCancel', 'onTimeShip']) expect(get(r, key)).toMatchObject({ status: 'INSUFFICIENT', value: null });
     expect(get(r, 'validOrders').reason).toContain('尚無訂單');
@@ -115,7 +116,7 @@ describe('小規模測試團 KPI：資料不足，不捏造', () => {
     expect(get(r, 'hostIntent').status).toBe('OK');
   });
   it('沒有已測檢核項也沒有有效訂單：客訴與缺陷率資料不足；其中一項不足時完整度減半並說明', () => {
-    const i = base(); i.orders = { ...i.orders, valid: 0, established: 0, refunded: 0, gmv: 0, refund: 0 }; i.checks = { tested: 0, failed: 0 };
+    const i = base(); i.orders = { ...i.orders, valid: 0, established: 0, refunded: 0, gmv: 0, refund: 0 }; i.complaints = { ...i.complaints, campaignValid: 0 }; i.checks = { tested: 0, failed: 0 };
     expect(get(computeTrialKpis(i), 'complaintDefect')).toMatchObject({ status: 'INSUFFICIENT', value: null });
     const j = base(); j.checks = { tested: 0, failed: 0 };
     const k = get(computeTrialKpis(j), 'complaintDefect');
@@ -156,5 +157,52 @@ describe('小規模測試團 KPI：資料不足，不捏造', () => {
   it('AOV 沿用 Dashboard 定義：計入銷售訂單的 GMV − 退款，再除以有效訂單數', () => {
     const i = base(); i.orders = { ...i.orders, gmv: 10_000, refund: 1_000, valid: 8 };
     expect(get(computeTrialKpis(i), 'aov').value).toBe(Math.round(9000 / 8));
+  });
+});
+
+describe('K-5：客訴率分開呈現（檔期整體 vs 團主層級），未歸屬保留', () => {
+  const hostCase = (over: Partial<TrialKpiInput['complaints']> = {}): TrialKpiInput => {
+    const i = base();
+    i.hostScoped = true;
+    i.complaints = { total: 5, unattributed: 2, sharedCases: 1, hostExclusive: 1, hostShared: 1, campaignValid: 20, ...over };   // 檔期 20 張有效訂單；此團主 8 張
+    return i;
+  };
+  it('檔期整體＝全部案件 ÷ 檔期有效訂單；團主層級＝（單一歸屬＋共同歸因）÷ 此團主有效訂單；兩個分母不同、不混用', () => {
+    const k = get(computeTrialKpis(hostCase()), 'complaintDefect');
+    expect(k.parts!.find((p) => p.key === 'complaintPer100')!.value).toBe(25);          // 5 ÷ 20
+    expect(k.parts!.find((p) => p.key === 'hostComplaintPer100')!.value).toBe(25);      // (1+1) ÷ 8
+    expect(k.parts!.find((p) => p.key === 'hostComplaintPer100')!.reason).toContain('2 件未歸屬');
+  });
+  it('未歸屬的案件不計入任何團主；說明裡明講「保留未歸屬，不分配」；共同歸因整體只算一次', () => {
+    const k = get(computeTrialKpis(hostCase()), 'complaintDefect');
+    const facts = k.facts!.join('\n');
+    expect(facts).toContain('客訴（客服案件）5 件（檔期整體，每件只算一次）');
+    expect(facts).toContain('歸屬此團主 1 件、與其他團主共同歸因 1 件');
+    expect(facts).toContain('未歸屬 2 件（保留未歸屬，不分配給任何團主）');
+    expect(facts).toContain('共同歸因 1 件（整體只算一次）');
+    expect(computeTrialKpis(hostCase()).notices.join()).toContain('2 件客服案件無法歸屬團主');
+  });
+  it('沒有指定團主的試用：只有檔期整體，沒有團主層級', () => {
+    const k = get(computeTrialKpis(base()), 'complaintDefect');
+    expect(k.parts!.some((p) => p.key === 'hostComplaintPer100')).toBe(false);
+  });
+  it('這位團主沒有有效訂單：團主層級客訴率是資料不足（不是 0）', () => {
+    const i = hostCase(); i.orders = { ...i.orders, valid: 0 };
+    expect(get(computeTrialKpis(i), 'complaintDefect').parts!.find((p) => p.key === 'hostComplaintPer100')!.value).toBeNull();
+  });
+  it('公式明講客訴率不作為團主懲罰、停權或自動處置的依據；結果裡沒有任何處置欄位', () => {
+    const k = get(computeTrialKpis(hostCase()), 'complaintDefect');
+    expect(k.formula).toContain('不作為團主懲罰、停權或任何自動處置的依據');
+    expect(JSON.stringify(computeTrialKpis(hostCase()))).not.toMatch(/suspend|penalty|ban|停權處置/);
+  });
+  it('沒有有效訂單、沒有已測檢核項時比率資料不足，但案件件數與歸屬狀況仍照實列出（不隱藏事實）', () => {
+    const i = base(); i.hostScoped = true;
+    i.orders = { total: 0, established: 0, valid: 0, refunded: 0, cancelled: 0, gmv: 0, refund: 0 };
+    i.checks = { tested: 0, failed: 0 };
+    i.complaints = { total: 2, unattributed: 1, sharedCases: 0, hostExclusive: 1, hostShared: 0, campaignValid: 0 };
+    const k = get(computeTrialKpis(i), 'complaintDefect');
+    expect(k).toMatchObject({ status: 'INSUFFICIENT', value: null });
+    expect(k.facts!.join()).toContain('客訴（客服案件）2 件'); expect(k.facts!.join()).toContain('未歸屬 1 件');
+    expect(k.parts!.every((p) => p.value === null)).toBe(true);
   });
 });
