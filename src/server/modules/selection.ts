@@ -16,6 +16,7 @@ import {
 } from '../lib/selection-score';
 import { evidenceState } from '../lib/dd-catalog';
 import { containsPii } from './aftersales';
+import { applyDraftPatch, computeSubmit, loadV2Config, presentV2, v2PatchFields, v2Snapshot, type V2Row } from './selection-v2';
 
 /**
  * 標準作業流程 SOP 02 商品選品評估與選品設定。評分規則在 lib/selection-score.ts（純函式）；這裡負責取資料、版本、覆核、稽核。
@@ -131,6 +132,7 @@ export const evaluationPatchSchema = z.object({
   compliance: z.object({ status: z.enum(COMPLIANCE_STATUSES), note: reasonText.nullable().optional(), evidenceIds: z.array(z.string().max(40)).max(20).optional() }).strict().optional(),
   evaluatedOn: z.string().refine(isIsoDate, '日期格式需為 YYYY-MM-DD').optional(),
   version: z.number().int().optional(),
+  ...v2PatchFields,   // V2：commerceModel、conditions（子條件答案）
 }).strict();
 
 interface StoredScore { score: number | null; reason: string | null; evidenceIds: string[]; evidenceCount?: number }
@@ -139,6 +141,7 @@ interface EvalRow {
   config_version: number | null; config_snapshot: SelectionConfig | null; total_score: number | null; completeness: number | null; confidence: string | null; recommendation: string | null;
   evidence_gaps: string[] | null; evaluator_id: string | null; evaluated_on: string | null; submitted_at: string | null; review_decision: string | null; review_note: string | null;
   reviewed_by: string | null; reviewed_at: string | null; superseded_at: string | null; version: number;
+  rubric_version: number | null; commerce_model: string | null; v2_input: V2Row['v2_input']; v2_result: V2Row['v2_result'];
 }
 
 async function validEvidenceCount(db: Queryable, orgId: string, evalId: string, idsList: string[], today: string, soon: number): Promise<number> {
@@ -181,17 +184,23 @@ export interface EvaluationView {
   evidenceGaps: string[] | null; compliance: { status?: string; note?: string | null }; scores: Record<string, StoredScore>; configVersion: number | null;
   configSnapshot: { weights: Record<string, number>; thresholds: Record<string, number> } | null; evaluatedOn: string | null; evaluatorName: string | null;
   reviewDecision: string | null; reviewNote: string | null; reviewedByName: string | null; supersededAt: string | null; version: number;
-  evidence: unknown[]; preview: ReturnType<typeof scoreSelection> | null; current: boolean; [k: string]: unknown;
+  evidence: unknown[]; preview: ReturnType<typeof scoreSelection> | null; current: boolean; rubricVersion: 1 | 2; v2: Awaited<ReturnType<typeof presentV2>> | null; [k: string]: unknown;
 }
 
-async function present(db: Queryable, orgId: string, rows: (EvalRow & Record<string, unknown>)[], cfg: SelectionConfig): Promise<EvaluationView[]> {
+async function present(db: Queryable, actor: Actor, rows: (EvalRow & Record<string, unknown>)[], cfg: SelectionConfig): Promise<EvaluationView[]> {
+  const orgId = actor.orgId;
   const today = todayTaipei();
+  const v2cfg = rows.some((r) => r.rubric_version === 2) ? await loadV2Config(db, orgId) : null;
   const ev = await evidenceFor(db, orgId, 'EVALUATION', rows.map((r) => r.id), today, cfg.expiringSoonDays);
   const out: EvaluationView[] = [];
   for (const r of rows) {
     // 草稿：用目前設定即時試算（預覽）；已送出：顯示當時保存的結果與設定快照
-    const preview = r.status === 'DRAFT' ? scoreSelection(await toSelInput(db, orgId, r, cfg, today), cfg) : null;
-    out.push({ ...camelize<Record<string, unknown>>(r), evidence: ev.get(r.id) ?? [], preview, current: r.status === 'SUBMITTED' && !r.superseded_at } as EvaluationView);
+    const isV2 = r.rubric_version === 2;
+    const preview = r.status === 'DRAFT' && !isV2 ? scoreSelection(await toSelInput(db, orgId, r, cfg, today), cfg) : null;
+    const v2 = isV2 && v2cfg ? await presentV2(db, actor, r as never, v2cfg) : null;
+    // V2 的原始結果與輸入只經 presentV2 依權限遮蔽後輸出，不原樣帶出
+    const { v2_result: _r, v2_input: _i, ...rest } = r as Record<string, unknown>; void _r; void _i;
+    out.push({ ...camelize<Record<string, unknown>>(rest), rubricVersion: isV2 ? 2 : 1, v2, evidence: ev.get(r.id) ?? [], preview, current: r.status === 'SUBMITTED' && !r.superseded_at } as EvaluationView);
   }
   return out;
 }
@@ -208,10 +217,11 @@ export async function listProductEvaluations(actor: Actor, productId: string) {
   const p = await loadProductBasic(pool(), actor.orgId, productId);
   const cfg = await loadSelectionConfig(pool(), actor.orgId);
   const rows = await query(`${SELECT_EVAL} WHERE e.organization_id=$1 AND e.product_id=$2 ORDER BY e.version_no DESC`, [actor.orgId, productId]);
-  const items = await present(pool(), actor.orgId, rows as never, cfg);
+  const items = await present(pool(), actor, rows as never, cfg);
   return {
     productId, productName: p.name, productCategory: p.category, reviewStatus: p.reviewStatus,
     config: { version: cfg.version, approved: cfg.approved, status: configStatus(cfg), weights: cfg.weights, thresholds: cfg.thresholds },
+    configV2: await (async () => { const c = await loadV2Config(pool(), actor.orgId); return { version: c.version, approved: c.approved, enabled: c.enabled, status: c.approved ? '已確認採用' : '提案設定，待 Owner 核准', dimWeights: c.dimWeights, proceed: c.proceed, supplement: c.supplement }; })(),
     draft: items.find((i) => i.status === 'DRAFT') ?? null,
     current: items.find((i) => i.current) ?? null,
     versions: items,
@@ -219,17 +229,19 @@ export async function listProductEvaluations(actor: Actor, productId: string) {
   };
 }
 
-export async function createEvaluation(actor: Actor, productId: string) {
+/** 建立評估草稿。預設用 V2（子條件）；V2 被停用或明確要求 rubric:1 時建立 V1（舊制 1～5 分，供相容與回歸） */
+export async function createEvaluation(actor: Actor, productId: string, opts: { rubric?: 1 | 2 } = {}) {
   requirePerm(actor, 'selection.write');
   await loadProductBasic(pool(), actor.orgId, productId);
+  const rubric = opts.rubric ?? ((await loadV2Config(pool(), actor.orgId)).enabled ? 2 : 1);
   try {
     return await withTx(async (tx) => {
       const mx = await tx.query<{ n: number }>('SELECT coalesce(max(version_no),0)::int AS n FROM product_evaluations WHERE product_id=$1', [productId]);
       const id = await ids.evaluation(tx);
       const versionNo = Number(mx.rows[0].n) + 1;
-      await tx.query(`INSERT INTO product_evaluations (id, organization_id, product_id, version_no, created_by, updated_by) VALUES ($1,$2,$3,$4,$5,$5)`, [id, actor.orgId, productId, versionNo, actor.userId]);
-      await audit(tx, actor, { action: 'selection.evaluation.create', entityType: 'product_evaluation', entityId: id, after: { productId, versionNo } });
-      return { id, productId, versionNo };
+      await tx.query(`INSERT INTO product_evaluations (id, organization_id, product_id, version_no, created_by, updated_by, rubric_version, v2_input) VALUES ($1,$2,$3,$4,$5,$5,$6,$7)`, [id, actor.orgId, productId, versionNo, actor.userId, rubric === 2 ? 2 : null, rubric === 2 ? '{}' : null]);
+      await audit(tx, actor, { action: 'selection.evaluation.create', entityType: 'product_evaluation', entityId: id, after: { productId, versionNo, rubric } });
+      return { id, productId, versionNo, rubric };
     });
   } catch (e) { return mapDbError(e, '這個商品已有一份進行中的評估草稿，請先送出或繼續編輯'); }
 }
@@ -245,7 +257,7 @@ export async function getEvaluation(actor: Actor, id: string) {
   const rows = await query(`${SELECT_EVAL} WHERE e.id=$1 AND e.organization_id=$2`, [id, actor.orgId]);
   if (!rows.length) throw notFound('選品評估');
   const cfg = await loadSelectionConfig(pool(), actor.orgId);
-  const [item] = await present(pool(), actor.orgId, rows as never, cfg);
+  const [item] = await present(pool(), actor, rows as never, cfg);
   return item;
 }
 
@@ -258,6 +270,24 @@ export async function updateEvaluation(actor: Actor, id: string, raw: z.input<ty
     const row = await lockEval(tx, actor, id);
     if (row.status !== 'DRAFT') throw precondition('已送出的評估不可修改；請建立新版本');
     if (input.version != null && input.version !== row.version) throw conflict('資料已被其他人更新，請重新整理後再試', { currentVersion: row.version });
+    if (row.rubric_version === 2) {
+      if (input.scores) throw validation('V2 評估請用子條件（conditions）填寫，不能用 1～5 分');
+      const patched = await applyDraftPatch(tx, actor, row as never, { commerceModel: input.commerceModel, conditions: input.conditions as never });
+      let comp = row.compliance ?? {};
+      if (input.compliance) comp = { status: input.compliance.status, note: input.compliance.note?.trim() || null, evidenceIds: input.compliance.evidenceIds ?? comp.evidenceIds ?? [] };
+      if ((comp.evidenceIds ?? []).length) {
+        const ok = await tx.query<{ id: string }>(`SELECT id FROM evidence_items WHERE organization_id=$1 AND subject_type='EVALUATION' AND subject_id=$2 AND deleted_at IS NULL AND id = ANY($3::text[])`, [actor.orgId, id, comp.evidenceIds]);
+        const found = new Set(ok.rows.map((r) => r.id));
+        const bad = (comp.evidenceIds ?? []).filter((r) => !found.has(r));
+        if (bad.length) throw validation(`引用的證據不屬於這份評估：${bad.join('、')}`);
+      }
+      await tx.query(`UPDATE product_evaluations SET v2_input=$2, commerce_model=$3, compliance=$4, evaluated_on=coalesce($5, evaluated_on), updated_by=$6 WHERE id=$1`,
+        [id, JSON.stringify(patched.input), patched.commerceModel, JSON.stringify(comp), input.evaluatedOn ?? null, actor.userId]);
+      await audit(tx, actor, { action: 'selection.evaluation.update', entityType: 'product_evaluation', entityId: id,
+        before: { rubric: 2, commerceModel: row.commerce_model, conditions: row.v2_input, compliance: row.compliance }, after: { rubric: 2, commerceModel: patched.commerceModel, conditions: patched.input, compliance: comp } });
+      return { id };
+    }
+    if (input.conditions || input.commerceModel !== undefined) throw validation('這是 V1（舊制）評估，不能填子條件；請建立新版 V2 評估');
     const scores: Record<string, StoredScore> = { ...(row.scores ?? {}) };
     for (const k of SEL_KEYS) {
       const s = input.scores?.[k];
@@ -288,6 +318,21 @@ export async function submitEvaluation(actor: Actor, id: string) {
   return withTx(async (tx) => {
     const row = await lockEval(tx, actor, id);
     if (row.status !== 'DRAFT') throw precondition('這份評估已送出');
+    if (row.rubric_version === 2) {
+      const v2cfg = await loadV2Config(tx, actor.orgId);
+      const today2 = todayTaipei();
+      const { input: in2, result } = await computeSubmit(tx, actor, row as never, v2cfg, today2);
+      const evaluatedOn2 = (row.evaluated_on as string | null) ?? today2;
+      await tx.query(
+        `UPDATE product_evaluations SET status='SUBMITTED', scores='{}'::jsonb, config_version=$2, config_snapshot=$3, total_score=$4, completeness=$5, confidence=$6, recommendation=$7,
+           evidence_gaps=$8, evaluator_id=$9, evaluated_on=$10, v2_result=$11, evidence_completeness=$12, submitted_at=now(), updated_by=$9 WHERE id=$1`,
+        [id, v2cfg.version, JSON.stringify(v2Snapshot(v2cfg)), result.totalScore, result.completeness, result.confidence, result.recommendation, JSON.stringify(result.evidenceGaps), actor.userId, evaluatedOn2,
+          JSON.stringify({ result, ctx: in2.ctx }), result.evidenceCompleteness]);
+      await tx.query(`UPDATE product_evaluations SET superseded_at=now() WHERE product_id=$1 AND id<>$2 AND status='SUBMITTED' AND superseded_at IS NULL`, [row.product_id, id]);
+      await audit(tx, actor, { action: 'selection.evaluation.submit', entityType: 'product_evaluation', entityId: id,
+        after: { productId: row.product_id, versionNo: row.version_no, rubric: 2, totalScore: result.totalScore, recommendation: result.recommendation, confidence: result.confidence, completeness: result.completeness, evidenceCompleteness: result.evidenceCompleteness, configVersion: v2cfg.version } });
+      return { id, totalScore: result.totalScore, recommendation: result.recommendation, confidence: result.confidence, completeness: result.completeness, evidenceCompleteness: result.evidenceCompleteness, reasons: result.reasons, evidenceGaps: result.evidenceGaps };
+    }
     const cfg = await loadSelectionConfig(tx, actor.orgId);
     const today = todayTaipei();
     const input = await toSelInput(tx, actor.orgId, row, cfg, today);
@@ -333,7 +378,9 @@ export async function reviewEvaluation(actor: Actor, id: string, raw: z.input<ty
 /** 供 G1（選品核准）摘要等唯讀使用：該商品現行（已送出、未被取代）的評估 */
 export async function currentEvaluation(db: Queryable, orgId: string, productId: string): Promise<EvaluationView | null> {
   const r = await db.query(`${SELECT_EVAL} WHERE e.organization_id=$1 AND e.product_id=$2 AND e.status='SUBMITTED' AND e.superseded_at IS NULL ORDER BY e.version_no DESC LIMIT 1`, [orgId, productId]);
-  return r.rows[0] ? camelize<EvaluationView>(r.rows[0]) : null;
+  if (!r.rows[0]) return null;
+  const { v2_result: _r, v2_input: _i, ...rest } = r.rows[0] as Record<string, unknown>; void _r; void _i;   // V2 明細含敏感數值，摘要只取結果欄位
+  return camelize<EvaluationView>(rest);
 }
 
 // ---------------- 總覽（/selection） ----------------

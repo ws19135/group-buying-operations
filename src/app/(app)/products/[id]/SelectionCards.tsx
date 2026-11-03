@@ -15,6 +15,10 @@ import { Badge, Banner, Card, EmptyState, StatusBadge, Table } from '@/ui/compon
 import { COMPLIANCE, CONCLUSION, CONFIDENCE, EVAL_REVIEW, RECOVERY, SEL_DIM, SEL_REC, TRIAL_LEVEL, TRIAL_STATUS, TRIAL_TYPE, RECOMMENDATION } from '@/ui/labels';
 import { fmtDateTime, money } from '@/ui/format';
 import { EvaluationEditor } from '@/ui/selection/EvaluationEditor';
+import { EvaluationV2Editor } from '@/ui/selection/EvaluationV2Editor';
+import { V2ResultView, type CondDefV, type V2ResultV } from '@/ui/selection/V2ResultView';
+import { SupplementPanel, type SupplementV } from '@/ui/selection/SupplementPanel';
+import { getV2Config, listSupplements } from '@/server/modules/selection-v2';
 import { EvidenceBox, type EvidenceV } from '@/ui/selection/EvidenceBox';
 import { FeasibilityForm } from '@/ui/selection/FeasibilityForm';
 import { as } from '@/ui/types';
@@ -22,6 +26,7 @@ import { as } from '@/ui/types';
 const KEYS = ['need', 'quality', 'profit', 'supply', 'content', 'repeat'];
 interface EvalList {
   productCategory: string | null; config: { version: number; approved: boolean; status: string; weights: Record<string, number>; thresholds: { proceed: number; supplement: number } };
+  configV2?: { version: number; approved: boolean; enabled: boolean; status: string; dimWeights: Record<string, number>; proceed: number; supplement: number };
   draft: EvaluationView | null; current: EvaluationView | null; versions: EvaluationView[]; fitReference: { byRecommendation: Record<string, { hosts: number; topScore: number | null }>; note: string } | null;
 }
 
@@ -32,9 +37,13 @@ export async function EvaluationCard({ actor, productId }: { actor: Actor; produ
   const reviewer = can(actor, 'product.review');
   const cur = d.current;
   const dr = d.draft;
+  const anyV2 = dr?.rubricVersion === 2 || cur?.rubricVersion === 2;
+  const catalog = anyV2 ? ((await getV2Config(actor)).conditions as unknown as CondDefV[]) : [];
+  const supplements = cur?.rubricVersion === 2 ? (as<SupplementV[]>(await listSupplements(actor, cur.id))) : [];
   return (
     <Card title="選品評估（標準作業流程 SOP 02）" flush testid="product-evaluation" actions={write && !dr ? <ActionButton endpoint={`/api/products/${productId}/evaluations`} label={cur ? '重新評估（新版本）' : '開始評估'} variant="primary" small testid="btn-eval-new" successMessage="已建立評估草稿" /> : undefined}>
       <div style={{ padding: '10px 16px 0' }}>
+        {anyV2 ? <p className="small muted" data-testid="eval-v2-note">V2：六個維度由「可驗證的子條件」計算（系統自動取得的資料＋人工確認的條件＋證據），維度權重 {KEYS.map((k) => `${SEL_DIM[k]} ${d.configV2?.dimWeights?.[k] ?? ''}%`).join('、')}；≥ {d.configV2?.proceed} 分建議進入商務審查、≥ {d.configV2?.supplement} 分補測／補件。規則為「{d.configV2?.status}」。未知不當 0 分；<strong>安全與合規與硬性條件是獨立檢查</strong>；<strong>分數不會自動核准商品或 G1（選品核准）</strong>。</p> : null}
         <p className="small muted">六項 1–5 分加權（{KEYS.map((k) => `${SEL_DIM[k]} ${d.config.weights[k]}%`).join('、')}）；≥ {d.config.thresholds.proceed} 分建議進入商務審查、≥ {d.config.thresholds.supplement} 分補測／補件。權重為{d.config.approved ? '已確認' : '「建議值，待 Owner 確認」'}（v{d.config.version}）。
           未評分的項目是「未知」，不會當 0 分；<strong>安全與合規是獨立的必要查核</strong>，不會被總分抵銷；<strong>分數不會自動核准商品或 G1（選品核准）</strong>。</p>
         {d.fitReference ? <p className="small muted" data-testid="eval-fit-ref">客群需求符合度的參考（標準作業流程 SOP 01 客群適配，唯讀）：{Object.keys(d.fitReference.byRecommendation).length ? Object.entries(d.fitReference.byRecommendation).map(([k, v]) => `${RECOMMENDATION[k]?.label ?? k} ${v.hosts} 位${v.topScore != null ? `（最高 ${v.topScore}）` : ''}`).join('、') : '尚無適配評估'}。請自行判斷後填寫分數與理由。</p> : null}
@@ -42,9 +51,14 @@ export async function EvaluationCard({ actor, productId }: { actor: Actor; produ
       {dr ? (
         <div style={{ padding: '0 16px 16px' }} data-testid="eval-draft">
           <h3>草稿 v{dr.versionNo}</h3>
+          {dr.rubricVersion === 2 && dr.v2 ? (<>
+            <EvaluationV2Editor evalId={dr.id} version={dr.version} input={dr.v2.input as never} commerceModel={dr.v2.commerceModel} compliance={dr.compliance} evidence={dr.evidence as EvidenceV[]} catalog={catalog} results={dr.v2.result.conditions as never} />
+            <h4>即時預覽（用目前資料試算，送出後才會保存）</h4>
+            <V2ResultView result={dr.v2.result as unknown as V2ResultV} catalog={catalog} live />
+          </>) : null}
           {dr.preview ? <p className="small" data-testid="eval-preview">即時試算（用目前設定）：{dr.preview.totalScore ?? '—'} 分・完整度 {Math.round(dr.preview.completeness * 100)}%・<StatusBadge map={SEL_REC} value={dr.preview.recommendation} />；{dr.preview.reasons.join('；')}</p> : null}
-          <EvaluationEditor evalId={dr.id} version={dr.version} scores={dr.scores as never} compliance={dr.compliance} evidence={dr.evidence as EvidenceV[]} weights={d.config.weights} />
-          <h4>這份評估的證據連結（品質與供應需附有效證據）</h4>
+          {dr.rubricVersion !== 2 ? <EvaluationEditor evalId={dr.id} version={dr.version} scores={dr.scores as never} compliance={dr.compliance} evidence={dr.evidence as EvidenceV[]} weights={d.config.weights} /> : null}
+          <h4>這份評估的證據連結（{dr.rubricVersion === 2 ? '要求證據的子條件請勾選有效證據' : '品質與供應需附有效證據'}）</h4>
           <EvidenceBox subjectType="EVALUATION" subjectId={dr.id} items={dr.evidence as EvidenceV[]} canEdit={write} testid="eval-evidence-box" />
         </div>
       ) : null}
@@ -57,17 +71,22 @@ export async function EvaluationCard({ actor, productId }: { actor: Actor; produ
             <StatusBadge map={CONFIDENCE} value={cur.confidence} /> <span className="small muted">完整度 {cur.completeness == null ? '—' : Math.round(Number(cur.completeness) * 100)}%・{cur.evaluatedOn}・{cur.evaluatorName}・設定 v{cur.configVersion}</span>
           </p>
           {cur.compliance?.note ? <p className="small">合規說明：{cur.compliance.note}</p> : null}
-          {(cur.evidenceGaps ?? []).length ? <Banner kind="warn">缺證據：{(cur.evidenceGaps ?? []).map((k) => SEL_DIM[k]).join('、')}（品質與供應評分需附有效證據，才可能建議進入商務審查）</Banner> : null}
-          <Table head={['項目', '分數', '理由', '證據']} testid="eval-scores">{KEYS.map((k) => {
+          {cur.rubricVersion === 2 && cur.v2 ? (<>
+            <p className="small muted" data-testid="eval-v2-meta">V2・商業模式 {cur.v2.commerceModel ? ({ AGENCY: '代營運', KOL_CPS: 'KOL／KOC', MOM_GROUP: '團媽／社群主' } as Record<string, string>)[cur.v2.commerceModel] : '未選擇'}・證據完整度 {cur.evidenceCompleteness == null ? '—' : Math.round(Number(cur.evidenceCompleteness) * 100)}%</p>
+            <V2ResultView result={cur.v2.result as unknown as V2ResultV} catalog={catalog} />
+          </>) : null}
+          {cur.rubricVersion !== 2 && (cur.evidenceGaps ?? []).length ? <Banner kind="warn">缺證據：{(cur.evidenceGaps ?? []).map((k) => SEL_DIM[k]).join('、')}（品質與供應評分需附有效證據，才可能建議進入商務審查）</Banner> : null}
+          {cur.rubricVersion !== 2 ? <Table head={['項目', '分數', '理由', '證據']} testid="eval-scores">{KEYS.map((k) => {
             const s = cur.scores?.[k] as { score: number | null; reason: string | null; evidenceCount?: number } | undefined;
             return <tr key={k}><td>{SEL_DIM[k]}</td><td>{s?.score ?? <span className="unknown">未評（未知）</span>}</td><td className="small">{s?.reason ?? '—'}</td><td className="small">{s?.score != null ? `${s.evidenceCount ?? 0} 筆有效` : '—'}</td></tr>;
-          })}</Table>
+          })}</Table> : null}
           <p data-testid="eval-review-line">覆核：{cur.reviewDecision ? <><StatusBadge map={EVAL_REVIEW} value={cur.reviewDecision} /> <span className="small muted">{cur.reviewedByName} {cur.reviewNote}</span></> : <Badge>待覆核</Badge>}
             {reviewer ? <> <Modal label={cur.reviewDecision ? '重新覆核' : '覆核'} title="覆核選品評估" size="btn sm" testid="btn-eval-review">
               <p className="small muted">系統建議：{SEL_REC[cur.recommendation ?? '']?.label}。覆核只記錄你的判斷，<strong>不會</strong>改變商品審核狀態，也不會核准 G1（選品核准）。</p>
               <ApiForm endpoint={`/api/evaluations/${cur.id}/review`} submitLabel="送出覆核" testid="eval-review-form" fields={[
                 { name: 'decision', label: '覆核結果', type: 'select', required: true, defaultValue: cur.reviewDecision ?? 'ACCEPTED', options: Object.entries(EVAL_REVIEW).map(([value, l]) => ({ value, label: l.label })) },
                 { name: 'note', label: '意見（不採用或需補資料時必填）', type: 'textarea' }]} /></Modal></> : null}</p>
+          {cur.rubricVersion === 2 ? <SupplementPanel evalId={cur.id} items={supplements} catalog={catalog} canRequest={reviewer && !cur.supersededAt} canResolve={write} /> : null}
           <details><summary className="small">這份評估的證據連結（{cur.evidence.length}）</summary><EvidenceBox subjectType="EVALUATION" subjectId={cur.id} items={cur.evidence as EvidenceV[]} canEdit={false} testid="eval-evidence-readonly" /></details>
         </div>
       ) : !dr ? <EmptyState title="尚無已送出的評估" hint={write ? '按「開始評估」，為六項打分並填寫理由與證據。' : undefined} /> : null}

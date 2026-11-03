@@ -183,3 +183,7 @@ pre.diff { background: var(--surface-2); border: 1px solid var(--border); paddin
 .pill { display: inline-block; margin: 2px 6px 2px 0; padding: 2px 10px; border-radius: 14px; background: var(--neutral-bg); color: var(--text); font-size: 13px; max-width: 100%; }
 .pill.hot { background: var(--warn-bg); color: var(--warn); font-weight: 600; } .pill:hover { text-decoration: none; filter: brightness(.96); }
 .next-overdue .pill { background: #fff; color: var(--danger); }
+
+/* 選品評估 V2 */
+.v2-summary { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; margin: 6px 0 8px; }
+.v2-dim { margin-top: 10px; } .v2-dim h4 { margin: 8px 0 4px; }

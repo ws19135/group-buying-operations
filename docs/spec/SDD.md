@@ -1359,8 +1359,20 @@ NSV            = GMV − 退款
 ### 18B.12 DEMO 種子與測試
 
 - 種子 `scripts/seed-demo-selection.ts`（`npm run db:seed:demo:selection`，已加入 `bootstrap:demo`）：需先跑 `db:seed:demo`；冪等（已有 `[DEMO]` 證據即略過）；拒絕在 production 執行（除非明確允許公開示範環境）；證據連結一律是保留網域 `docs.example.invalid`；建立 3 份評估（1 份 PROCEED 已覆核、1 份需法務審查、1 份草稿）、2 份調查（1 份已核准、1 份草稿含風險與法務標示）、3 筆試用、2 筆可行性。
+- 種子 `scripts/seed-demo-selection-v2.ts`（`npm run db:seed:demo:selection-v2`，已加入 `bootstrap:demo`）：需先跑 `db:seed:demo`、`db:seed:demo:selection`；冪等（已有 V2 評估即略過）；拒絕在 production 執行；清爽防曬噴霧一份已送出（含覆核與補件要求）、保濕面膜一份草稿。
 - 種子 `scripts/seed-demo-catalog.ts`（`npm run db:seed:demo:catalog`，已加入 `bootstrap:demo`）：需先跑 `db:seed:demo`；冪等（已有 `[DEMO] 舒緩護手霜` 即略過）；拒絕在 production 執行；為 4 家 [DEMO] 廠商（含「新進件品牌」）各建 2 個商品與 1 檔進行中團購、共 144 張虛構訂單，讓儀表板「跨團主業績比較」的廠商→商品兩層下拉有東西可展示。
 - 測試對應見 §21。突變驗證（未知當 0、合規被總分抵銷、過期證據仍有效、小編讀／寫敏感欄位、結論可更樂觀、資格不隨商品變更失效、允許重複進行中試用、G1 檢查項被改…）共 22 項，每項在錯誤版本下都使對應測試變紅。
+
+
+### 18B.9 選品評分 V2 與廠商 12 題修補（migration 016）
+
+完整規格見 `docs/phase2/SELECTION_V2.md`（子條件目錄、公式、資料來源、資料模型、UI、測試）、回滾見 `SELECTION_V2_ROLLBACK.md`、12 題驗收見 `DD_12Q_ACCEPTANCE.md`、待 Owner 核准事項見 `SELECTION_V2_OWNER_DECISIONS.md`。
+
+- **資料模型（只新增）**：`product_evaluations` 新增 `rubric_version`（NULL＝V1、2＝V2）、`commerce_model`、`v2_input`、`v2_result`、`evidence_completeness`，約束 `product_evaluations_v2_shape`；`product_evaluations_guard()` 擴充，已送出後 V2 欄位也不可改；新表 `evaluation_supplement_requests`（補件要求，不實體刪除）；`vendor_dd_records` 新增 `supersedes_id`、`superseded_at`、`copied_from_id`。
+- **API**：`GET／PUT /api/selection/config-v2`；`POST /api/products/:id/evaluations` 可帶 `{rubric:1|2}`（預設 V2）；`PATCH /api/evaluations/:id` 可帶 `commerceModel`、`conditions`；`GET／POST /api/evaluations/:id/supplements`；`POST /api/supplement-requests/:id/resolve`；`POST /api/diligence/:id/withdraw`；`POST /api/vendors/:id/diligence` 可帶 `copyFromId`。
+- **相容**：V1 評估原樣；V2 評估仍填 V1 欄位（`total_score`、`recommendation`…），所以列表、G1 摘要與覆核不必認得 V2；`currentEvaluation` 與評估回應不帶原始 `v2_result`／`v2_input`。
+- **權限**：V2 沿用 `selection.read／write／config` 與 `product.review`（覆核與補件要求）；利潤維度的敏感子條件依 `product.cost.read` 遮蔽。
+- **自動取值的挑選規則**：`pickDdRecord`（見規格 §7）同時用於 G1 摘要，修正「商品專屬草稿蓋過廠商層級已核准調查」。
 
 ## 19. 橫切設計
 

@@ -3,6 +3,7 @@ import type { g1Summary } from '@/server/modules/decision-summary';
 import { Badge, Banner, Card, EmptyState, StatusBadge } from '../components';
 import { COMPLIANCE, CONCLUSION, DD_RECORD_STATUS, EVAL_REVIEW, LIGHT, RISK_LEVEL, SEL_REC, TRIAL_LEVEL, TRIAL_STATUS, RECOMMENDATION } from '../labels';
 import { money } from '../format';
+import { DdProgress } from './DdProgress';
 
 type Summary = Awaited<ReturnType<typeof g1Summary>>;
 type Prod = Summary['products'][number];
@@ -23,6 +24,7 @@ function ProductBlock({ p }: { p: Prod }) {
             <div className="small">
               <strong style={{ fontSize: 20 }}>{p.evaluation.totalScore ?? '—'}</strong> 分 <StatusBadge map={SEL_REC} value={p.evaluation.recommendation} />{' '}
               <StatusBadge map={COMPLIANCE} value={p.evaluation.compliance?.status} />
+              {p.evaluation.rubricVersion === 2 ? <div className="muted" data-testid={`g1s-eval-v2-${p.productId}`}>V2 子條件評分・證據完整度 {p.evaluation.evidenceCompleteness == null ? '—' : Math.round(Number(p.evaluation.evidenceCompleteness) * 100)}%{(p.evaluation.evidenceGaps ?? []).length ? `・缺證據：${(p.evaluation.evidenceGaps as string[]).join('、')}` : ''}</div> : null}
               <div className="muted">v{p.evaluation.versionNo}・完整度 {p.evaluation.completeness == null ? '—' : Math.round(Number(p.evaluation.completeness) * 100)}%・{p.evaluation.evaluatedOn ?? ''}・{p.evaluation.evaluatorName ?? ''}</div>
               <div>覆核：{p.evaluation.reviewDecision ? <StatusBadge map={EVAL_REVIEW} value={p.evaluation.reviewDecision} /> : <Badge>待覆核</Badge>}</div>
             </div>) : <span className="unknown">尚無已送出的評估</span>}
@@ -36,6 +38,7 @@ function ProductBlock({ p }: { p: Prod }) {
               {p.diligence.status === 'APPROVED' ? <div className={p.diligence.validity.valid ? 'muted' : ''} style={p.diligence.validity.valid ? undefined : { color: 'var(--danger)' }}>
                 {p.diligence.validity.valid ? `有效至 ${p.diligence.validUntil}` : `已失效：${p.diligence.validity.reasons.join('；')}`}</div> : null}
               <div className="muted">待補件 {p.diligence.readiness.counts.PENDING_DOCS ?? 0}・有風險 {p.diligence.readiness.risks}・過期證據 {p.diligence.readiness.expired}・法務未結 {p.diligence.readiness.legalPending}</div>
+              <DdProgress readiness={p.diligence.readiness as never} testid={`g1s-ddprog-${p.productId}`} />
             </div>) : <span className="unknown">尚無合作資格審查</span>}
         </div>
         <div data-testid={`g1s-trial-${p.productId}`}>
