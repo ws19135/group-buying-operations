@@ -8,7 +8,8 @@ import { audit } from '../lib/audit';
 import { ids, todayTaipei } from '../lib/ids';
 import { camelize } from '../lib/case';
 import { campaignScope } from '../lib/scope';
-import { SALES_STATUSES } from '../lib/kpi';
+import { loadActualSales } from '../lib/actual-sales';
+import { actualContribution } from './actual-contribution';
 import {
   INPUT_LABEL, NON_SENSITIVE_INPUT_KEYS, SENSITIVE_INPUT_KEYS, SOURCE_KINDS, calcFeasibility, feasibilityInputSchema, maskInputs, maskResults, touchesSensitiveInputs,
   type FeasibilityInputs,
@@ -32,6 +33,12 @@ export const feasibilityCreateSchema = z.object({
 
 const isSensitiveKey = (k: string) => (SENSITIVE_INPUT_KEYS as readonly string[]).includes(k);
 
+/** 實際貢獻利潤含成本與分潤，沒有成本檢視權限者只看到「需權限」，其餘實績（訂單、GMV、客訴等）照舊 */
+function maskActuals(a: Record<string, unknown> | null, canCost: boolean): Record<string, unknown> | null {
+  if (!a || canCost || !a.contribution) return a;
+  return { ...a, contribution: { restricted: true } };
+}
+
 function maskSources(sources: Record<string, unknown>, canCost: boolean): Record<string, unknown> {
   if (canCost) return sources;
   return Object.fromEntries(Object.entries(sources).filter(([k]) => !isSensitiveKey(k)));
@@ -43,7 +50,7 @@ interface ScenarioRow { id: string; product_id: string; campaign_id: string | nu
 export interface FeasibilityView extends Record<string, unknown> { id: string; versionNo: number; label: string | null; inputs: Record<string, unknown>; sources: Record<string, unknown>; results: Record<string, unknown>; restricted: boolean }
 function present(r: ScenarioRow & Record<string, unknown>, canCost: boolean): FeasibilityView {
   const c = camelize<Record<string, unknown>>(r);
-  return { ...c, id: r.id, versionNo: r.version_no, label: r.label, inputs: maskInputs(r.inputs, canCost), sources: maskSources(r.sources, canCost), results: maskResults(r.results, canCost), restricted: !canCost };
+  return { ...c, id: r.id, versionNo: r.version_no, label: r.label, inputs: maskInputs(r.inputs, canCost), sources: maskSources(r.sources, canCost), results: maskResults(r.results, canCost), actuals: maskActuals(r.actuals, canCost), restricted: !canCost };
 }
 
 const SELECT_SC = `SELECT f.*, c.title AS campaign_title, h.display_name AS host_name, u.name AS created_by_name FROM feasibility_scenarios f
@@ -151,33 +158,34 @@ export async function recordActuals(actor: Actor, id: string) {
     const f = cur.rows[0] as ScenarioRow;
     if (!f.campaign_id) throw precondition('這個情境沒有關聯檔期，沒有可回寫的實際資料');
     const camp = await assertCampaignVisible(actor, f.campaign_id);
-    const sales = f.host_id
-      ? await tx.query<{ orders: number; gmv: number; refund: number }>(
-          `SELECT count(DISTINCT o.id)::int AS orders, coalesce(sum(o.gross_amount * a.share_percent / 100.0),0) AS gmv, coalesce(sum(o.refund_amount * a.share_percent / 100.0),0) AS refund
-           FROM attributions a JOIN orders o ON o.id=a.order_id WHERE o.campaign_id=$1 AND a.organization_id=$2 AND a.host_id=$3 AND o.status = ANY($4::text[])`, [f.campaign_id, actor.orgId, f.host_id, [...SALES_STATUSES]])
-      : await tx.query<{ orders: number; gmv: number; refund: number }>(
-          `SELECT count(*)::int AS orders, coalesce(sum(gross_amount),0) AS gmv, coalesce(sum(refund_amount),0) AS refund FROM orders WHERE campaign_id=$1 AND organization_id=$2 AND status = ANY($3::text[])`, [f.campaign_id, actor.orgId, [...SALES_STATUSES]]);
+    // 實際銷售與實際貢獻利潤：與小規模測試團 KPI 共用同一個定義（lib/actual-sales、lib/actual-profit），不再各算一套
+    const a = await loadActualSales(tx, { orgId: actor.orgId, campaignId: f.campaign_id, hostId: f.host_id });
+    const contribution = await actualContribution(tx, { campaignId: f.campaign_id, hostId: f.host_id, scenario: { inputs: f.inputs, sources: f.sources }, actual: { valid: a.valid, gmv: a.gmv, refund: a.refund, refunded: a.refundedOrders } });
     const cs = await tx.query<{ t: string; n: number }>(`SELECT case_type AS t, count(*)::int AS n FROM service_cases WHERE campaign_id=$1 AND organization_id=$2 AND status <> 'CANCELLED' GROUP BY case_type`, [f.campaign_id, actor.orgId]);
     const sh = await tx.query<{ n: number; ex: number }>(
       `SELECT count(*) FILTER (WHERE s.status <> 'CANCELLED')::int AS n, count(*) FILTER (WHERE s.status = 'EXCEPTION')::int AS ex FROM shipments s JOIN fulfillment_batches b ON b.id=s.batch_id
        WHERE s.campaign_id=$1 AND b.organization_id=$2 AND b.kind='ORDER'`, [f.campaign_id, actor.orgId]);
-    const s = sales.rows[0];
-    const orders = Number(s.orders), gmv = Math.round(Number(s.gmv)), refund = Math.round(Number(s.refund)), nsv = gmv - refund;
+    // 既有欄位（orders＝計入銷售的訂單數、aov＝GMV÷計入銷售的訂單、refundRatePct＝退款金額÷GMV）維持原義，舊畫面與資料不受影響；新增欄位用 KPI 定義
+    const orders = a.established, gmv = a.gmv, refund = a.refund, nsv = a.nsv;
     const caseN = (t: string) => Number(cs.rows.find((x) => x.t === t)?.n ?? 0);
     const shipments = Number(sh.rows[0].n), exceptions = Number(sh.rows[0].ex);
-    const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 10_000) / 100 : null);
+    const pct = (x: number, y: number) => (y > 0 ? Math.round((x / y) * 10_000) / 100 : null);
     const predicted = { expectedOrders: (f.inputs.expectedOrders as number | null) ?? null, gmv: (f.results.gmv as number | null) ?? null, refundRatePct: (f.inputs.refundRatePct as number | null) ?? null };
-    const actualRefundRate = pct(refund, gmv);
-    const diff = (a: number, p: number | null) => (p == null ? null : { predicted: p, actual: a, diff: a - p, diffPct: p > 0 ? Math.round(((a - p) / p) * 10_000) / 100 : null });
+    const actualRefundRate = a.refundRateByAmountPct;
+    const diff = (x: number, p: number | null) => (p == null ? null : { predicted: p, actual: x, diff: x - p, diffPct: p > 0 ? Math.round(((x - p) / p) * 10_000) / 100 : null });
     const actuals = {
       scope: f.host_id ? 'HOST' : 'CAMPAIGN', campaignStatus: camp.status, orders, gmv, refund, nsv, aov: orders > 0 ? Math.round(gmv / orders) : null, refundRatePct: actualRefundRate,
+      // 與小規模測試團 KPI 同一定義（Owner 決策 K-3）
+      validOrders: a.valid, refundedOrders: a.refundedOrders, cancelledOrders: a.cancelled, netAov: a.aov,
+      contribution: { status: contribution.status, total: contribution.total, perOrder: contribution.perOrder, reasons: contribution.reasons, basis: '公司貢獻利潤＝公司確認收入 − 團主分潤（若由公司支付）− 公司實際負擔的可歸屬成本；條款須為合約／正式商務條件，否則資料不足（與 KPI 共用 lib/actual-profit）' },
       complaints: caseN('COMPLAINT'), refundCases: caseN('REFUND'), exchangeCases: caseN('EXCHANGE'), shipments, shipmentExceptions: exceptions, shipmentExceptionRatePct: pct(exceptions, shipments),
       variance: { orders: diff(orders, predicted.expectedOrders), gmv: diff(gmv, predicted.gmv), refundRatePct: predicted.refundRatePct == null || actualRefundRate == null ? null : { predicted: predicted.refundRatePct, actual: actualRefundRate, diff: Math.round((actualRefundRate - predicted.refundRatePct) * 100) / 100 } },
-      note: '客訴件數與出貨例外是檔期層級（不分團主）；不回寫利潤，避免在成本資料不全時捏造結果',
+      note: '客訴件數與出貨例外是檔期層級（不分團主）；實際貢獻利潤只在條款已確認、資料齊全時才有值，未知成本不當 0',
     };
     await tx.query(`UPDATE feasibility_scenarios SET actuals=$2, actuals_at=now(), updated_by=$3 WHERE id=$1`, [id, JSON.stringify(actuals), actor.userId]);
-    await audit(tx, actor, { action: 'selection.feasibility.actuals', entityType: 'feasibility_scenario', entityId: id, campaignId: f.campaign_id, before: f.actuals ? { actuals: f.actuals } : null, after: { actuals } });
-    return { id, actuals };
+    const auditView = (x: Record<string, unknown> | null) => (x ? { ...x, contribution: x.contribution ? { status: (x.contribution as { status: string }).status } : null } : null);   // 稽核不留金額
+    await audit(tx, actor, { action: 'selection.feasibility.actuals', entityType: 'feasibility_scenario', entityId: id, campaignId: f.campaign_id, before: f.actuals ? { actuals: auditView(f.actuals) } : null, after: { actuals: auditView(actuals) } });
+    return { id, actuals: maskActuals(actuals, can(actor, 'product.cost.read')) };
   });
 }
 

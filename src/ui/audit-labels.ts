@@ -12,7 +12,7 @@ const SEG: Record<string, string> = {
   import_error: '匯入錯誤', intake: '廠商進件', inventory: '庫存', inventory_movement: '庫存異動', invoice: '發票', order: '訂單', organization: '組織', partner_segment_link: '合作對象與客群',
   payment: '入帳', placement: '社群曝光', product: '商品', product_asset: '商品素材', product_evaluation: '選品評估', product_trial: '資格試用', refund: '退款', refund_request: '退款申請',
   segment: '客群', segment_link: '客群連結', selection: '選品', selection_config: '選品設定', service_case: '客服案件', settlement: '結算', settlement_adjustment: '結算調整',
-  settlement_item: '結算明細', shipment: '出貨單', sku: '規格（SKU）', task: '任務', trial: '試用', trial_check: '試用檢查項', user: '使用者', vendor: '廠商', vendor_contact: '廠商聯絡人',
+  settlement_item: '結算明細', shipment: '出貨單', sku: '規格（SKU）', task: '任務', trial: '試用', trial_check: '試用檢查項', trial_reach_record: '觸及與導購資料', reach: '觸及與導購資料', user: '使用者', vendor: '廠商', vendor_contact: '廠商聯絡人',
   vendor_dd_item: '合作資格審查項目', vendor_dd_record: '合作資格審查', workflow_template: '流程模板', dd: '合作資格審查', evaluation: '選品評估', item: '項目', config: '設定',
   // 動作
   add: '新增', remove: '移除', create: '建立', update: '更新', archive: '封存', cancel: '取消', respond: '回覆', reschedule: '改期', request: '申請', approve: '核准', reject: '退回',

@@ -1374,16 +1374,17 @@ NSV            = GMV − 退款
 - **權限**：V2 沿用 `selection.read／write／config` 與 `product.review`（覆核與補件要求）；利潤維度的敏感子條件依 `product.cost.read` 遮蔽。
 - **自動取值的挑選規則**：`pickDdRecord`（見規格 §7）同時用於 G1 摘要，修正「商品專屬草稿蓋過廠商層級已核准調查」。
 
-### 18B.10 SOP 01～03 驗收補強：小規模測試團 KPI、團主意願、V2 設定畫面（migration 017）
+### 18B.10 SOP 01～03 驗收補強：小規模測試團 KPI、團主意願、V2 設定畫面（migration 017）與 K-1～K-3 決策落地（migration 018）
 
-完整公式與資料來源見 `docs/phase2/TRIAL_KPI.md`，逐項驗收矩陣見 `docs/phase2/SOP_01_03_ACCEPTANCE.md`。
+完整公式與資料來源見 `docs/phase2/TRIAL_KPI.md`，口徑差異分析見 `docs/phase2/TRIAL_KPI_FINANCE_ALIGNMENT.md`，逐項驗收矩陣見 `docs/phase2/SOP_01_03_ACCEPTANCE.md`。
 
-- **資料模型（只新增）**：`product_trials.host_intent`（`WILLING`／`UNDECIDED`／`UNWILLING`，可空）、`host_intent_note`；約束 `host_intent IS NULL OR host_id IS NOT NULL`。不新增資料表。
-- **API**：`GET /api/trials/:id/kpis`（`selection.read`，受檔期範圍限制；回傳 8 項 KPI、`scopeNote`、`thresholds.applied=false`）；意願經既有 `PATCH /api/trials/:id`（`logistics.hostIntent`），建立試用時不可帶。
-- **計算**：純函式 `computeTrialKpis`（狀態 `OK`／`INSUFFICIENT`；每項含公式、來源、期間、完整度、樣本數、`lowSample`、原因）；`maskTrialKpis` 對無 `product.cost.read` 者移除估計值。資料彙整在 `modules/trial-kpis.ts`（SQL 聚合；有團主時只算歸因到該團主的訂單）。
-- **UI**：`TrialKpiCard`（試用詳情，團主適配或小規模測試團）；`/selection?tab=config2`（V2 設定：權重合計必須 100、門檻、樣本下限、啟用／確認旗標、進階 JSON；未確認＝提案；子條件目錄唯讀）。
+- **資料模型**：017 `product_trials.host_intent`（`WILLING`／`UNDECIDED`／`UNWILLING`，可空）、`host_intent_note`，約束 `host_intent IS NULL OR host_id IS NOT NULL`。018 新增 `trial_reach_records`（RCH-）：`metric`（`POTENTIAL_REACH`／`ACTUAL_REACH`／`QUALIFIED_VISITORS`）、`value`、`source_kind`、`source_text`、`period_start`／`period_end`、`credibility`、`filled_on`、`created_by`（填寫人）、軟刪除欄位（`deleted_at`、`deleted_by`、`delete_reason`）；觸發器：`touch_row`、`forbid_delete`、`trial_reach_guard`（內容建立後不可改，只能軟刪除）。可行性的 `inputs`／`sources` 是 jsonb，新增輸入 `returnCostPerRefundOrder`、`returnCostBorneBy` 與來源種類 `FORMAL_TERMS` 不需 migration。
+- **API**：`GET /api/trials/:id/kpis`、`GET /api/trial-kpis/summary`（K-1 彙整）、`GET／POST /api/trials/:id/reach`、`POST /api/reach-records/:id/void`；意願經既有 `PATCH /api/trials/:id`。
+- **共用計算（K-3）**：`lib/actual-sales.ts`（`loadActualSales`：計入銷售、有效訂單、有退款訂單、取消、GMV、退款、有效淨銷售額、有效客單價，有團主時依歸因比例分攤）；`lib/feasibility-calc.ts` `calcFeasibility(inputs, { actual, requireReturnCost })`（預設行為不變）；`lib/actual-profit.ts` `computeActualContribution`（條款已確認、完整、可歸屬才有值，否則資料不足並列原因）；`modules/actual-contribution.ts`（取檔期商品數與其他團主數）。`modules/feasibility.recordActuals` 保留既有欄位原義，新增 `validOrders`／`refundedOrders`／`cancelledOrders`／`netAov`／`contribution`（稽核只記狀態，沒有成本權限者看到「需權限」）。
+- **KPI 計算**：純函式 `computeTrialKpis`（狀態 `OK`／`INSUFFICIENT`／`RESTRICTED`；每項含公式、來源、期間、完整度、樣本數、`lowSample`、原因、`facts`、`notices`）；`maskTrialKpis` 對無 `product.cost.read` 者把每單貢獻利潤改為 `RESTRICTED`。`lib/trial-reach.ts`：三種資料的標籤、來源種類合規表、`pickLatest`、`visitorsUsable`。
+- **UI**：`TrialReachCard`（新增／刪除觸及與導購資料）、`TrialKpiCard`（風險提示、資料明細、需權限）、`TrialKpiSummaryView`（`/selection?tab=kpi`：進度 N／5、各 KPI、趨勢、風險提示）、`FeasibilityForm`（退款退貨處理成本與負擔方、收款方、來源「正式商務條件」）、`/selection?tab=config2`（V2 設定）。
 - **權限修補**：`listCampaignAudit` 依 `fit.read`／`segment.read` 過濾實體類型；`maskV2Result(r, canSeeSensitive, canSeeFit)` 遮罩 `fit.*` 自動條件。
-- **不變**：G1 檢查項、分潤／財務／發票模組、可行性 `recordActuals` 口徑。
+- **不變**：G1 檢查項、`lib/commission-calc`、結算、財務與發票模組、`lib/kpi.ts`。
 
 ## 19. 橫切設計
 

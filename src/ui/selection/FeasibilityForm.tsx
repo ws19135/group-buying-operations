@@ -10,10 +10,10 @@ const PARTY_OPTS = [{ value: 'BRAND', label: '品牌' }, { value: 'COMPANY', lab
 const GROUPS: { title: string; fields: FieldSpec[] }[] = [
   { title: '規模與價格', fields: [
     { key: 'expectedOrders', label: '預估訂單數', kind: 'int' }, { key: 'unitPrice', label: '團購價（元）', kind: 'int' }, { key: 'refundRatePct', label: '退款率（%）', kind: 'pct' },
-    { key: 'cashFlowMode', label: '收款模式', kind: 'select', options: [{ value: 'BRAND_COLLECTS', label: '品牌自收' }, { value: 'HOST_COLLECTS', label: '團主代收' }, { value: 'COMPANY_ESCROW', label: '公司代收（居中）' }] }] },
+    { key: 'cashFlowMode', label: '收款方（收款模式）', kind: 'select', options: [{ value: 'BRAND_COLLECTS', label: '品牌自收' }, { value: 'HOST_COLLECTS', label: '團主代收' }, { value: 'COMPANY_ESCROW', label: '公司代收（居中）' }] }] },
   { title: '成本（敏感）', fields: [
     { key: 'unitCost', label: '單位商品成本', kind: 'int' }, { key: 'shippingPerOrder', label: '運費／單', kind: 'int' }, { key: 'platformFeePct', label: '平台費比例（占 GMV 成交總額的 %）', kind: 'pct' },
-    { key: 'platformFeePerOrder', label: '平台費／單', kind: 'int' }, { key: 'otherVariablePerOrder', label: '其他變動成本／單（無請填 0）', kind: 'int' }, { key: 'fixedCost', label: '固定費用（無請填 0）', kind: 'int' }] },
+    { key: 'platformFeePerOrder', label: '平台費／單（含金流費）', kind: 'int' }, { key: 'returnCostPerRefundOrder', label: '退款／退貨處理成本（每筆，無請填 0）', kind: 'int', help: '退貨運費、處理費等；算實際貢獻利潤時一定要填（Owner 決策 K-3）' }, { key: 'otherVariablePerOrder', label: '其他變動成本／單（無請填 0）', kind: 'int' }, { key: 'fixedCost', label: '固定費用（無請填 0）', kind: 'int' }] },
   { title: '服務費與分潤（敏感；口徑待 Owner 確認）', fields: [
     { key: 'brandFeePct', label: '品牌端服務費比例（%）', kind: 'pct', help: '公司營業收入＝比例 × 分潤基礎 ＋ 固定費；沒有請填 0' }, { key: 'serviceFeeFixed', label: '品牌端服務費固定額', kind: 'int' },
     { key: 'hostCommissionPct', label: '團主分潤比例（%）', kind: 'pct' },
@@ -21,7 +21,8 @@ const GROUPS: { title: string; fields: FieldSpec[] }[] = [
     { key: 'hostPaidBy', label: '團主分潤付款方', kind: 'select', options: [{ value: 'COMPANY', label: '公司' }, { value: 'BRAND', label: '品牌' }] }] },
   { title: '成本負擔方（金額大於 0 的項目必選；敏感）', fields: [
     { key: 'shippingBorneBy', label: '運費由誰負擔', kind: 'select', options: PARTY_OPTS }, { key: 'platformFeeBorneBy', label: '平台費由誰負擔', kind: 'select', options: PARTY_OPTS },
-    { key: 'otherCostBorneBy', label: '其他變動成本由誰負擔', kind: 'select', options: PARTY_OPTS }, { key: 'fixedCostBorneBy', label: '固定費用由誰負擔', kind: 'select', options: PARTY_OPTS }] },
+    { key: 'otherCostBorneBy', label: '其他變動成本由誰負擔', kind: 'select', options: PARTY_OPTS }, { key: 'fixedCostBorneBy', label: '固定費用由誰負擔', kind: 'select', options: PARTY_OPTS },
+    { key: 'returnCostBorneBy', label: '退款／退貨相關費用由誰負擔', kind: 'select', options: PARTY_OPTS }] },
 ];
 
 /**
@@ -67,6 +68,7 @@ export function FeasibilityForm({ productId, campaignId, hostId, trialId, curren
       {campaignOptions ? <label className="field"><span className="lbl">關聯檔期（選填；關聯後可回寫小規模測試團實際）</span>
         <select value={camp} onChange={(e) => setCamp(e.target.value)} data-testid="fz-campaign"><option value="">（商品層級，不關聯檔期）</option>{campaignOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label> : null}
       <label className="field"><span className="lbl">版本標籤（選填，例：保守情境）</span><input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={100} data-testid="fz-label" /></label>
+      <p className="small muted" data-testid="fz-terms-note">要算「實際每單貢獻利潤」（小規模測試團 KPI 與實際值回寫）：收款方、各項費用的負擔方、團主分潤付款方與計算基礎，都要填，且每一項的「假設來源」必須選「合約」或「正式商務條件（已確認）」；來源是報價或估計的條款，實際貢獻利潤會維持「資料不足」。未知的成本不會被當成 0。</p>
       {GROUPS.map((g) => {
         const fields = g.fields.filter((f) => editableKeys.includes(f.key));
         if (!fields.length) return <p key={g.title} className="small muted">「{g.title}」屬敏感資料，您沒有成本檢視權限，無法查看或填寫（上一版已有的內容會原樣保留）。</p>;

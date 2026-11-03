@@ -42,7 +42,7 @@ describe('小規模測試團 KPI：整合（真實資料庫）', () => {
     for (const key of ['validOrders', 'conversionRate', 'aov', 'contributionPerOrder', 'refundCancel', 'onTimeShip', 'hostIntent']) expect(kpi(r, key)).toMatchObject({ status: 'INSUFFICIENT', value: null });
     expect(kpi(r, 'validOrders').reason).toContain('尚無訂單');
     expect(r.thresholds.applied).toBe(false);
-    expect(r.insufficient).toContain('導購轉換率');
+    expect(r.insufficient).toContain('導購轉換率（CVR）');
   });
 
   it('有團主：只算該團主歸因的訂單；有效訂單、客單價、退貨與取消比例、客訴、出貨準時率、缺陷率都依公式', async () => {
