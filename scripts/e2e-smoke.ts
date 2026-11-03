@@ -329,6 +329,7 @@ async function main() {
       await page.waitForLoadState('networkidle');
       const dd2 = await page.locator('body').innerText();
       record('草稿調查：有風險、需法務／合規審查、尚不能送審', /有風險/.test(dd2) && /需法務／合規審查/.test(dd2) && /尚不能送審/.test(dd2));
+      record('調查頁：12 題完成進度與缺件／風險清單；版本表列出這個廠商的調查', (await page.getByTestId('dd-progress-count').innerText()).includes('/12') && (await page.getByTestId('dd-progress-pending').count()) > 0 && (await page.getByTestId('dd-progress-risk').count()) > 0 && (await page.getByTestId('dd-history').count()) === 1, (await page.getByTestId('dd-progress-lists').innerText()).slice(0, 80).replace(/\s+/g, ' '));
       await page.locator('[data-testid="dd-item-PRICING"] summary').click();
       await page.getByTestId('dd-t-PRICING-listPrice').fill('680');
       await page.getByTestId('dd-t-PRICING-groupPrice').fill('520');
@@ -351,6 +352,30 @@ async function main() {
       record('商品頁有「商品試用」：商品資格仍有效，可沿用', /仍有效/.test(await page.getByTestId('trial-qualification').innerText()) && (await page.locator('[data-testid^="trial-row-"]').count()) >= 2);
       record('商品頁有「商業可行性」：GMV、淨銷售額、品牌利潤、公司營業收入分開呈現', (await page.locator('[data-testid^="fz-row-"]').count()) >= 1 && ['GMV', 'NSV', '品牌利潤', '公司營業收入'].every((t) => prod.includes(t)));
       await page.screenshot({ path: path.join(SHOTS, '29-product-selection.png'), fullPage: true });
+
+      // 選品評估 V2：防曬噴霧（已送出）與保濕面膜（草稿）
+      await page.goto(`${BASE}/products?q=${encodeURIComponent('防曬噴霧')}`, { waitUntil: 'networkidle' });
+      await Promise.all([page.waitForURL(/\/products\/PRD-/), page.locator('a[href^="/products/PRD-"]').first().click()]);
+      await page.waitForLoadState('networkidle');
+      const sunUrl = page.url();
+      const v2cur = await page.getByTestId('eval-current').innerText();
+      record('V2 評估（已送出）：六個維度、子條件的值與來源、資料與證據完整度', (await page.locator('[data-testid^="v2-dim-"]').count()) === 6 && /資料完整度/.test(v2cur) && /證據完整度/.test(v2cur) && (await page.locator('[data-testid^="v2-cond-"]').count()) === 30);
+      record('V2 評估：系統自動取值有來源、取不到的是「未知」並說明原因（不當 0 分）', /歷史訂單/.test(await page.getByTestId('v2-cond-QUAL_REFUND_RATE').innerText()) && /尚無/.test(await page.getByTestId('v2-cond-NEED_FIT_SCORE').innerText()));
+      record('V2 評估：高分不代表通過——廠商調查未核准是硬性條件，列出並最多只能補件／資料不足', (await page.getByTestId('v2-hard-unknown').count()) === 1 && /SUP_DD_APPROVED|合作資格審查/.test(await page.getByTestId('v2-hard-unknown').innerText()) && !/建議進入商務審查/.test(await page.getByTestId('v2-summary').innerText()));
+      record('V2 評估：主管的補件要求列在評估上（針對子條件）', (await page.getByTestId('supplement-panel').count()) === 1 && /有需求佐證/.test(await page.getByTestId('supplement-panel').innerText()));
+      record('V2 評估：沒有任何 1～5 分的滑桿或舊制分數表（已改成子條件）', (await page.locator('[data-testid="eval-scores"]').count()) === 0);
+      await page.screenshot({ path: path.join(SHOTS, '37-evaluation-v2.png'), fullPage: true });
+      await page.goto(`${BASE}/products?q=${encodeURIComponent('保濕面膜')}`, { waitUntil: 'networkidle' });
+      await Promise.all([page.waitForURL(/\/products\/PRD-/), page.locator('a[href^="/products/PRD-"]').first().click()]);
+      await page.waitForLoadState('networkidle');
+      record('V2 草稿：編輯器只列需要人填的條件，下方有即時預覽；舊制的現行評估仍可閱讀', (await page.getByTestId('evaluation-v2-editor').count()) === 1 && (await page.locator('[data-testid^="v2-edit-"]').count()) > 5 && (await page.getByTestId('v2-result').count()) >= 1 && (await page.getByTestId('eval-current').count()) === 1);
+      await page.getByTestId('v2-input-NEED_PRICE_ACCEPTABLE').selectOption('true');
+      await page.getByTestId('btn-eval-save').click();
+      await page.getByTestId('evaluation-v2-editor').waitFor({ timeout: 15_000 });
+      await page.waitForLoadState('networkidle');
+      await page.reload({ waitUntil: 'networkidle' });
+      record('V2 草稿：在畫面填寫後存檔，重新載入讀回一致，預覽的已知項目增加', (await page.getByTestId('v2-input-NEED_PRICE_ACCEPTABLE').inputValue()) === 'true' && /是/.test(await page.getByTestId('v2-value-NEED_PRICE_ACCEPTABLE').innerText().catch(() => '是')));
+      void sunUrl;
 
       // 在畫面完成一份評估草稿（香氛蠟燭）：缺證據 → 補測／補件；缺的項目是未知，不是 0
       await page.goto(`${BASE}/products?q=${encodeURIComponent('香氛蠟燭')}`, { waitUntil: 'networkidle' });
@@ -380,6 +405,7 @@ async function main() {
       const selTab = await page.locator('body').innerText();
       record('檔期「選品與試用」分頁：決策摘要（燈號、風險）、本檔試用、相關任務；明講不是 G1 檢查項', (await page.getByTestId('g1-summary').count()) > 0 && /不是 G1（選品核准）的檢查項/.test(selTab) && (await page.locator('[data-testid^="g1s-product-"]').count()) >= 1 && /風險與缺口/.test(selTab) && (await page.getByTestId('campaign-trials').count()) > 0);
       await page.screenshot({ path: path.join(SHOTS, '30-campaign-selection.png'), fullPage: true });
+      record('G1 決策摘要：廠商調查顯示 12 題進度與缺件／到期清單', (await page.locator('[data-testid^="g1s-ddprog-"]').count()) >= 1 || (await page.getByTestId('g1-summary').innerText()).includes('尚無合作資格審查'));
       await page.goto(`${campUrl2}?tab=approvals`, { waitUntil: 'networkidle' });
       record('G1 核准區有唯讀的決策摘要提示（不影響申請）', (await page.getByTestId('g1-selection-note').count()) > 0 && /不影響核准/.test(await page.getByTestId('g1-selection-note').innerText()));
       await page.goto(`${campUrl2}?tab=selection`, { waitUntil: 'networkidle' });
@@ -391,7 +417,8 @@ async function main() {
       record('試用詳情：系統建議存在，尚有未測項目 → 需重測', /系統建議/.test(tr) && /需重測/.test(await page.getByTestId('trial-suggestion').innerText()));
       await page.getByTestId('check-result-demonstrable').selectOption('PASS');
       await page.getByTestId('check-evidence-demonstrable').fill('E2E：現場示範 3 次皆成功');
-      await page.getByTestId('check-save-demonstrable').click();
+      // 等儲存的請求真的回來再重新載入（只等 networkidle 會在請求送出前就放行，造成偶發讀不回）
+      await Promise.all([page.waitForResponse((r) => r.request().method() !== 'GET' && /\/api\/trial-checks\//.test(r.url()) && r.ok(), { timeout: 15_000 }), page.getByTestId('check-save-demonstrable').click()]);
       await page.waitForLoadState('networkidle');
       await page.goto(page.url(), { waitUntil: 'networkidle' });
       record('檢核項在畫面存檔後讀回（結果、客觀證據、驗證人）', (await page.getByTestId('check-result-demonstrable').inputValue()) === 'PASS' && (await page.getByTestId('check-evidence-demonstrable').inputValue()).includes('現場示範'));
@@ -433,6 +460,14 @@ async function main() {
       await Promise.all([page.waitForURL(/\/products\/PRD-/), page.locator('a[href^="/products/PRD-"]').first().click()]);
       await page.waitForLoadState('networkidle');
       const prod = await page.locator('body').innerText();
+      await page.goto(`${BASE}/products?q=${encodeURIComponent('防曬噴霧')}`, { waitUntil: 'networkidle' });
+      await Promise.all([page.waitForURL(/\/products\/PRD-/), page.locator('a[href^="/products/PRD-"]').first().click()]);
+      await page.waitForLoadState('networkidle');
+      const edV2 = await page.getByTestId('eval-current').innerText();
+      record('小編看 V2 評估：利潤維度的子條件只看到狀態，數值顯示「僅限有權限者查看」；其他條件照常顯示', /僅限有權限者查看/.test(await page.getByTestId('v2-value-PROF_CONTRIB_MARGIN').innerText()) && /僅限有權限者查看/.test(await page.getByTestId('v2-value-PROF_GROSS_MARGIN').innerText()) && /歷史訂單/.test(edV2) && !(await page.getByTestId('v2-cond-PROF_DISCOUNT_DEPTH').innerText()).includes('僅限有權限者查看'));
+      await page.goto(`${BASE}/products?q=${encodeURIComponent('保濕面膜')}`, { waitUntil: 'networkidle' });
+      await Promise.all([page.waitForURL(/\/products\/PRD-/), page.locator('a[href^="/products/PRD-"]').first().click()]);
+      await page.waitForLoadState('networkidle');
       record('小編商品頁：可行性的成本與利潤顯示「無權限」，不顯示數字', /無權限/.test(await page.getByTestId('product-feasibility').innerText()) && /成本：無權限查看/.test(prod));
       await Promise.all([page.waitForURL(/\/feasibility\/FSB-/), page.locator('[data-testid^="fz-row-"] a').first().click()]);
       await page.waitForLoadState('networkidle');

@@ -50,7 +50,7 @@ async function main() {
     createEvidence(as, { subjectType, subjectId, kind, title: `[DEMO] ${title}`, url: url(title.replace(/\s+/g, '-')), sourceLabel: '[DEMO] 虛構文件', ...over } as never);
 
   // ---- 1. 保濕面膜：選品評估（建議進入商務審查、已覆核）----
-  const e1 = await createEvaluation(editor, pMask);
+  const e1 = await createEvaluation(editor, pMask, { rubric: 1 });
   const q1 = await ev(editor, 'EVALUATION', e1.id, 'TEST_REPORT', '保濕面膜檢驗報告', { validUntil: addDays(today, 300) });
   const s1 = await ev(editor, 'EVALUATION', e1.id, 'QUOTE', '晴空保養供貨與出貨紀錄', { validUntil: addDays(today, 200) });
   const sc = (score: number, reason: string, evidenceIds?: string[]) => ({ score, reason: `[DEMO] ${reason}`, ...(evidenceIds ? { evidenceIds } : {}) });
@@ -62,7 +62,7 @@ async function main() {
   await reviewEvaluation(manager, e1.id, { decision: 'ACCEPTED', note: '[DEMO] 同意進入商務審查' });
 
   // ---- 2. 手作餅乾禮盒：需法務審查，最多補測／補件 ----
-  const e2 = await createEvaluation(editor, pCookie);
+  const e2 = await createEvaluation(editor, pCookie, { rubric: 1 });
   await updateEvaluation(editor, e2.id, {
     scores: { need: sc(4, '節慶禮盒需求高'), quality: sc(3, '尚待提供完整檢驗'), profit: sc(5, '毛利高'), supply: sc(3, '產能旺季偏緊'), content: sc(5, '外觀吸睛') },
     compliance: { status: 'NEEDS_LEGAL', note: '[DEMO] 食品標示與保存期限需法務／合規確認' },
@@ -70,7 +70,7 @@ async function main() {
   await submitEvaluation(editor, e2.id);
 
   // ---- 3. 香氛蠟燭：評估草稿（示範未知不當 0 分）----
-  const e3 = await createEvaluation(editor, pCandle);
+  const e3 = await createEvaluation(editor, pCandle, { rubric: 1 });
   await updateEvaluation(editor, e3.id, { scores: { need: sc(3, '客群重疊度普通'), profit: sc(4, '毛利尚可') }, compliance: { status: 'UNKNOWN' } });
 
   // ---- 4. 晴空保養：合作資格審查（已核准）----

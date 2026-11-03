@@ -17,7 +17,7 @@ const newProduct = async () => (await mkProduct(w, vendorId, { name: `[DEMO] 選
 
 /** 建立一份草稿並填滿 n 分；quality 與 supply 各附一筆證據 */
 async function draft(productId: string, n = 4, compliance: { status: string; note?: string } = { status: 'PASS' }, withEvidence = true) {
-  const { id } = await createEvaluation(w.editor, productId);
+  const { id } = await createEvaluation(w.editor, productId, { rubric: 1 });
   let q: string[] | undefined, s: string[] | undefined;
   if (withEvidence) {
     const e1 = await createEvidence(w.editor, { subjectType: 'EVALUATION', subjectId: id, kind: 'TEST_REPORT', title: '[DEMO] 檢驗報告', url: 'https://docs.example.invalid/demo-report' });
@@ -74,8 +74,8 @@ describe('選品設定：版本、驗證、權限', () => {
 describe('選品評估：流程、版本、不可改', () => {
   it('建立草稿 → 同商品第二份草稿被擋（409）', async () => {
     const p = await newProduct();
-    await createEvaluation(w.editor, p);
-    await expect(createEvaluation(w.editor, p)).rejects.toMatchObject({ code: 'CONFLICT' });
+    await createEvaluation(w.editor, p, { rubric: 1 });
+    await expect(createEvaluation(w.editor, p, { rubric: 1 })).rejects.toMatchObject({ code: 'CONFLICT' });
   });
   it('分數 4 全項＋合規通過＋品質與供應附證據 → 80 分、PROCEED；寫入後讀回一致', async () => {
     const p = await newProduct();
@@ -97,7 +97,7 @@ describe('選品評估：流程、版本、不可改', () => {
   });
   it('過期證據不算證據：附的證據已過期 → 同樣降為 SUPPLEMENT', async () => {
     const p = await newProduct();
-    const { id } = await createEvaluation(w.editor, p);
+    const { id } = await createEvaluation(w.editor, p, { rubric: 1 });
     const e1 = await createEvidence(w.editor, { subjectType: 'EVALUATION', subjectId: id, kind: 'TEST_REPORT', title: '[DEMO] 過期報告', url: 'https://docs.example.invalid/a', validUntil: dayOffset(-1) });
     const e2 = await createEvidence(w.editor, { subjectType: 'EVALUATION', subjectId: id, kind: 'QUOTE', title: '[DEMO] 有效', url: 'https://docs.example.invalid/b', validUntil: dayOffset(90) });
     await updateEvaluation(w.editor, id, { scores: { ...allScores(5), quality: score(5, [e1.id]), supply: score(5, [e2.id]) }, compliance: { status: 'PASS' } });
@@ -112,13 +112,13 @@ describe('選品評估：流程、版本、不可改', () => {
   });
   it('缺資料不當 0 分：只評兩項 → 完整度 0.3、資料不足', async () => {
     const p = await newProduct();
-    const { id } = await createEvaluation(w.editor, p);
+    const { id } = await createEvaluation(w.editor, p, { rubric: 1 });
     await updateEvaluation(w.editor, id, { scores: { need: score(5), repeat: score(5) }, compliance: { status: 'PASS' } });
     expect(await submitEvaluation(w.editor, id)).toMatchObject({ completeness: 0.3, recommendation: 'INSUFFICIENT_DATA', confidence: 'INSUFFICIENT' });
   });
   it('送出檢查：已評分卻沒理由、沒有任何評分、合規 FAIL 沒說明 → 422', async () => {
     const p = await newProduct();
-    const { id } = await createEvaluation(w.editor, p);
+    const { id } = await createEvaluation(w.editor, p, { rubric: 1 });
     await expect(submitEvaluation(w.editor, id)).rejects.toMatchObject({ code: 'VALIDATION' });
     await updateEvaluation(w.editor, id, { scores: { need: { score: 4, reason: '' } }, compliance: { status: 'PASS' } });
     await expect(submitEvaluation(w.editor, id)).rejects.toThrow(/理由/);
@@ -127,7 +127,7 @@ describe('選品評估：流程、版本、不可改', () => {
   });
   it('分數超出 1–5 或非整數、理由含電話／Email → 422', async () => {
     const p = await newProduct();
-    const { id } = await createEvaluation(w.editor, p);
+    const { id } = await createEvaluation(w.editor, p, { rubric: 1 });
     await expect(updateEvaluation(w.editor, id, { scores: { need: { score: 6, reason: 'x' } } })).rejects.toBeTruthy();
     await expect(updateEvaluation(w.editor, id, { scores: { need: { score: 3.5, reason: 'x' } } })).rejects.toBeTruthy();
     await expect(updateEvaluation(w.editor, id, { scores: { need: { score: 3, reason: '請聯絡 0912-345-678' } } })).rejects.toMatchObject({ code: 'VALIDATION' });
@@ -135,7 +135,7 @@ describe('選品評估：流程、版本、不可改', () => {
   });
   it('引用別人的證據被拒', async () => {
     const p1 = await newProduct(), p2 = await newProduct();
-    const a = await createEvaluation(w.editor, p1), b = await createEvaluation(w.editor, p2);
+    const a = await createEvaluation(w.editor, p1, { rubric: 1 }), b = await createEvaluation(w.editor, p2, { rubric: 1 });
     const e = await createEvidence(w.editor, { subjectType: 'EVALUATION', subjectId: b.id, kind: 'OTHER', title: '[DEMO] x', url: 'https://docs.example.invalid/x' });
     await expect(updateEvaluation(w.editor, a.id, { scores: { quality: score(4, [e.id]) } })).rejects.toThrow(/不屬於這份評估/);
   });
@@ -176,7 +176,7 @@ describe('選品評估覆核：只記錄意見，不改商品審核狀態、不�
   });
   it('草稿不能覆核', async () => {
     const p = await newProduct();
-    const { id } = await createEvaluation(w.editor, p);
+    const { id } = await createEvaluation(w.editor, p, { rubric: 1 });
     await expect(reviewEvaluation(w.manager, id, { decision: 'ACCEPTED' })).rejects.toMatchObject({ code: 'PRECONDITION_FAILED' });
   });
 });
@@ -184,14 +184,14 @@ describe('選品評估覆核：只記錄意見，不改商品審核狀態、不�
 describe('證據連結：只存連結，安全檢查，軟刪除', () => {
   it('只接受 http(s)；javascript:、data:、ftp: 與內嵌帳密被拒', async () => {
     const p = await newProduct();
-    const { id } = await createEvaluation(w.editor, p);
+    const { id } = await createEvaluation(w.editor, p, { rubric: 1 });
     const mk = (url: string) => createEvidence(w.editor, { subjectType: 'EVALUATION', subjectId: id, kind: 'OTHER', title: '[DEMO] x', url });
     for (const url of ['javascript:alert(1)', 'data:text/html;base64,AAAA', 'ftp://x.example/a', 'file:///etc/passwd', 'https://user:pw@docs.example.invalid/a']) await expect(mk(url)).rejects.toMatchObject({ code: 'VALIDATION' });
     await expect(mk('https://docs.example.invalid/ok')).resolves.toHaveProperty('id');
   });
   it('標題、備註含電話或 Email 被拒；有效期限早於起始日被拒', async () => {
     const p = await newProduct();
-    const { id } = await createEvaluation(w.editor, p);
+    const { id } = await createEvaluation(w.editor, p, { rubric: 1 });
     const base = { subjectType: 'EVALUATION' as const, subjectId: id, kind: 'OTHER' as const, url: 'https://docs.example.invalid/ok' };
     await expect(createEvidence(w.editor, { ...base, title: '聯絡 0912345678' })).rejects.toMatchObject({ code: 'VALIDATION' });
     await expect(createEvidence(w.editor, { ...base, title: 'x', note: 'a@b.co' })).rejects.toMatchObject({ code: 'VALIDATION' });
@@ -199,7 +199,7 @@ describe('證據連結：只存連結，安全檢查，軟刪除', () => {
   });
   it('網域白名單：設定後只接受名單內網域', async () => {
     const p = await newProduct();
-    const { id } = await createEvaluation(w.editor, p);
+    const { id } = await createEvaluation(w.editor, p, { rubric: 1 });
     const cfg = await getSelectionConfig(w.manager);
     await putSelectionConfig(w.manager, { weights: cfg.weights, evidenceHosts: ['drive.corp.invalid'], version: cfg.version });
     try {
@@ -213,15 +213,15 @@ describe('證據連結：只存連結，安全檢查，軟刪除', () => {
   it('引用商品素材：沿用既有連結、不複製；別的商品的素材被拒', async () => {
     const p1 = await newProduct(), p2 = await newProduct();
     const a1 = await query<{ id: string }>(`INSERT INTO product_assets (id, organization_id, product_id, kind, title, url) VALUES ($1,$2,$3,'DOCUMENT','[DEMO] 檢驗','https://docs.example.invalid/asset') RETURNING id`, [`AST-T${Math.random().toString(36).slice(2, 8)}`, w.orgId, p1]);
-    const { id } = await createEvaluation(w.editor, p1);
+    const { id } = await createEvaluation(w.editor, p1, { rubric: 1 });
     const e = await createEvidence(w.editor, { subjectType: 'EVALUATION', subjectId: id, kind: 'CERTIFICATE', title: '[DEMO] 引用素材', assetId: a1[0].id });
     expect((await query<{ url: string; asset_id: string }>(`SELECT url, asset_id FROM evidence_items WHERE id=$1`, [e.id]))[0]).toEqual({ url: 'https://docs.example.invalid/asset', asset_id: a1[0].id });
-    const { id: id2 } = await createEvaluation(w.editor, p2);
+    const { id: id2 } = await createEvaluation(w.editor, p2, { rubric: 1 });
     await expect(createEvidence(w.editor, { subjectType: 'EVALUATION', subjectId: id2, kind: 'CERTIFICATE', title: 'x', assetId: a1[0].id })).rejects.toMatchObject({ code: 'VALIDATION' });
   });
   it('移除＝軟刪除（資料列還在）；評估送出後不能再增減證據', async () => {
     const p = await newProduct();
-    const { id } = await createEvaluation(w.editor, p);
+    const { id } = await createEvaluation(w.editor, p, { rubric: 1 });
     const e = await createEvidence(w.editor, { subjectType: 'EVALUATION', subjectId: id, kind: 'OTHER', title: 'x', url: 'https://docs.example.invalid/a' });
     await removeEvidence(w.editor, e.id);
     expect((await query(`SELECT deleted_at FROM evidence_items WHERE id=$1`, [e.id]))[0].deleted_at).not.toBeNull();
@@ -247,7 +247,7 @@ describe('權限與資料隔離', () => {
   });
   it('跨組織：別家的商品與評估一律 404', async () => {
     const op = (await mkProduct(other, (await mkVendor(other)).id)).id;
-    const oe = await createEvaluation(other.editor, op);
+    const oe = await createEvaluation(other.editor, op, { rubric: 1 });
     expect((await ed.call('GET', `/products/${op}/evaluations`)).status).toBe(404);
     expect((await ed.call('GET', `/evaluations/${oe.id}`)).status).toBe(404);
     expect((await ed.call('PATCH', `/evaluations/${oe.id}`, { scores: { need: score(4) } })).status).toBe(404);

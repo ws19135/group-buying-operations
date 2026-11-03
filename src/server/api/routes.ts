@@ -25,6 +25,7 @@ import * as aftersales from '../modules/aftersales';
 import * as segments from '../modules/segments';
 import * as fit from '../modules/fit';
 import * as selection from '../modules/selection';
+import * as selectionV2 from '../modules/selection-v2';
 import * as evidence from '../modules/evidence';
 import * as diligence from '../modules/diligence';
 import * as trials from '../modules/trials';
@@ -130,6 +131,8 @@ export const routes: RouteDef[] = [
   // ---------- 商品選品、廠商合作資格審查、試用與商業可行性（SOP 02／03；設計見 docs/phase2/PRODUCT_SELECTION_TRIAL.md） ----------
   R('GET', '/selection/config', async (c) => selection.getSelectionConfig(c.actor)),
   R('PUT', '/selection/config', async (c) => selection.putSelectionConfig(c.actor, c.body as never)),
+  R('GET', '/selection/config-v2', async (c) => selectionV2.getV2Config(c.actor)),
+  R('PUT', '/selection/config-v2', async (c) => selectionV2.putV2Config(c.actor, c.body as never)),
   R('GET', '/selection/overview', async (c) => selection.selectionOverview(c.actor)),
   R('POST', '/evidence', async (c) => created(await evidence.createEvidence(c.actor, c.body as never))),
   R('POST', '/evidence/:id/remove', async (c) => evidence.removeEvidence(c.actor, c.params.id)),
@@ -138,14 +141,18 @@ export const routes: RouteDef[] = [
   R('GET', '/diligence/:id', async (c) => diligence.getDiligence(c.actor, c.params.id)),
   R('PATCH', '/diligence/:id', async (c) => diligence.updateDiligence(c.actor, c.params.id, c.body as never)),
   R('POST', '/diligence/:id/submit', async (c) => diligence.submitDiligence(c.actor, c.params.id)),
+  R('POST', '/diligence/:id/withdraw', async (c) => diligence.withdrawDiligence(c.actor, c.params.id)),
   R('POST', '/diligence/:id/review', async (c) => diligence.reviewDiligence(c.actor, c.params.id, c.body as never)),
   R('PATCH', '/diligence-items/:id', async (c) => diligence.updateDiligenceItem(c.actor, c.params.id, c.body as never)),
   R('POST', '/diligence-items/:id/legal', async (c) => diligence.setLegalStatus(c.actor, c.params.id, c.body as never)),
   R('GET', '/products/:id/evaluations', async (c) => selection.listProductEvaluations(c.actor, c.params.id)),
-  R('POST', '/products/:id/evaluations', async (c) => created(await selection.createEvaluation(c.actor, c.params.id))),
+  R('POST', '/products/:id/evaluations', async (c) => created(await selection.createEvaluation(c.actor, c.params.id, { rubric: (c.body as { rubric?: 1 | 2 } | null | undefined)?.rubric }))),
   R('GET', '/evaluations/:id', async (c) => selection.getEvaluation(c.actor, c.params.id)),
   R('PATCH', '/evaluations/:id', async (c) => selection.updateEvaluation(c.actor, c.params.id, c.body as never)),
   R('POST', '/evaluations/:id/submit', async (c) => selection.submitEvaluation(c.actor, c.params.id)),
+  R('GET', '/evaluations/:id/supplements', async (c) => selectionV2.listSupplements(c.actor, c.params.id)),
+  R('POST', '/evaluations/:id/supplements', async (c) => created(await selectionV2.createSupplement(c.actor, c.params.id, c.body as never))),
+  R('POST', '/supplement-requests/:id/resolve', async (c) => selectionV2.resolveSupplement(c.actor, c.params.id, c.body as never)),
   R('POST', '/evaluations/:id/review', async (c) => selection.reviewEvaluation(c.actor, c.params.id, c.body as never)),
   R('GET', '/products/:id/trials', async (c) => trials.listProductTrials(c.actor, c.params.id)),
   R('POST', '/products/:id/trials', async (c) => created(await trials.createTrial(c.actor, c.params.id, c.body as never, c.idemKey))),

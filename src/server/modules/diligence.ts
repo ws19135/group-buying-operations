@@ -15,6 +15,7 @@ import {
 } from '../lib/dd-catalog';
 import { assertNoPii, evidenceFor, loadSelectionConfig, mapDbError } from './selection';
 import { maskEvidenceList } from './evidence';
+import { pickDdRecord } from './selection-v2';
 
 /**
  * 廠商首次合作盡職調查（SOP 02，12 類）。一份調查＝某廠商（可限定某商品）在某合約版本下的 12 類問題。
@@ -22,6 +23,7 @@ import { maskEvidenceList } from './evidence';
  * 核准結果不阻擋、也不放行 G1，只在廠商頁與 G1 摘要顯示。設計見 docs/phase2/PRODUCT_SELECTION_TRIAL.md §4。
  */
 const EDITABLE = ['DRAFT', 'REJECTED'];
+const stableJson = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))) : x));
 const LEGAL_EDITABLE = ['DRAFT', 'IN_REVIEW', 'REJECTED'];
 
 async function loadVendor(db: Queryable, orgId: string, vendorId: string) {
@@ -36,6 +38,8 @@ export const ddCreateSchema = z.object({
   contractRef: z.string().trim().max(200).nullable().optional(),
   regulatedCategory: z.enum(REGULATED_CATEGORIES).nullable().optional(),
   note: z.string().trim().max(1000).nullable().optional(),
+  /** 沿用：從同一廠商先前的調查帶入條款、責任方與負責人；項目一律回到「待補件」、不複製證據與確認，需要重新確認 */
+  copyFromId: z.string().max(40).nullable().optional(),
 }).strict();
 
 /** 依資料決定第 1、11 類是否要標「需法務／合規審查」 */
@@ -64,13 +68,25 @@ export async function createDiligence(actor: Actor, vendorId: string, raw: z.inp
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$8,$8)`,
         [id, actor.orgId, vendorId, input.productId ?? null, input.contractVersion, input.contractRef ?? null, input.regulatedCategory ?? null, actor.userId, input.note ?? null]);
       const trig = triggersFor({ regulatedCategory: input.regulatedCategory ?? null }, [vendor.category, product?.name, product?.category, product?.compliance_note]);
-      for (const c of DD_CATEGORIES) {
-        const t = trig(c.key, {});
-        await tx.query(
-          `INSERT INTO vendor_dd_items (id, organization_id, record_id, category_key, legal_status, legal_reason, created_by, updated_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$7)`,
-          [await ids.ddItem(tx), actor.orgId, id, c.key, t.required ? 'REQUIRED' : 'NOT_REQUIRED', t.required ? t.reasons.join('；') : null, actor.userId]);
+      let src = new Map<string, { terms: Record<string, unknown>; responsible_party: string | null; owner_user_id: string | null }>();
+      if (input.copyFromId) {
+        const from = await tx.query(`SELECT id FROM vendor_dd_records WHERE id=$1 AND organization_id=$2 AND vendor_id=$3 AND deleted_at IS NULL`, [input.copyFromId, actor.orgId, vendorId]);
+        if (!from.rowCount) throw validation('找不到要沿用的調查（必須是同一廠商的調查）');
+        const its = await tx.query<{ category_key: string; terms: Record<string, unknown>; responsible_party: string | null; owner_user_id: string | null }>(`SELECT category_key, terms, responsible_party, owner_user_id FROM vendor_dd_items WHERE record_id=$1`, [input.copyFromId]);
+        src = new Map(its.rows.map((r) => [r.category_key, r]));
+        await tx.query(`UPDATE vendor_dd_records SET copied_from_id=$2 WHERE id=$1`, [id, input.copyFromId]);
       }
-      await audit(tx, actor, { action: 'selection.dd.create', entityType: 'vendor_dd_record', entityId: id, after: { vendorId, productId: input.productId ?? null, contractVersion: input.contractVersion, regulatedCategory: input.regulatedCategory ?? null } });
+      const canSensitive = can(actor, 'product.cost.read');
+      for (const c of DD_CATEGORIES) {
+        const from = src.get(c.key);
+        // 分潤條款等敏感類別：沒有成本檢視權限者不能經由沿用而讀到條款內容，所以不複製
+        const terms = from && (!c.sensitive.length || canSensitive) ? from.terms : {};
+        const t = trig(c.key, terms);
+        await tx.query(
+          `INSERT INTO vendor_dd_items (id, organization_id, record_id, category_key, terms, responsible_party, owner_user_id, legal_status, legal_reason, created_by, updated_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)`,
+          [await ids.ddItem(tx), actor.orgId, id, c.key, JSON.stringify(terms), from?.responsible_party ?? 'TBD', from?.owner_user_id ?? null, t.required ? 'REQUIRED' : 'NOT_REQUIRED', t.required ? t.reasons.join('；') : null, actor.userId]);
+      }
+      await audit(tx, actor, { action: 'selection.dd.create', entityType: 'vendor_dd_record', entityId: id, after: { vendorId, productId: input.productId ?? null, copiedFrom: input.copyFromId ?? null, contractVersion: input.contractVersion, regulatedCategory: input.regulatedCategory ?? null } });
       return { id };
     }, { vendorId, ...input }));
     return result;
@@ -95,7 +111,11 @@ async function loadItems(db: Queryable, orgId: string, recordIds: string[], acto
     const m = maskTerms(key, (r.terms ?? {}) as Record<string, unknown>, canSee);
     const evidence = maskEvidenceList(ev.get(r.id as string) ?? [], !sensitiveItem || canSee);
     const item: Record<string, unknown> = { ...camelize<Record<string, unknown>>(r), terms: m.terms, restricted: m.restricted, evidence, label: cat?.label, no: cat?.no, question: cat?.question, evidenceRequired: cat?.evidenceRequired };
-    if (m.restricted) { item.note = null; item.riskNote = (r.risk_note as string | null) ? '（敏感類別，內容已隱藏）' : null; }
+    if (m.restricted) {
+      // 敏感類別（分潤條款）：自由文字欄位全部遮蔽（備註、風險、不適用原因、法務說明與備註都可能寫到分潤內容）
+      const hidden = (v: unknown) => (v ? '（敏感類別，內容已隱藏）' : null);
+      item.note = null; item.riskNote = hidden(r.risk_note); item.naReason = hidden(r.na_reason); item.legalNote = hidden(r.legal_note); item.legalReason = hidden(r.legal_reason);
+    }
     const list = byRec.get(r.record_id as string) ?? [];
     list.push(item);
     byRec.set(r.record_id as string, list);
@@ -106,22 +126,24 @@ async function loadItems(db: Queryable, orgId: string, recordIds: string[], acto
 
 /** 以未遮罩的原始證據算準備度（遮罩只影響顯示，不影響判斷） */
 async function readinessOf(db: Queryable, orgId: string, recordId: string, today: string, soon: number) {
-  const items = await db.query<{ id: string; category_key: string; status: string; legal_status: string }>(`SELECT id, category_key, status, legal_status FROM vendor_dd_items WHERE record_id=$1`, [recordId]);
+  const items = await db.query<{ id: string; category_key: string; status: string; legal_status: string; terms: Record<string, unknown> }>(`SELECT id, category_key, status, legal_status, terms FROM vendor_dd_items WHERE record_id=$1`, [recordId]);
   const ev = await db.query<{ id: string; subject_id: string; valid_until: string | null }>(
     `SELECT id, subject_id, valid_until FROM evidence_items WHERE organization_id=$1 AND subject_type='DD_ITEM' AND deleted_at IS NULL AND subject_id = ANY($2::text[])`, [orgId, items.rows.map((i) => i.id)]);
   const lite: DdItemLite[] = items.rows.map((i) => ({
-    key: i.category_key, status: i.status, legalStatus: i.legal_status,
+    key: i.category_key, status: i.status, legalStatus: i.legal_status, terms: i.terms ?? {},
     evidence: ev.rows.filter((e) => e.subject_id === i.id).map((e): EvidenceLite => ({ id: e.id, validUntil: e.valid_until })),
   }));
   return ddReadiness(lite, today, soon);
 }
 
 /** 核准後的有效性：到期、或核准後證據過期，都視為失效（不改資料，只在顯示與摘要標示） */
-export function approvalValidity(rec: { status: string; validUntil: string | null }, readiness: { expired: number }, today: string): { valid: boolean; reasons: string[] } {
+export function approvalValidity(rec: { status: string; validUntil: string | null; supersededAt?: string | null }, readiness: { expired: number; docExpired?: string[] }, today: string): { valid: boolean; reasons: string[] } {
   if (rec.status !== 'APPROVED') return { valid: false, reasons: ['尚未核准'] };
   const reasons: string[] = [];
+  if (rec.supersededAt) reasons.push('已被新版調查取代');
   if (rec.validUntil && rec.validUntil < today) reasons.push(`核准已於 ${rec.validUntil} 到期`);
   if (readiness.expired) reasons.push(`${readiness.expired} 筆證據已過期`);
+  if (readiness.docExpired?.length) reasons.push(`授權期限已過期：${readiness.docExpired.join('、')}`);
   return { valid: reasons.length === 0, reasons };
 }
 
@@ -135,7 +157,7 @@ async function presentRecords(db: Queryable, actor: Actor, rows: RecRow[], withI
   const out = [];
   for (const r of rows) {
     const readiness = await readinessOf(db, actor.orgId, r.id, today, cfg.expiringSoonDays);
-    const rec = camelize<Record<string, unknown> & { status: string; validUntil: string | null }>(r);
+    const rec = camelize<Record<string, unknown> & { status: string; validUntil: string | null; supersededAt: string | null; supersedesId: string | null; copiedFromId: string | null }>(r);
     out.push({ ...rec, readiness, validity: approvalValidity(rec, readiness, today), items: withItems ? (items.get(r.id) ?? []) : undefined,
       editable: EDITABLE.includes(r.status) });
   }
@@ -270,6 +292,10 @@ export async function updateDiligenceItem(actor: Actor, itemId: string, raw: z.i
       sets.confirmed_at = new Date().toISOString();
     }
     if (nextStatus !== 'CONFIRMED' && input.status !== undefined) { sets.confirmed_by = null; sets.confirmed_at = null; }
+    // 已確認的項目事後改了條款：確認作廢，退回「待補件」，要重新確認（避免舊的確認蓋住新的內容）
+    if (sets.terms && input.status === undefined && item.status === 'CONFIRMED' && stableJson(JSON.parse(sets.terms as string)) !== stableJson(item.terms ?? {})) {
+      sets.status = 'PENDING_DOCS'; sets.confirmed_by = null; sets.confirmed_at = null;
+    }
     // 條款改變 → 重算法務標示（例如勾選轉售價格限制）
     if (sets.terms) {
       const ctx = await tx.query<{ vcat: string | null; pname: string | null; pcat: string | null; pnote: string | null }>(
@@ -351,6 +377,19 @@ export async function submitDiligence(actor: Actor, id: string) {
   });
 }
 
+/** 撤回已送審的調查（填報人或有覆核權限者）：回到草稿，可以繼續編輯；核准後要改只能撤銷或另開新版 */
+export async function withdrawDiligence(actor: Actor, id: string) {
+  requirePerm(actor, 'selection.write');
+  return withTx(async (tx) => {
+    const rec = await lockRecord(tx, actor, id);
+    if (rec.status !== 'IN_REVIEW') throw precondition('只有「審查中」的調查可以撤回');
+    if (rec.prepared_by !== actor.userId && !can(actor, 'product.review')) throw forbidden('只有送審的人或有覆核權限的人可以撤回');
+    await tx.query(`UPDATE vendor_dd_records SET status='DRAFT', submitted_at=NULL, updated_by=$2 WHERE id=$1`, [id, actor.userId]);
+    await audit(tx, actor, { action: 'selection.dd.withdraw', entityType: 'vendor_dd_record', entityId: id, before: { status: 'IN_REVIEW' }, after: { status: 'DRAFT' } });
+    return { id, status: 'DRAFT' };
+  }).catch((e) => mapDbError(e));
+}
+
 export const ddReviewSchema = z.object({
   decision: z.enum(['APPROVED', 'REJECTED']),
   note: z.string().trim().max(1000).optional().or(z.literal('').transform(() => undefined)),
@@ -378,6 +417,11 @@ export async function reviewDiligence(actor: Actor, id: string, raw: z.input<typ
       if (validUntil > max) throw validation(`有效期限不可超過 ${max}（${cfg.ddValidDays} 天）`);
       if (validUntil < today) throw validation('有效期限不可早於今天');
       await tx.query(`UPDATE vendor_dd_records SET status='APPROVED', reviewed_by=$2, reviewed_at=now(), review_note=$3, valid_until=$4, updated_by=$2 WHERE id=$1`, [id, actor.userId, input.note ?? null, validUntil]);
+      // 版本鏈：同一廠商、同一適用範圍（同商品或同為廠商層級）先前已核准的調查，標為「被這份取代」（狀態不改，讀取時視為已取代）
+      const prev = await tx.query<{ id: string }>(
+        `UPDATE vendor_dd_records SET superseded_at=now() WHERE organization_id=$1 AND vendor_id=$2 AND COALESCE(product_id,'')=COALESCE($3,'') AND status='APPROVED' AND superseded_at IS NULL AND deleted_at IS NULL AND id<>$4 RETURNING id`,
+        [actor.orgId, rec.vendor_id, rec.product_id, id]);
+      if (prev.rows[0]) await tx.query(`UPDATE vendor_dd_records SET supersedes_id=$2 WHERE id=$1`, [id, prev.rows[0].id]);
       await audit(tx, actor, { action: 'selection.dd.approve', entityType: 'vendor_dd_record', entityId: id, before: { status: rec.status }, after: { status: 'APPROVED', validUntil, contractVersion: rec.contract_version } });
       return { id, status: 'APPROVED', validUntil };
     }
@@ -388,14 +432,13 @@ export async function reviewDiligence(actor: Actor, id: string, raw: z.input<typ
   }).catch((e) => mapDbError(e));
 }
 
-/** 供 G1 摘要唯讀使用：某廠商（與商品）最合適的調查——先找該商品專屬的，再找廠商通用的；各取最新 */
+/** 供 G1 摘要唯讀使用：某廠商（與商品）適用的調查；挑選規則見 pickDdRecord（已核准優先、商品專屬優先） */
 export async function bestDiligence(actor: Actor, vendorId: string, productId: string | null): Promise<DdSummaryView | null> {
-  const rows = await query(
-    `${SELECT_REC} WHERE r.organization_id=$1 AND r.vendor_id=$2 AND r.deleted_at IS NULL AND (r.product_id IS NULL OR r.product_id=$3)
-     ORDER BY (r.product_id IS NOT NULL) DESC, (r.status='APPROVED') DESC, r.created_at DESC LIMIT 1`, [actor.orgId, vendorId, productId]);
-  if (!rows.length) return null;
+  const pick = await pickDdRecord(pool(), actor.orgId, vendorId, productId);
+  if (!pick) return null;
+  const rows = await query(`${SELECT_REC} WHERE r.id=$1 AND r.organization_id=$2`, [pick.id, actor.orgId]);
   const [rec] = await presentRecords(pool(), actor, rows as RecRow[], false);
-  const items = await query<{ category_key: string; status: string; legal_status: string }>(`SELECT category_key, status, legal_status FROM vendor_dd_items WHERE record_id=$1`, [(rows[0] as RecRow).id]);
+  const items = await query<{ category_key: string; status: string; legal_status: string }>(`SELECT category_key, status, legal_status FROM vendor_dd_items WHERE record_id=$1`, [pick.id]);
   return { ...rec, itemStates: items.map((i) => ({ key: i.category_key, status: i.status, legalStatus: i.legal_status })) } as unknown as DdSummaryView;
 }
 

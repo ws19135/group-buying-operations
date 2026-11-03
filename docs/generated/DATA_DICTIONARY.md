@@ -314,6 +314,27 @@
 
 索引：`daily_summaries_pkey`（唯一）
 
+## `evaluation_supplement_requests`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| evaluation_id | text | 否 |  | product_evaluations.id |
+| condition_id | text | 是 |  |  |
+| note | text | 否 |  |  |
+| status | text | 否 | `'OPEN'::text` |  |
+| requested_by | text | 否 |  |  |
+| requested_at | timestamp with time zone | 否 | `now()` |  |
+| resolved_by | text | 是 |  |  |
+| resolved_at | timestamp with time zone | 是 |  |  |
+| resolve_note | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| version | integer | 否 | `1` |  |
+
+索引：`evaluation_supplement_requests_eval_idx`、`evaluation_supplement_requests_pkey`（唯一）
+
 ## `events`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -793,6 +814,11 @@
 | created_by | text | 是 |  |  |
 | updated_by | text | 是 |  |  |
 | version | integer | 否 | `1` |  |
+| rubric_version | integer | 是 |  |  |
+| commerce_model | text | 是 |  |  |
+| v2_input | jsonb | 是 |  |  |
+| v2_result | jsonb | 是 |  |  |
+| evidence_completeness | numeric | 是 |  |  |
 
 索引：`product_evaluations_draft_uq`（唯一）、`product_evaluations_pkey`（唯一）、`product_evaluations_product_id_version_no_key`（唯一）、`product_evaluations_product_idx`
 
@@ -1348,8 +1374,11 @@
 | updated_by | text | 是 |  |  |
 | version | integer | 否 | `1` |  |
 | deleted_at | timestamp with time zone | 是 |  |  |
+| supersedes_id | text | 是 |  | vendor_dd_records.id |
+| superseded_at | timestamp with time zone | 是 |  |  |
+| copied_from_id | text | 是 |  | vendor_dd_records.id |
 
-索引：`vendor_dd_records_pkey`（唯一）、`vendor_dd_records_uq`（唯一）、`vendor_dd_records_vendor_idx`
+索引：`vendor_dd_records_copied_idx`、`vendor_dd_records_pkey`（唯一）、`vendor_dd_records_uq`（唯一）、`vendor_dd_records_vendor_idx`
 
 ## `vendor_intake_submissions`
 

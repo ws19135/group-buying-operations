@@ -314,6 +314,35 @@ Owner 看過上線版（快照站已是最新）後回饋：「要變成圖示�
 - 看過截圖（`docs/uat/screens/36-host-sop-next2weeks.png`）；最後一個 CSS 小調整（進度條右側欄位固定寬度）未重截圖。
 - 限制：示範團主目前兩週內沒有「要我做」的作業，所以該計數為 0；日後有排進來才會變色提醒。
 
+## 2026-11-03｜SOP 02 選品評分 V2（可驗證子條件）＋廠商 12 題驗收與修補（分支 `feat/sop02-v2-scoring`）
+
+### 目標
+Owner 要求：不重建 SOP 02／03；把 1～5 分主觀評分升級成「可驗證條件＋證據＋系統計算」，完整驗收廠商 12 題，改善 PM 操作；保留商品審核與 G1–G5 的核准權限與流程。
+
+### 盤點（先於實作）
+讀過 `selection-score.ts`、`dd-catalog.ts`、`selection.ts`、`diligence.ts`、`evidence.ts`、`decision-summary.ts`、migration 014、評估與調查 UI、既有測試。已完成：六維度評分、合規獨立檢查、版本與覆核、12 題目錄與證據、G1 唯讀摘要。部分完成／缺漏：評分全是主觀 1～5 分、沒有利用既有資料；12 題的缺陷與缺漏見 `docs/phase2/DD_12Q_ACCEPTANCE.md`（含一份獨立的唯讀盤點，我再逐項自行覆核後才採用：敏感文字外洩、授權期限不檢查、挑選順序錯誤三項都親自讀程式確認）。
+
+### 變更
+- 規格：`docs/phase2/SELECTION_V2.md`（30 個子條件、公式、來源、資料模型、UI、測試）、`SELECTION_V2_ROLLBACK.md`、`SELECTION_V2_OWNER_DECISIONS.md`、`DD_12Q_ACCEPTANCE.md`；SRS（FR-SEL-V2-01～09、FR-DD-09～11）、SAD、SDD、生成文件。
+- 程式：`lib/selection-v2-{catalog,score}.ts`（純函式）、`modules/selection-v2.ts`（設定、自動取值、草稿、送出快照、補件要求）、`selection.ts` 以 `rubric_version` 分流（V1 原樣）、migration 016、12 題修補（`diligence.ts`、`dd-catalog.ts`、`evidence.ts`）、路由 +8。
+- 畫面：V2 評估編輯／即時預覽／結果、補件面板、12 題進度條與缺件清單、調查版本表、撤回按鈕、沿用選項、G1 摘要的 12 題進度。
+- 種子：`seed-demo-selection-v2.ts`（防曬噴霧已送出含補件要求、保濕面膜草稿）。
+
+### 設計取捨
+- **不新增任何金額公式**：利潤只讀 SOP 03 試算結果；三種商業模式只決定用哪組門檻；沒有試算＝未知，不以 SKU 成本推算。
+- 新舊相容：V1 評估與草稿照舊；V2 仍填 V1 欄位，G1 摘要與列表不必改；`createEvaluation` 預設 V2，V1 以 `{rubric:1}` 建立（測試與舊種子改用此參數，證明相容）。
+- 所有權重、門檻、樣本數、硬性條件、不適用規則都是**提案**（`approved=false`），Owner 核准清單集中在 `SELECTION_V2_OWNER_DECISIONS.md`。
+- 職責分離、「已接受風險」狀態、調查涵蓋範圍、到期提醒涉及核准權限或通知，**沒有擅自改**。
+
+### 證據
+見 TEST_REPORT §8。
+
+### 限制與未完成
+- V2 設定沒有專用畫面（只有 API）。
+- 12 題核准後鎖定只靠應用層（沒有 guard 觸發器）；合約版本建立後不能更正。
+- 評估頁的現行評估區有兩處重複的總分顯示（卡片頭與 V2 結果），屬版面待整理。
+- 歷史統計在 DEMO 資料中多半樣本不足而顯示「未知」，所以示範的總分偏向少數已知條件。
+
 ## 後續紀錄格式
 
 每次變更新增一節，至少包含：

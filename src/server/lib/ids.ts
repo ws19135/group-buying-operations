@@ -82,6 +82,7 @@ export const ids = {
   ddRecord: async (db: Queryable) => `VDD-${pad(await next(db, 'VDD', ''), 6)}`,
   ddItem: async (db: Queryable) => `VDI-${pad(await next(db, 'VDI', ''), 6)}`,
   evaluation: async (db: Queryable) => `SEL-${pad(await next(db, 'SEL', ''), 6)}`,
+  supplementRequest: async (db: Queryable) => `SRQ-${pad(await next(db, 'SRQ', ''), 6)}`,
   trial: async (db: Queryable) => `TRL-${pad(await next(db, 'TRL', ''), 6)}`,
   trialCheck: async (db: Queryable) => `TCK-${pad(await next(db, 'TCK', ''), 6)}`,
   feasibility: async (db: Queryable) => `FSB-${pad(await next(db, 'FSB', ''), 6)}`,

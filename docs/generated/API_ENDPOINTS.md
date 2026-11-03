@@ -55,6 +55,8 @@
 | POST | `/api/campaigns/:id/fit/outcome` | 是 |
 | GET | `/api/selection/config` | 是 |
 | PUT | `/api/selection/config` | 是 |
+| GET | `/api/selection/config-v2` | 是 |
+| PUT | `/api/selection/config-v2` | 是 |
 | GET | `/api/selection/overview` | 是 |
 | POST | `/api/evidence` | 是 |
 | POST | `/api/evidence/:id/remove` | 是 |
@@ -63,6 +65,7 @@
 | GET | `/api/diligence/:id` | 是 |
 | PATCH | `/api/diligence/:id` | 是 |
 | POST | `/api/diligence/:id/submit` | 是 |
+| POST | `/api/diligence/:id/withdraw` | 是 |
 | POST | `/api/diligence/:id/review` | 是 |
 | PATCH | `/api/diligence-items/:id` | 是 |
 | POST | `/api/diligence-items/:id/legal` | 是 |
@@ -71,6 +74,9 @@
 | GET | `/api/evaluations/:id` | 是 |
 | PATCH | `/api/evaluations/:id` | 是 |
 | POST | `/api/evaluations/:id/submit` | 是 |
+| GET | `/api/evaluations/:id/supplements` | 是 |
+| POST | `/api/evaluations/:id/supplements` | 是 |
+| POST | `/api/supplement-requests/:id/resolve` | 是 |
 | POST | `/api/evaluations/:id/review` | 是 |
 | GET | `/api/products/:id/trials` | 是 |
 | POST | `/api/products/:id/trials` | 是 |

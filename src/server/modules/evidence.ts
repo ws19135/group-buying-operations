@@ -42,7 +42,7 @@ async function resolveSubject(tx: Tx, actor: Actor, type: SubjectType, id: strin
                                 WHERE i.id=$1 AND i.organization_id=$2 AND r.deleted_at IS NULL`, [id, org]);
       if (!r.rowCount) throw notFound('調查項目');
       const x = r.rows[0] as Record<string, string | null>;
-      return { vendorId: x.vendor_id, productId: x.product_id, campaignId: null, editable: ['DRAFT', 'IN_REVIEW', 'REJECTED'].includes(x.status as string), lockedReason: '這份調查已核准，不能再增減證據；請建立新合約版本的調查', sensitive: x.category_key === 'COMMISSION_TERMS' };
+      return { vendorId: x.vendor_id, productId: x.product_id, campaignId: null, editable: ['DRAFT', 'REJECTED'].includes(x.status as string), lockedReason: '這份調查已送審或核准，不能再增減證據；審查中請先撤回，核准後請建立新合約版本的調查', sensitive: x.category_key === 'COMMISSION_TERMS' };
     }
     case 'EVALUATION': {
       const r = await tx.query(`SELECT e.product_id, e.status, p.vendor_id FROM product_evaluations e JOIN products p ON p.id=e.product_id WHERE e.id=$1 AND e.organization_id=$2`, [id, org]);

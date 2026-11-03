@@ -121,30 +121,69 @@ export function evidenceState(e: EvidenceLite, today: string, soonDays: number):
   return e.validUntil <= limit.toISOString().slice(0, 10) ? 'EXPIRING' : 'VALID';
 }
 
-export interface DdItemLite { key: string; status: string; legalStatus: string; evidence: EvidenceLite[] }
-export interface DdReadiness { ready: boolean; reasons: string[]; counts: Record<string, number>; expired: number; expiring: number; legalPending: number; missingEvidence: string[]; risks: number }
+/** 條款內的有效期欄位：授權期限（第 1 題）與圖片／影片授權期限（第 9 題）。過期要擋「可送審」與「核准有效」，不只是格式檢查 */
+export const DOC_DATE_FIELDS: Record<string, { field: string; label: string }> = {
+  SOURCE_LICENSE_QA: { field: 'authorizationValidUntil', label: '品牌授權' },
+  SAMPLE_MEDIA_LICENSE: { field: 'licenseValidUntil', label: '圖片與影片授權' },
+};
+
+export interface DdItemLite { key: string; status: string; legalStatus: string; evidence: EvidenceLite[]; terms?: Record<string, unknown> }
+export interface DdItemProgress {
+  key: string; no: number; label: string; status: string; legalStatus: string;
+  /** 已確認但缺有效證據（要求證據的題目） */
+  missingEvidence: boolean; evidenceExpired: number; evidenceExpiring: number;
+  /** 條款內有效期（授權期限）；到期狀態 */
+  docDate: string | null; docState: 'EXPIRED' | 'EXPIRING' | null;
+}
+export interface DdReadiness {
+  ready: boolean; reasons: string[]; counts: Record<string, number>; expired: number; expiring: number; legalPending: number; missingEvidence: string[]; risks: number;
+  /** 授權期限已過期／即將到期的文件（含題目與日期） */
+  docExpired: string[]; docExpiring: string[];
+  /** 12 題完成進度：已確認或不適用的題數 ÷ 12 */
+  progress: { done: number; total: number };
+  perItem: DdItemProgress[];
+}
 
 export function ddReadiness(items: DdItemLite[], today: string, soonDays: number): DdReadiness {
   const counts: Record<string, number> = { CONFIRMED: 0, PENDING_DOCS: 0, NOT_APPLICABLE: 0, AT_RISK: 0 };
   const reasons: string[] = [];
   const missingEvidence: string[] = [];
+  const docExpired: string[] = [], docExpiring: string[] = [];
+  const perItem: DdItemProgress[] = [];
   let expired = 0, expiring = 0, legalPending = 0;
   for (const it of items) {
     counts[it.status] = (counts[it.status] ?? 0) + 1;
     const c = ddCategory(it.key);
     const states = it.evidence.map((e) => evidenceState(e, today, soonDays));
-    expired += states.filter((s) => s === 'EXPIRED').length;
-    expiring += states.filter((s) => s === 'EXPIRING').length;
+    const exp = states.filter((s) => s === 'EXPIRED').length, soon = states.filter((s) => s === 'EXPIRING').length;
+    expired += exp; expiring += soon;
     if (['REQUIRED', 'BLOCKED'].includes(it.legalStatus)) legalPending++;
-    if (it.status === 'CONFIRMED' && c?.evidenceRequired && !states.some((s) => s !== 'EXPIRED')) missingEvidence.push(c.label);
+    const missing = it.status === 'CONFIRMED' && !!c?.evidenceRequired && !states.some((x) => x !== 'EXPIRED');
+    if (missing && c) missingEvidence.push(c.label);
+    // 條款內的授權期限（不適用的題目不檢查）
+    const dd = DOC_DATE_FIELDS[it.key];
+    const raw = dd && it.status !== 'NOT_APPLICABLE' ? it.terms?.[dd.field] : undefined;
+    const docDate = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+    let docState: DdItemProgress['docState'] = null;
+    if (docDate && dd) {
+      const st = evidenceState({ id: it.key, validUntil: docDate }, today, soonDays);
+      if (st === 'EXPIRED') { docState = 'EXPIRED'; docExpired.push(`${dd.label}（${docDate}）`); }
+      else if (st === 'EXPIRING') { docState = 'EXPIRING'; docExpiring.push(`${dd.label}（${docDate}）`); }
+    }
+    perItem.push({ key: it.key, no: c?.no ?? 0, label: c?.label ?? it.key, status: it.status, legalStatus: it.legalStatus, missingEvidence: missing, evidenceExpired: exp, evidenceExpiring: soon, docDate, docState });
   }
+  perItem.sort((a, b) => a.no - b.no);
   if (items.length < DD_CATEGORIES.length) reasons.push('12 類問題尚未全部建立');
   if (counts.PENDING_DOCS) reasons.push(`${counts.PENDING_DOCS} 項待補件`);
   if (counts.AT_RISK) reasons.push(`${counts.AT_RISK} 項有風險`);
   if (expired) reasons.push(`${expired} 筆證據已過期`);
+  if (docExpired.length) reasons.push(`授權期限已過期：${docExpired.join('、')}`);
   if (legalPending) reasons.push(`${legalPending} 項法務／合規審查未結案`);
   if (missingEvidence.length) reasons.push(`已確認但沒有有效證據：${missingEvidence.join('、')}`);
-  return { ready: reasons.length === 0, reasons, counts, expired, expiring, legalPending, missingEvidence, risks: counts.AT_RISK };
+  return {
+    ready: reasons.length === 0, reasons, counts, expired, expiring, legalPending, missingEvidence, risks: counts.AT_RISK,
+    docExpired, docExpiring, progress: { done: counts.CONFIRMED + counts.NOT_APPLICABLE, total: DD_CATEGORIES.length }, perItem,
+  };
 }
 
 /** 證據連結的網域白名單（空＝不限制）。比對主機名稱本身或其子網域 */

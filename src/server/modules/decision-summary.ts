@@ -8,6 +8,7 @@ import { assertCampaignVisible, currentEvaluation, loadSelectionConfig } from '.
 import { bestDiligence } from './diligence';
 import { qualificationFor } from './trials';
 import { latestFeasibility } from './feasibility';
+import { COND_BY_ID } from '../lib/selection-v2-catalog';
 
 /**
  * G1 選品核准的統一決策摘要（唯讀）。把商品評估、廠商合作資格審查、試用、商業可行性與 SOP 01 客群適配彙整成一頁，
@@ -58,7 +59,8 @@ export async function g1Summary(actor: Actor, campaignId: string) {
       productId: pid, productName: p.name, category: p.category, reviewStatus: p.review_status, vendorId: p.vendor_id, vendorName: p.vendor_name, vendorStatus: p.vendor_status,
       light, lightLabel: LIGHT_LABEL[light], risks,
       evaluation: evView && { id: evView.id, versionNo: evView.versionNo, totalScore: evView.totalScore, recommendation: evView.recommendation, confidence: evView.confidence, completeness: evView.completeness,
-        compliance: evView.compliance, reviewDecision: evView.reviewDecision, evaluatedOn: evView.evaluatedOn, evaluatorName: evView.evaluatorName, evidenceGaps: evView.evidenceGaps, configVersion: evView.configVersion },
+        compliance: evView.compliance, reviewDecision: evView.reviewDecision, evaluatedOn: evView.evaluatedOn, evaluatorName: evView.evaluatorName, evidenceGaps: evView.rubricVersion === 2 ? (evView.evidenceGaps ?? []).map((k) => COND_BY_ID[k]?.label ?? k) : evView.evidenceGaps, configVersion: evView.configVersion,
+        rubricVersion: (evView.rubricVersion as number | null) === 2 ? 2 : 1, evidenceCompleteness: (evView.evidenceCompleteness as number | null | undefined) ?? null },
       diligence: ddView && { id: ddView.id, contractVersion: ddView.contractVersion, status: ddView.status, validUntil: ddView.validUntil, validity: ddView.validity, readiness: ddView.readiness, scope: ddView.productId ? 'PRODUCT' : 'VENDOR' },
       qualification: qual, trials,
       feasibility: fz && { id: fz.view.id, versionNo: fz.view.versionNo, label: fz.view.label, results: fz.view.results, restricted: fz.view.restricted, hasActuals: !!fz.raw.actuals, scope: fz.raw.campaign_id ? 'CAMPAIGN' : 'PRODUCT' },

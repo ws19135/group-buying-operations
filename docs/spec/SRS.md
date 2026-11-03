@@ -401,7 +401,7 @@
 | 主要流程 | 1. 商品頁「選品評估」按「開始評估」，為六項（客群需求符合度、品質與安全性、利潤與價格競爭力、供應商履約能力、內容展示與說服力、複購潛力）打 1–5 分並填理由，品質與供應附證據連結；另填獨立的安全合規查核<br>2. 送出後系統保存分數、完整度、信心、建議與設定快照；主管覆核（同意／不採用／需補資料）<br>3. 廠商頁「合作資格審查」新增一份調查（合約版本必填，可限定商品與受規範品類），系統自動建立 12 類項目<br>4. 逐項填結構化條款、責任方、負責人、狀態與證據；有轉售價格限制或受規範品類者自動標示「需法務／合規審查」，由主管附法務意見後確認無虞<br>5. 備齊後送審，主管核准（預設有效 365 天）或退回 |
 | 替代／例外流程 | • 只評部分項目：未評＝未知，不當 0 分，完整度低於 0.5 為「資料不足」<br>• 合規未過：BLOCKED，高分不能抵銷；未查核或需法務：最多「補測／補件」<br>• 品質或供應沒有附有效證據：不能建議進入商務審查<br>• 同商品已有草稿、同廠商＋商品＋合約版本已有調查：409<br>• 標「已確認」但沒有有效證據、「不適用」沒原因、「有風險」沒說明：422<br>• 營運小編寫第 10 類（分潤）條款或核准／確認無虞：403<br>• 團主／廠商：403；他組織資料：404 |
 | 事後條件 | 已送出的評估內容不可改（資料庫觸發器），重評＝新版本；核准後調查不能改證據；覆核與核准只記錄結果，不改商品審核狀態、不核准 G1；到期或證據過期自動視為失效（不改資料）；每個寫入有稽核（敏感條款不記數值） |
-| 對應 FR | FR-SEL-01～09、FR-EVI-01～03、FR-DD-01～07 |
+| 對應 FR | FR-SEL-01～09、FR-SEL-V2-01～09、FR-EVI-01～03、FR-DD-01～11 |
 
 ### UC-23 商品試用與商業可行性試算
 
@@ -759,6 +759,18 @@
 | FR-SEL-07 | 與 SOP 01 不重複：評估頁以唯讀方式顯示該商品現行適配統計（各建議等級的團主數、最高分，需 `fit.read`）作為「客群需求符合度」的參考；不複製、不重算、不寫入 `product_fit_assessments`；評估人須自行填分數與理由 | MUST | Given 產生並讀取評估前後 Then `product_fit_assessments` 列數不變 | selection ›「權限與資料隔離」›「評估不寫入 SOP 01 的適配資料（唯讀引用）」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §3.4 | ✅ |
 | FR-SEL-08 | 權限與租戶隔離：`selection.read`（管理者、營運主管、營運小編、財務）、`selection.write`（管理者、營運主管、營運小編）；團主、廠商所有入口 403；財務只讀；他組織的商品、評估、證據一律 404 | MUST | Given 團主／廠商 When 讀或建評估、讀總覽 Then 403；財務讀 200、建立 403；跨組織讀、改、覆核、掛證據 Then 404 | selection ›「權限與資料隔離」（4 項）；selection ›「選品設定」›「營運小編不能改設定（403）；團主與廠商連讀取也不行」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §9 | ✅ |
 | FR-SEL-09 | 選品與試用總覽（`/selection`）：待覆核的評估、審查中的調查、待覆核的試用結論（檔期層級者沿用檔期資料範圍）、即將到期或已過期的證據（第 10 類分潤證據對無成本檢視權限者不列）、待回收的試用品筆數、目前設定與狀態 | SHOULD | Given 已送出未覆核的評估 When 小編讀總覽 Then 列在 `pendingEvaluations` 且只含本組織，`canReview`／`canConfig` 為 false | selection ›「總覽：待覆核清單只含本組織；小編可看不可設定」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §11 | ✅ |
+| FR-SEL-V2-01 | 選品評估 V2：六個維度（權重沿用 25／25／20／15／10／5）由 30 個「可驗證子條件」計算；子條件有型別（是否、數值、區間、選項）、來源（自動／人工／兩者）、證據要求、維度內權重、是否硬性、是否敏感、不適用規則；目錄與公式見 `docs/phase2/SELECTION_V2.md`，全部為**提案設定（`approved=false`）**，未經 Owner 核准不是正式制度 | MUST | Given 預設設定 Then `approved=false`、30 個條件、每個維度權重合計 100；規格文件列出的子條件與程式目錄一致 | unit/selection-v2-score、selection-v2 | IMPLEMENTED | Owner 2026-11-03 | ✅ |
+| FR-SEL-V2-02 | 未知不當 0 分（從分母排除並降低資料完整度）；不適用需原因且僅限目錄允許的條件、且商品／廠商調查沒有受規範品類跡象；不適用占比超限標示需覆核並壓低可信度；AUTO 條件不可手填，EITHER 條件有自動值時不可手填 | MUST | Given 缺資料 Then 狀態未知、分數不變、完整度下降；Given 任意不適用 Then 422 | unit/selection-v2-score、selection-v2 | IMPLEMENTED | — | ✅ |
+| FR-SEL-V2-03 | 自動取值只用可信、可追溯的資料並保存來源快照（來源、參照編號、取得日、樣本數）：SOP 01 適配、SKU 價格、SOP 03 可行性試算、廠商調查（不讀分潤與排他題）、試用結論、歷史訂單（退款率、客訴率、準時出貨率、可辨識買家回購率；樣本不足＝未知）；取不到就是「未知＋原因」，不捏造數值 | MUST | Given 無資料 Then 原因可讀；Given 樣本 < 最小樣本 Then 未知 | selection-v2 › 自動取值與「不捏造」 | IMPLEMENTED | — | ✅ |
+| FR-SEL-V2-04 | 利潤維度區分商業模式（`AGENCY`／`KOL_CPS`／`MOM_GROUP`）：只讀取 SOP 03 可行性試算已算好的結果，**不新增金額公式**；未選模式＝利潤判定為未知；沒有試算＝未知（不以 SKU 成本推算）；利潤子條件全部自動取得且屬敏感 | MUST | Given 同一貢獻利潤率 Then 不同模式得到不同分數；Given 無試算 Then 未知 | unit/selection-v2-score、selection-v2 | IMPLEMENTED | 門檻待 Owner 核准 | ✅ |
+| FR-SEL-V2-05 | 硬性檢查獨立於總分：合規未通過或硬性條件為「否」→ 阻擋；硬性條件未知、合規未查核／需法務、證據缺口、可信度低 → 最多只能補件；資料完整度、證據完整度、可信度一併顯示；高分不代表通過 | MUST | Given 理想輸入但硬性條件為否 Then BLOCKED | unit/selection-v2-score | IMPLEMENTED | — | ✅ |
+| FR-SEL-V2-06 | 版本與不可篡改：送出時保存規則版本、設定快照、每個子條件的答案與自動值快照；之後改設定不改寫已送出的評估；資料庫觸發器擋下對 V1／V2 欄位的竄改；V1 舊評估（`rubric_version` 為空）原樣可讀、不重算；V1 與 V2 欄位不可混用 | MUST | Given 送出後改設定 Then 分數與結果不變；Given 直接 UPDATE v2_result Then 被擋 | selection-v2 › 送出、版本快照、不可篡改；selection（V1 回歸） | IMPLEMENTED | — | ✅ |
+| FR-SEL-V2-07 | 敏感保護：沒有 `product.cost.read` 者，利潤維度的子條件只看到狀態，看不到數值、分數、來源；稽核不含成本數值；API 回應不帶原始 V2 明細；G1 摘要不含利潤數值 | MUST | Given 小編 Then 回應不含成本數字 | selection-v2 › 敏感資訊與權限；E2E | IMPLEMENTED | — | ✅ |
+| FR-SEL-V2-08 | 覆核與補件要求：覆核沿用 V1（同意採用／不採用／需補資料，不改商品審核狀態、不核准 G1）；主管可針對個別子條件提出補件要求（`product.review`），填報人標為已處理；V1 與草稿不可提出 | SHOULD | Given 草稿 Then 412；Given 小編提出 Then 403 | selection-v2 › 覆核與補件要求 | IMPLEMENTED | — | ✅ |
+| FR-SEL-V2-09 | V2 設定 `selection.scoring.v2`：版本化、權重與門檻驗證（維度與子條件權重合計 100、門檻方向、比例）、版本衝突 409、`selection.config` 權限、稽核；可用 `enabled=false` 停用 V2；**尚無專用畫面（僅 API）** | MUST | Given 權重不合 100 Then 422 | selection-v2 › 設定 | PARTIAL | 畫面待補 | ⚠️ |
+| FR-DD-09 | 12 題修補：敏感類別的自由文字（不適用原因、風險、法務說明、備註）對無成本權限者遮蔽；授權期限（第 1、9 題）過期不可送審／核准、核准後過期則失效；已確認的項目改條款後確認作廢；審查中不可增減證據 | MUST | 見 `docs/phase2/DD_12Q_ACCEPTANCE.md` | diligence-v2 | IMPLEMENTED | — | ✅ |
+| FR-DD-10 | 調查撤回、版本鏈、沿用：送審的人或覆核者可把審查中撤回成草稿；同廠商同範圍新版核准後舊版標為被取代；建立新版可沿用先前調查（帶入條款、責任方、負責人，回到待補件，不複製證據與確認，無成本權限者不沿用分潤條款）；適用調查的挑選規則（已核准優先、商品專屬優先、商品專屬草稿不蓋過廠商層級已核准） | MUST | 見驗收報告 | diligence-v2；selection-g1 | IMPLEMENTED | — | ✅ |
+| FR-DD-11 | 12 題進度與逐題缺件：`progress`（已確認＋不適用 ÷ 12）與 `perItem`（每題狀態、缺證據、證據與授權到期）；廠商頁、調查頁、G1 決策摘要顯示 | SHOULD | Given 調查 Then 進度與清單正確 | diligence-v2；E2E | IMPLEMENTED | — | ✅ |
 | FR-SEL-10 | 把評估或調查納入 G1 檢查（WARN／BLOCK）、商品送審前必須有已送出的評估、AI 或外部資料來源 | COULD | （未實作；目前僅查閱，見 D-26、D-33；G1 與商品審核流程不變） | — | NOT_STARTED | PRODUCT_SELECTION_TRIAL §14 | — |
 | FR-SEL-11 | 介面與流程提示：商品詳情「選品評估」（草稿編輯器含即時試算、現行評估、版本歷史、覆核）、導覽「選品與試用」、`/selection` 總覽與設定頁；每處明講「分數不會自動核准商品或 G1」「建議值，待 Owner 確認」；未評項目顯示「未知」；團主／廠商導覽沒有入口 | SHOULD | Given 主管開商品頁 Then 見現行評估分數、建議、合規、覆核；小編開設定頁 Then 只讀提示；團主／廠商開 `/selection` Then 「沒有權限」 | E2E（`scripts/e2e-smoke.ts` 選品與試用區塊）；無自動化單元／整合測試保護畫面 | PARTIAL | PRODUCT_SELECTION_TRIAL §11 | ❌ |
 
@@ -1194,6 +1206,9 @@
 | FR-DD-05 | diligence.ts, lib/dd-catalog.ts | diligence、unit/dd-catalog | IMPLEMENTED | ✅ |
 | FR-DD-06 | diligence.ts, lib/dd-catalog.ts, migrations/014 | diligence | IMPLEMENTED | ✅ |
 | FR-DD-07 | lib/permissions.ts, diligence.ts | diligence | IMPLEMENTED | ✅ |
+| FR-SEL-V2-01～08 | lib/selection-v2-catalog.ts, lib/selection-v2-score.ts, modules/selection-v2.ts, modules/selection.ts, migrations/016 | unit/selection-v2-score, selection-v2, E2E | IMPLEMENTED | ✅ |
+| FR-SEL-V2-09 | modules/selection-v2.ts | selection-v2 | PARTIAL | ⚠️ |
+| FR-DD-09～11 | modules/diligence.ts, lib/dd-catalog.ts, modules/evidence.ts, ui/selection/DdProgress.tsx | diligence-v2, E2E | IMPLEMENTED | ✅ |
 | FR-DD-08 | — | — | NOT_STARTED | — |
 | FR-TRL-01 | trials.ts, migrations/014 | trials | IMPLEMENTED | ✅ |
 | FR-TRL-02 | trials.ts, migrations/014 | trials | IMPLEMENTED | ✅ |

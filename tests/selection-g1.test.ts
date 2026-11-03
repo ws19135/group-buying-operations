@@ -49,7 +49,7 @@ const counts = async (campaignId: string) => ({
 
 // ---- 把一個商品整備到「全綠」所需的各項資料 ----
 async function goodEvaluation(productId: string, compliance: { status: string; note?: string } = { status: 'PASS' }) {
-  const { id } = await createEvaluation(w.editor, productId);
+  const { id } = await createEvaluation(w.editor, productId, { rubric: 1 });
   const e1 = await createEvidence(w.editor, { subjectType: 'EVALUATION', subjectId: id, kind: 'TEST_REPORT', title: '[DEMO] 報告', url: 'https://docs.example.invalid/r' });
   const e2 = await createEvidence(w.editor, { subjectType: 'EVALUATION', subjectId: id, kind: 'QUOTE', title: '[DEMO] 供貨', url: 'https://docs.example.invalid/s' });
   const sc = (v: number, ev?: string[]) => ({ score: v, reason: '[DEMO] 理由', ...(ev ? { evidenceIds: ev } : {}) });
