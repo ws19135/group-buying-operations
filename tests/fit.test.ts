@@ -438,3 +438,16 @@ describe('權限', () => {
     expect((await other.call('POST', `/fit/${any}/review`, { decision: 'ACCEPTED' })).status).toBe(404);
   });
 });
+
+describe('SOP 01：檔期異動紀錄不洩漏適配資料給沒有 fit.read 的角色（驗收補強）', () => {
+  it('財務看檔期異動紀錄看不到 fit.* 稽核列（含分數與覆核意見）；主管看得到', async () => {
+    const { listCampaignAudit } = await import('@/server/modules/audit-read');
+    const camp = (await query<{ campaign_id: string }>(`SELECT campaign_id FROM audit_logs WHERE organization_id=$1 AND action LIKE 'fit.%' AND campaign_id IS NOT NULL LIMIT 1`, [w.orgId]))[0]?.campaign_id;
+    expect(camp).toBeTruthy();
+    const mgrRows = (await listCampaignAudit(w.manager, camp)) as { action: string }[];
+    expect(mgrRows.some((r) => r.action.startsWith('fit.'))).toBe(true);
+    const finRows = (await listCampaignAudit(w.finance, camp)) as { action: string; entityType: string }[];
+    expect(finRows.some((r) => r.action.startsWith('fit.') || r.entityType === 'fit_assessment')).toBe(false);
+    expect(finRows.length).toBeGreaterThan(0);   // 其他稽核列照常可見
+  });
+});

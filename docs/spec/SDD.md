@@ -1374,6 +1374,17 @@ NSV            = GMV − 退款
 - **權限**：V2 沿用 `selection.read／write／config` 與 `product.review`（覆核與補件要求）；利潤維度的敏感子條件依 `product.cost.read` 遮蔽。
 - **自動取值的挑選規則**：`pickDdRecord`（見規格 §7）同時用於 G1 摘要，修正「商品專屬草稿蓋過廠商層級已核准調查」。
 
+### 18B.10 SOP 01～03 驗收補強：小規模測試團 KPI、團主意願、V2 設定畫面（migration 017）
+
+完整公式與資料來源見 `docs/phase2/TRIAL_KPI.md`，逐項驗收矩陣見 `docs/phase2/SOP_01_03_ACCEPTANCE.md`。
+
+- **資料模型（只新增）**：`product_trials.host_intent`（`WILLING`／`UNDECIDED`／`UNWILLING`，可空）、`host_intent_note`；約束 `host_intent IS NULL OR host_id IS NOT NULL`。不新增資料表。
+- **API**：`GET /api/trials/:id/kpis`（`selection.read`，受檔期範圍限制；回傳 8 項 KPI、`scopeNote`、`thresholds.applied=false`）；意願經既有 `PATCH /api/trials/:id`（`logistics.hostIntent`），建立試用時不可帶。
+- **計算**：純函式 `computeTrialKpis`（狀態 `OK`／`INSUFFICIENT`；每項含公式、來源、期間、完整度、樣本數、`lowSample`、原因）；`maskTrialKpis` 對無 `product.cost.read` 者移除估計值。資料彙整在 `modules/trial-kpis.ts`（SQL 聚合；有團主時只算歸因到該團主的訂單）。
+- **UI**：`TrialKpiCard`（試用詳情，團主適配或小規模測試團）；`/selection?tab=config2`（V2 設定：權重合計必須 100、門檻、樣本下限、啟用／確認旗標、進階 JSON；未確認＝提案；子條件目錄唯讀）。
+- **權限修補**：`listCampaignAudit` 依 `fit.read`／`segment.read` 過濾實體類型；`maskV2Result(r, canSeeSensitive, canSeeFit)` 遮罩 `fit.*` 自動條件。
+- **不變**：G1 檢查項、分潤／財務／發票模組、可行性 `recordActuals` 口徑。
+
 ## 19. 橫切設計
 
 ### 19.1 去重與冪等鍵總表

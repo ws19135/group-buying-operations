@@ -26,6 +26,7 @@ import * as segments from '../modules/segments';
 import * as fit from '../modules/fit';
 import * as selection from '../modules/selection';
 import * as selectionV2 from '../modules/selection-v2';
+import * as trialKpis from '../modules/trial-kpis';
 import * as evidence from '../modules/evidence';
 import * as diligence from '../modules/diligence';
 import * as trials from '../modules/trials';
@@ -157,6 +158,7 @@ export const routes: RouteDef[] = [
   R('GET', '/products/:id/trials', async (c) => trials.listProductTrials(c.actor, c.params.id)),
   R('POST', '/products/:id/trials', async (c) => created(await trials.createTrial(c.actor, c.params.id, c.body as never, c.idemKey))),
   R('GET', '/trials/:id', async (c) => trials.getTrial(c.actor, c.params.id)),
+  R('GET', '/trials/:id/kpis', async (c) => trialKpis.getTrialKpis(c.actor, c.params.id)),
   R('PATCH', '/trials/:id', async (c) => trials.updateTrial(c.actor, c.params.id, c.body as never)),
   R('POST', '/trials/:id/conclude', async (c) => trials.concludeTrial(c.actor, c.params.id, c.body as never)),
   R('POST', '/trials/:id/review', async (c) => trials.reviewTrial(c.actor, c.params.id, c.body as never)),

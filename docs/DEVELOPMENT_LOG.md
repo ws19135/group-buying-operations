@@ -343,6 +343,25 @@ Owner 要求：不重建 SOP 02／03；把 1～5 分主觀評分升級成「可�
 - 評估頁的現行評估區有兩處重複的總分顯示（卡片頭與 V2 結果），屬版面待整理。
 - 歷史統計在 DEMO 資料中多半樣本不足而顯示「未知」，所以示範的總分偏向少數已知條件。
 
+## 2026-11-03｜SOP 01～03 功能驗收與缺口補強（分支 `feat/sop01-03-acceptance`）
+
+**目標**：不重建既有模組，逐項以程式、API、畫面、權限實際驗收 SOP 01／02 V2／03，補最小缺口，並用畫面走完一條全流程。
+
+**變更**
+- 新增：小規模測試團 8 項 KPI（`lib/trial-kpi.ts`、`modules/trial-kpis.ts`、`GET /api/trials/:id/kpis`、試用詳情的 KPI 卡）；團主再次合作意願欄位（migration 017，`product_trials.host_intent`／`host_intent_note`）；V2 設定畫面（`/selection?tab=config2`，`SelectionV2ConfigForm`）；全流程 UI 驗收 `scripts/e2e-flow.ts`。
+- 修補：檔期異動紀錄對無 `fit.read`／`segment.read` 者的稽核外洩（`audit-read.ts`）；V2 結果對無 `fit.read` 者遮罩適配衍生子條件（`maskV2Result`）；試用結論表單預設值不跟著系統建議更新；商品頁覆核按鈕巢狀在 `<p>` 內造成 React hydration 錯誤 #418；商品表單補測試識別。
+- 文件：`docs/phase2/SOP_01_03_ACCEPTANCE.md`（逐項矩陣）、`docs/phase2/TRIAL_KPI.md`（公式、來源、期間、完整度、Owner 決策）；SRS／SAD／SDD、API／資料字典（`npm run docs:gen`）、TEST_REPORT §9、KNOWN_ISSUES 已同步。
+
+**驗證**：`npm test` 39 檔 701 項；E2E 煙霧 146/146；全流程 28/28；tsc、eslint 無錯誤。突變驗證：稽核外洩、V2 適配遮罩各用舊版程式跑新測試皆變紅；結論預設值與 hydration 缺陷在舊版建置上跑新腳本時變紅（見 TEST_REPORT §9）。
+
+**與規格的差異**：新增 `host_intent` 欄位與 KPI 卡、V2 設定畫面（規格原本只有 API）；其餘不變。導購轉換率與實際每單貢獻利潤沒有可靠來源，**一律顯示資料不足**；沒有套用任何未經核准的門檻。
+
+**風險與阻擋**：見 `SOP_01_03_ACCEPTANCE.md` §5、§6。**未動**可行性 `recordActuals` 口徑、分潤／財務、G1 檢查項。
+
+**需要 Owner 決策**：K-1～K-5（KPI 門檻、觸及人數來源、實際利潤歸屬、樣本門檻、客訴是否細分團主）、D-1～D-4。
+
+**下一步**：Owner 驗收畫面；確認 K-2 後補人工「觸及人數」欄位；累積測試團資料後再訂門檻。
+
 ## 後續紀錄格式
 
 每次變更新增一節，至少包含：

@@ -26,6 +26,7 @@
     "worker:once": "tsx scripts/worker.ts --once",
     "worker": "tsx scripts/worker.ts",
     "e2e": "tsx scripts/e2e-smoke.ts",
+    "e2e:flow": "tsx scripts/e2e-flow.ts",
     "e2e:aftersales": "tsx scripts/e2e-aftersales.ts",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
     "docs:gen": "tsx scripts/gen-docs.ts",

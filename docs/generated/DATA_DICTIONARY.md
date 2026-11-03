@@ -905,6 +905,8 @@
 | created_by | text | 是 |  |  |
 | updated_by | text | 是 |  |  |
 | version | integer | 否 | `1` |  |
+| host_intent | text | 是 |  |  |
+| host_intent_note | text | 是 |  |  |
 
 索引：`product_trials_campaign_idx`、`product_trials_open_uq`（唯一）、`product_trials_pkey`（唯一）、`product_trials_product_idx`
 

@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { withActor, type Params } from '@/server/ui/session';
 import { can } from '@/server/lib/permissions';
 import { getTrial } from '@/server/modules/trials';
+import { getTrialKpis } from '@/server/modules/trial-kpis';
+import { TrialKpiCard, type TrialKpisV } from '@/ui/selection/TrialKpiCard';
 import { listAssignableUsers } from '@/server/ui/lookups';
 import { ActionButton } from '@/ui/ActionButton';
 import { ApiForm } from '@/ui/ApiForm';
@@ -26,6 +28,7 @@ export default withActor(async (actor, props: { params: Params }) => {
   const owners = write ? await listAssignableUsers(actor).catch(() => []) : [];
   const ep = `/api/trials/${t.id}`;
   const sug = t.suggestion;
+  const kpi = t.campaignId || t.trialType === 'MINI_GROUP' ? as<TrialKpisV>(await getTrialKpis(actor, t.id)) : null;
   return (
     <>
       <PageHeader title={<>{TRIAL_LEVEL[t.level]}・{TRIAL_TYPE[t.trialType]} <StatusBadge map={TRIAL_STATUS} value={t.status} testid="trial-status" />{t.conclusion ? <> <StatusBadge map={CONCLUSION} value={t.conclusion} testid="trial-conclusion" /></> : null}</>} testid="trial-header"
@@ -69,7 +72,7 @@ export default withActor(async (actor, props: { params: Params }) => {
           ) : open && write ? (
             <>
               <p className="small muted">最終建議不得比系統建議更樂觀；若要更樂觀，需由具審核權限者填寫覆寫原因。通過／有條件通過會記錄有效期限（預設 {t.config.trialValidDays} 天）與商品指紋，商品資料變更後資格自動失效。</p>
-              <ApiForm endpoint={`${ep}/conclude`} submitLabel="下結論" testid="trial-conclude-form" fields={[
+              <ApiForm key={sug.conclusion} endpoint={`${ep}/conclude`} submitLabel="下結論" testid="trial-conclude-form" fields={[
                 { name: 'conclusion', label: '最終建議', type: 'select', required: true, defaultValue: sug.conclusion, options: Object.entries(CONCLUSION).map(([value, l]) => ({ value, label: l.label })) },
                 { name: 'note', label: '結論說明', type: 'textarea', required: true },
                 ...(reviewer ? [{ name: 'overrideReason', label: '覆寫原因（比系統建議樂觀時必填）', type: 'textarea' as const }] : []),
@@ -78,6 +81,7 @@ export default withActor(async (actor, props: { params: Params }) => {
           ) : <p className="muted">{open ? '只有營運人員可以下結論。' : '—'}</p>}
         </Card>
       </div>
+      {kpi ? <TrialKpiCard kpi={kpi} canWrite={write && t.status !== 'CANCELLED'} hostIntent={(t as unknown as { hostIntent: string | null }).hostIntent} /> : null}
       <Card title="四大面向檢核" testid="trial-checks-card">
         <TrialChecks trialId={t.id} editable={write && open} canCost={t.permissions.cost} checks={plain(t.checks) as never} />
       </Card>

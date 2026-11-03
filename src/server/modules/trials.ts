@@ -35,6 +35,9 @@ const logistics = {
   recoveryStatus: z.enum(RECOVERY_STATUSES).optional(),
   recoveryDate: optDate,
   recoveryNote: txt(300),
+  /** 團主再次合作意願（人工記錄；試用必須有團主）。結論後仍可記錄 */
+  hostIntent: z.enum(['WILLING', 'UNDECIDED', 'UNWILLING']).nullable().optional(),
+  hostIntentNote: txt(300),
 };
 
 export const trialCreateSchema = z.object({
@@ -86,6 +89,7 @@ export async function createTrial(actor: Actor, productId: string, raw: z.input<
   requirePerm(actor, 'selection.write');
   const input = trialCreateSchema.parse(raw);
   assertNoPii({ 試用人備註: input.testerNote, 追蹤碼: input.trackingNo, 回收備註: input.recoveryNote });
+  if (input.hostIntent || input.hostIntentNote) throw validation('團主再次合作意願請在試用建立後、試用結束時記錄');
   if (input.level === 'HOST_FIT' && input.trialType === 'INTERNAL') throw validation('團主／檔期適配試用不能是「內部試用」；請選指定團主或小規模測試團');
   if (input.trialType === 'DESIGNATED_HOST' && !input.hostId) throw validation('指定團主試用需選擇團主');
   if (input.trialType === 'MINI_GROUP' && !input.campaignId) throw validation('小規模測試團需選擇檔期');
@@ -249,7 +253,7 @@ async function lockTrial(tx: Tx, actor: Actor, id: string): Promise<TrialRow> {
 export async function updateTrial(actor: Actor, id: string, raw: z.input<typeof trialPatchSchema>) {
   requirePerm(actor, 'selection.write');
   const input = trialPatchSchema.parse(raw);
-  assertNoPii({ 試用人備註: input.testerNote, 追蹤碼: input.trackingNo, 回收備註: input.recoveryNote });
+  assertNoPii({ 試用人備註: input.testerNote, 追蹤碼: input.trackingNo, 回收備註: input.recoveryNote, 團主意願備註: input.hostIntentNote });
   await withTx(async (tx) => {
     const t = await lockTrial(tx, actor, id);
     if (t.status === 'CANCELLED') throw precondition('已取消的試用不能修改');
@@ -257,7 +261,7 @@ export async function updateTrial(actor: Actor, id: string, raw: z.input<typeof 
     const merged: Record<string, unknown> = {};
     const sets: Record<string, unknown> = {};
     const map: Record<string, string> = { testerUserId: 'tester_user_id', testerNote: 'tester_note', sampleBatchId: 'sample_batch_id', shipDate: 'ship_date', arrivalDate: 'arrival_date', startDate: 'start_date', feedbackDate: 'feedback_date',
-      closedDate: 'closed_date', carrier: 'carrier', trackingNo: 'tracking_no', recoveryRequired: 'recovery_required', recoveryStatus: 'recovery_status', recoveryDate: 'recovery_date', recoveryNote: 'recovery_note' };
+      closedDate: 'closed_date', carrier: 'carrier', trackingNo: 'tracking_no', recoveryRequired: 'recovery_required', recoveryStatus: 'recovery_status', recoveryDate: 'recovery_date', recoveryNote: 'recovery_note', hostIntent: 'host_intent', hostIntentNote: 'host_intent_note' };
     for (const [k, col] of Object.entries(map)) {
       const v = (input as Record<string, unknown>)[k];
       if (v !== undefined) sets[col] = v;
@@ -273,6 +277,7 @@ export async function updateTrial(actor: Actor, id: string, raw: z.input<typeof 
       if (!b.rowCount || !(await campaignVisible(actor, b.rows[0].campaign_id))) throw notFound('寄樣批次');
       if (b.rows[0].kind !== 'SAMPLE') throw validation('只能關聯「寄樣」批次');
     }
+    if (input.hostIntent && !t.host_id) throw validation('這個試用沒有指定團主，不能記錄團主的再次合作意願');
     // 回收欄位一致性
     const req = (sets.recovery_required ?? t.recovery_required) as boolean;
     let rs = (sets.recovery_status ?? t.recovery_status) as string;

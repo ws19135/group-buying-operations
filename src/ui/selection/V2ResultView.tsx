@@ -18,7 +18,7 @@ export interface V2ResultV {
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 export function formatValue(c: CondDefV, r: CondResultV): string {
-  if (r.masked) return '（成本相關，僅限有權限者查看）';
+  if (r.masked) return c.sensitive ? '（成本相關，僅限有權限者查看）' : '（客群適配資料，僅限有權限者查看）';
   if (r.status === 'NA') return '不適用';
   if (r.value == null) return '—';
   if (c.kind === 'BOOL') return r.value ? '是' : '否';
