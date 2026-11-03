@@ -75,6 +75,8 @@ async function main() {
       products: made.flatMap((m) => m.skuIds.map((s) => ({ productId: m.id, skuId: s }))), hosts: hostIds.map((h) => ({ hostId: h, targetRevenue: 50000 })) });
     await query(`UPDATE campaign_hosts SET status='CONFIRMED', responded_at=now() WHERE campaign_id=$1`, [c.id]);
     await query(`UPDATE campaigns SET status='RUNNING' WHERE id=$1`, [c.id]);
+    // 已開團：寄樣到開團的步驟都算完成（和 seed-demo 的進行中檔期一致，避免示範出現假的逾期提醒）
+    await query(`UPDATE tasks SET status='DONE', completed_at=now() WHERE campaign_id=$1 AND step_key = ANY($2::text[])`, [c.id, ['SAMPLE_SHIP', 'TRIAL_ARRIVAL', 'TRIAL_FEEDBACK', 'LAUNCH_APPROVAL', 'CREATIVE_ASSETS', 'PRELAUNCH_CHECK', 'LAUNCH', 'TOPIC_PROMO']]);
     for (const gate of ['G1', 'G2']) {
       await query(`INSERT INTO approvals (id, organization_id, campaign_id, gate_key, status, requested_by, decided_by, decided_at, decision_note)
         VALUES ('APR-D'||substr(md5(random()::text),1,8), $1,$2,$3,'APPROVED',$4,$4,now(),'[DEMO] 示範核准')`, [orgId, c.id, gate, manager.userId]);

@@ -333,7 +333,8 @@ async function main() {
       await page.getByTestId('dd-t-PRICING-listPrice').fill('680');
       await page.getByTestId('dd-t-PRICING-groupPrice').fill('520');
       await page.getByTestId('dd-f-status-PRICING').selectOption('CONFIRMED');
-      await page.getByTestId('dd-save-PRICING').click();
+      // 等儲存的請求真的回來再重新載入（只等 networkidle 會在請求送出前就放行，造成偶發讀不回）
+      await Promise.all([page.waitForResponse((r) => r.request().method() !== 'GET' && /\/api\/diligence-items\//.test(r.url()) && r.ok(), { timeout: 15_000 }), page.getByTestId('dd-save-PRICING').click()]);
       await page.waitForLoadState('networkidle');
       const ddUrl = page.url();
       await page.goto(ddUrl, { waitUntil: 'networkidle' });
@@ -484,6 +485,18 @@ async function main() {
       await login(ctx, page, 'demo-host1@example.invalid');
       const body = await visit(page, w, '/dashboard/host', '團主 Dashboard', { shot: '12-host-dashboard.png', expectText: /DEMO/, notText: /阿凱生活|米粒日常/ });
       record('團主 Dashboard 有我的檔期與預估佣金（標預估）', (await page.locator('[data-testid^="mycampaign-"]').count()) > 0 && /預估/.test(body));
+      {
+        const topY = await page.getByTestId('host-top').boundingBox().then((b) => b?.y ?? 9999);
+        const myY = await page.getByTestId('my-campaigns').boundingBox().then((b) => b?.y ?? 0);
+        record('團主 Dashboard 最上面有「團購 SOP（標準作業流程）」與「接下來兩週的進程」', (await page.getByTestId('host-sop').count()) === 1 && (await page.getByTestId('host-next14').count()) === 1 && /團購 SOP（標準作業流程）/.test(await page.getByTestId('host-sop').innerText()) && topY < myY && topY < 400, `top y=${Math.round(topY)}`);
+        const steps = await page.locator('[data-testid^="sop-step-"]').count();
+        const mineBadges = await page.getByTestId('host-sop-steps').getByText('我負責').count();
+        record('SOP 列出 11 個步驟，團主負責的步驟標「我負責」，不含結算以後的內部步驟', steps === 11 && mineBadges >= 2 && (await page.locator('[data-testid="sop-step-VENDOR_SETTLE"]').count()) === 0, `${steps} 步、我負責 ${mineBadges}`);
+        const nxt = await page.getByTestId('host-next14').innerText();
+        record('兩週進程標示日期範圍與「今天／明天／N 天後」', /接下來兩週的進程（\d\d-\d\d ～ \d\d-\d\d）/.test(nxt) && /(今天|明天|後天|\d+ 天後)/.test(nxt), nxt.slice(0, 80).replace(/\s+/g, ' '));
+        record('兩週進程裡的曝光類型是中文，不是英文代碼', !/\b(LAUNCH|REMINDER|POST|STORY|TOPIC)\b/.test(nxt), nxt.match(/\b(LAUNCH|REMINDER|POST|STORY|TOPIC)\b/)?.[0] ?? '');
+        await page.screenshot({ path: path.join(SHOTS, '36-host-sop-next2weeks.png'), fullPage: false });
+      }
       await visit(page, w, '/dashboard', '團主不可看管理者 Dashboard', { expectText: /沒有權限/, expectStatus: 200 });
       await visit(page, w, '/vendors', '團主不可看廠商列表', { expectText: /沒有權限/ });
       await visit(page, w, '/users', '團主不可看使用者管理', { expectText: /沒有權限/ });

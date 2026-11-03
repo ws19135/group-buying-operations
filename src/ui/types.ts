@@ -41,6 +41,15 @@ export interface HostDash {
   calendar: { kind: string; date: string; label: string; campaignId: string; campaignTitle: string; communityName: string | null; status: string }[];
   trialAndAssets: { campaignId: string; campaignTitle: string; stepKey: string; name: string; status: string; plannedEnd: string | null }[];
   settlementProgress: { campaignId: string; title: string; status: string; stage: string }[];
+  sop: {
+    steps: { stepKey: string; seq: number; name: string; ownerRole: string; kind: string; optional: boolean; description: string | null; mine: boolean }[];
+    progress: { campaignId: string; title: string; done: number; total: number; current: { stepKey: string; name: string; ownerRole: string; status: string; plannedEnd: string | null } | null }[];
+  };
+  upcoming: {
+    from: string; to: string; days: number;
+    items: { date: string; kind: 'TASK' | 'PLACEMENT' | 'OPEN' | 'CLOSE'; label: string; campaignId: string; campaignTitle: string; ownerRole: string | null; mine: boolean; status: string | null; communityName: string | null }[];
+    overdue: { campaignId: string; campaignTitle: string; name: string; plannedEnd: string; status: string }[];
+  };
 }
 export interface Paged<T> { items: T[]; total: number; limit: number; offset: number }
 export const as = <T,>(x: unknown): T => x as T;

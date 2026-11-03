@@ -743,7 +743,7 @@ sequenceDiagram
 | Dashboard | 權限 | 內容與限制 |
 |---|---|---|
 | `GET /api/dashboard/admin?month=YYYY-MM` | `dashboard.admin`（管理者、主管、小編、財務） | 檔期管線、未來 30 天開團／結團、任務（未完成／逾期／今日到期／未指派／卡關／待核准）、逾期清單、例外（需 `exception.read`）、廠商概況、社群與團主統計、待核准數；**銷售區塊需 `order.read`；目標區塊另需 `campaign.sensitive.read`**（小編看不到目標） |
-| `GET /api/dashboard/host?hostId=&month=` | 團主：`dashboard.host`（只能看自己綁定的團主）；內部角色：`dashboard.admin`（必須指定 `hostId`） | 我的檔期、我的業績（歸因分攤）、預估佣金（沒有費率標「尚未設定」）、待辦、邀請、日曆、試用與素材進度、結算進度；**不含成本與淨利** |
+| `GET /api/dashboard/host?hostId=&month=` | 團主：`dashboard.host`（只能看自己綁定的團主）；內部角色：`dashboard.admin`（必須指定 `hostId`） | 我的檔期、我的業績（歸因分攤）、預估佣金（沒有費率標「尚未設定」）、待辦、邀請、日曆、試用與素材進度、結算進度；**另含 `sop`（SOP 11 步清單＋各檔期進度）與 `upcoming`（今天起 14 天的進程與逾期，見 FR-DSH-13）**；**不含成本與淨利** |
 
 > ❓ 管理者 Dashboard 的「達成率」把「檔期累計淨銷售（全期）」與「檔期目標」比，但選檔期的條件是「與本月重疊」，因此跨月檔期可能被重複計入多個月份（K16）。
 

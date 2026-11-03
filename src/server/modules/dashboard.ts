@@ -9,6 +9,7 @@ import { camelize } from '../lib/case';
 import { campaignScope } from '../lib/scope';
 import { pickCommissionRule } from '../lib/commission-calc';
 import { adminExtras, CAMPAIGN_HOSTS_JSON } from './dashboard-extra';
+import { loadActiveTemplate } from '../workflow/templates';
 import { attainment, computeSalesFromAgg, dataStatus, estimateCommission, KPI_DEFS, SALES_STATUSES, type DataStatus, type SalesAggRow } from '../lib/kpi';
 
 export interface DataQuality {
@@ -18,6 +19,11 @@ export interface DataQuality {
   openImportErrors: number;
   warnings: string[];
 }
+
+/** 團主總覽的 SOP 區塊：只列流程模板 phase 1–6（寄樣 → 結團前催單，共 11 步）；「接下來兩週」從今天起算連續 14 天 */
+const HOST_SOP_MAX_PHASE = 6;
+const UPCOMING_DAYS = 14;
+const OPEN_TASK = ['TODO', 'IN_PROGRESS', 'BLOCKED', 'WAITING_APPROVAL'];
 
 const STATUS_LABEL: Record<DataStatus, string> = {
   NO_DATA: '待串接：尚無任何訂單資料',
@@ -306,6 +312,44 @@ export async function getHostDashboard(actor: Actor, hostIdParam?: string | null
      FROM tasks t JOIN campaigns c ON c.id=t.campaign_id WHERE ${base} AND t.step_key IN ('SAMPLE_SHIP','TRIAL_ARRIVAL','TRIAL_FEEDBACK','CREATIVE_ASSETS','LAUNCH_APPROVAL')
      ORDER BY c.id, t.seq`, bp)).rows;
 
+  // 團主看得到的 SOP：流程模板中「寄樣 → 結團前催單」的 11 步（phase 1–6）；結算以後屬內部作業，不列出
+  const sopRows = (await db.query(
+    `SELECT t.campaign_id, c.title AS campaign_title, t.step_key, t.name, t.seq, t.owner_role, t.status, t.planned_end
+     FROM tasks t JOIN campaigns c ON c.id=t.campaign_id WHERE ${base} AND c.status NOT IN ('CANCELLED','DRAFT') AND t.phase <= $${n + 1}
+     ORDER BY t.campaign_id, t.seq`, [...bp, HOST_SOP_MAX_PHASE])).rows;
+  let sopSteps: { stepKey: string; seq: number; name: string; ownerRole: string; kind: string; optional: boolean; description: string | null; mine: boolean }[] = [];
+  try {
+    const tpl = await loadActiveTemplate(db, actor.orgId);
+    sopSteps = tpl.steps.filter((x) => x.phase <= HOST_SOP_MAX_PHASE).map((x) => ({
+      stepKey: x.stepKey, seq: x.seq, name: x.name, ownerRole: x.ownerRole, kind: x.kind, optional: x.optional, description: x.description ?? null, mine: x.ownerRole === 'HOST',
+    }));
+  } catch { /* 沒有啟用中的模板：只是不顯示 SOP 清單，不影響其他區塊 */ }
+  const sopByCampaign = new Map<string, typeof sopRows>();
+  for (const r of sopRows) sopByCampaign.set(r.campaign_id, [...(sopByCampaign.get(r.campaign_id) ?? []), r]);
+  const sopProgress = [...sopByCampaign.entries()].map(([campaignId, rows]) => {
+    const counted = rows.filter((r) => r.status !== 'SKIPPED');
+    const cur = counted.find((r) => OPEN_TASK.includes(r.status));
+    return {
+      campaignId, title: rows[0].campaign_title as string, done: counted.filter((r) => r.status === 'DONE').length, total: counted.length,
+      current: cur ? { stepKey: cur.step_key as string, name: cur.name as string, ownerRole: cur.owner_role as string, status: cur.status as string, plannedEnd: (cur.planned_end as string | null) ?? null } : null,
+    };
+  });
+  // 接下來兩週（今天起連續 14 天）：未完成的 SOP 任務（含非團主負責的，標明誰負責）＋曝光＋開團／結團；團主自己逾期的另列
+  const windowEnd = addDays(today, UPCOMING_DAYS - 1);
+  const upcoming: { date: string; kind: 'TASK' | 'PLACEMENT' | 'OPEN' | 'CLOSE'; label: string; campaignId: string; campaignTitle: string; ownerRole: string | null; mine: boolean; status: string | null; communityName: string | null }[] = [];
+  for (const r of sopRows) {
+    if (!OPEN_TASK.includes(r.status) || !r.planned_end || r.planned_end < today || r.planned_end > windowEnd) continue;
+    upcoming.push({ date: r.planned_end, kind: 'TASK', label: r.name, campaignId: r.campaign_id, campaignTitle: r.campaign_title, ownerRole: r.owner_role, mine: r.owner_role === 'HOST', status: r.status, communityName: null });
+  }
+  for (const c of calendar) {
+    if (c.date > windowEnd) continue;
+    upcoming.push({ date: c.date, kind: c.kind, label: c.label, campaignId: c.campaign_id, campaignTitle: c.campaign_title, ownerRole: null, mine: true, status: c.status, communityName: c.community_name });
+  }
+  const kindOrder = { OPEN: 0, TASK: 1, PLACEMENT: 2, CLOSE: 3 } as const;
+  upcoming.sort((a, b) => a.date.localeCompare(b.date) || kindOrder[a.kind] - kindOrder[b.kind] || a.label.localeCompare(b.label));
+  const overdueMine = sopRows.filter((r) => r.owner_role === 'HOST' && OPEN_TASK.includes(r.status) && r.planned_end && r.planned_end < today)
+    .map((r) => ({ campaignId: r.campaign_id as string, campaignTitle: r.campaign_title as string, name: r.name as string, plannedEnd: r.planned_end as string, status: r.status as string }));
+
   const dq = await dataQuality(db, actor.orgId, base, bp);
   const settlementStages = myCampaigns.map((c) => ({
     campaignId: c.id, title: c.title, status: c.status,
@@ -333,6 +377,8 @@ export async function getHostDashboard(actor: Actor, hostIdParam?: string | null
     commission: { estimatedTotal: k('estCommission', anyEst ? totalEst : null), basis: '預估：歸因有效淨銷售額 × 佣金費率；正式分潤以 Phase 2 結算批次確認為準' },
     todos: camelize(tasks), pendingInvites: camelize(pendingInvites),
     calendar: camelize(calendar), trialAndAssets: camelize(prep), settlementProgress: settlementStages,
+    sop: { steps: sopSteps, progress: sopProgress },
+    upcoming: { from: today, to: windowEnd, days: UPCOMING_DAYS, items: upcoming, overdue: overdueMine },
   };
 }
 

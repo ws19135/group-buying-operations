@@ -6,6 +6,7 @@ import { ActionButton } from '@/ui/ActionButton';
 import { CAMPAIGN_STATUS, HOST_PART, PLACEMENT_TYPE, TASK_STATUS } from '@/ui/labels';
 import { fmtDateTime, money, num, pct } from '@/ui/format';
 import { as, type HostDash } from '@/ui/types';
+import { HostTop } from './HostTop';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
       <PageHeader title={`我的團購總覽 — ${d.host.name}`} sub={`統計期間 ${d.period.from} ～ ${d.period.to}  資料產生時間 ${fmtDateTime(d.generatedAt)}`} testid="dashboard-host"
         actions={<div className="btn-row"><Link className="btn sm" href={`?month=${shiftMonth(d.period.month, -1)}${hostQ}`}>← 上月</Link><strong>{d.period.month}</strong><Link className="btn sm" href={`?month=${shiftMonth(d.period.month, 1)}${hostQ}`}>下月 →</Link></div>} />
       {preview ? <Banner kind="warn" testid="preview-banner">👁 正在以團主視角預覽（{d.host.name}）。此畫面與該團主本人看到的內容相同。</Banner> : null}
+      <HostTop d={d} />
       {dq.status === 'DEMO' || dq.status === 'MIXED' ? <Banner kind="demo" testid="demo-banner">⚠️ {dq.status === 'MIXED' ? 'DEMO 示範資料：' : ''}{dq.statusLabel}</Banner> : null}
       {dq.status === 'NO_DATA' ? <Banner kind="nodata" testid="nodata-banner">{dq.statusLabel}。業績與預估佣金將在訂單資料接上後顯示。</Banner> : null}
       <div className="card" data-testid="data-quality" style={{ padding: '10px 14px' }}>
