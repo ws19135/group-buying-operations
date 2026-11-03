@@ -47,7 +47,7 @@ export interface HostDash {
   };
   upcoming: {
     from: string; to: string; days: number;
-    items: { date: string; kind: 'TASK' | 'PLACEMENT' | 'OPEN' | 'CLOSE'; label: string; campaignId: string; campaignTitle: string; ownerRole: string | null; mine: boolean; status: string | null; communityName: string | null }[];
+    items: { date: string; kind: 'TASK' | 'PLACEMENT' | 'OPEN' | 'CLOSE'; label: string; stepKey: string | null; campaignId: string; campaignTitle: string; ownerRole: string | null; mine: boolean; status: string | null; communityName: string | null }[];
     overdue: { campaignId: string; campaignTitle: string; name: string; plannedEnd: string; status: string }[];
   };
 }

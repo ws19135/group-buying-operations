@@ -27,8 +27,8 @@ beforeAll(async () => {
   h1 = (await mkHost(w, '團主一')).id; h2 = (await mkHost(w, '團主二')).id;
   comm1 = (await mkCommunity(w, [h1])).id;
   const products = [{ productId: p.id, skuId: p.skuIds[0] }];
-  // 近：兩週內有寄樣／試用／開團／結團
-  near = (await mkCampaign(w, v.id, { products, hosts: [{ hostId: h1 }], sampleReadyDate: dayOffset(0), openDate: dayOffset(8), closeDate: dayOffset(13) }, w.manager)).id;
+  // 近：兩週內有團主的試用／回饋作業，以及開團、結團（寄樣已過期、屬廠商）
+  near = (await mkCampaign(w, v.id, { products, hosts: [{ hostId: h1 }], sampleReadyDate: dayOffset(-14), openDate: dayOffset(8), closeDate: dayOffset(13) }, w.manager)).id;
   // 遠：所有日期都在兩週之後
   far = (await mkCampaign(w, v.id, { products, hosts: [{ hostId: h1 }], sampleReadyDate: dayOffset(40), openDate: dayOffset(60), closeDate: dayOffset(70) }, w.manager)).id;
   // 已逾期：試用品早就該到了、團主還沒回饋
@@ -84,25 +84,27 @@ describe('團主總覽最上面：接下來兩週的進程', () => {
     expect(ofNear.filter((i) => i.kind === 'PLACEMENT').map((i) => i.date)).toEqual([dayOffset(9)]);
     expect(u.items.some((i) => i.kind === 'PLACEMENT' && i.date === dayOffset(14))).toBe(false);
     // 作業：和資料庫裡的任務逐筆比對（未完成、預定完成日在視窗內）
-    const expected = (await taskRows(near)).filter((t) => t.phase <= 6 && OPEN.includes(t.status) && t.planned_end && t.planned_end >= today && t.planned_end <= u.to)
+    const expected = (await taskRows(near)).filter((t) => t.owner_role === 'HOST' && t.phase <= 6 && OPEN.includes(t.status) && t.planned_end && t.planned_end >= today && t.planned_end <= u.to)
       .map((t) => `${t.planned_end}|${t.name}`).sort();
     expect(expected.length).toBeGreaterThan(0);
     expect(ofNear.filter((i) => i.kind === 'TASK').map((i) => `${i.date}|${i.label}`).sort()).toEqual(expected);
     expect(u.items.some((i) => i.campaignId === far)).toBe(false);
   });
-  it('作業會標明誰負責：團主負責的 mine=true，廠商或營運負責的 mine=false', async () => {
-    const tasks = (await dash(host1)).upcoming.items.filter((i) => i.kind === 'TASK');
-    expect(tasks.length).toBeGreaterThan(0);
-    for (const t of tasks) expect(t.mine).toBe(t.ownerRole === 'HOST');
-    expect(tasks.some((t) => t.ownerRole !== 'HOST')).toBe(true);
+  it('作業只列團主自己負責的；廠商、營運負責的不列入（即使兩週內到期）', async () => {
+    const rows = await taskRows(near);
+    const u = (await dash(host1)).upcoming;
+    const others = rows.filter((t) => t.owner_role !== 'HOST' && OPEN.includes(t.status) && t.planned_end && t.planned_end >= today && t.planned_end <= u.to);
+    expect(others.length).toBeGreaterThan(0);   // 確認「別人負責、兩週內到期」的情境真的存在，下面的斷言才有意義
+    const tasks = u.items.filter((i) => i.kind === 'TASK');
+    for (const t of tasks) { expect(t.mine).toBe(true); expect(t.ownerRole).toBe('HOST'); }
+    for (const o of others) expect(tasks.map((t) => t.label)).not.toContain(o.name);
   });
   it('已完成的作業不再出現', async () => {
-    const before = (await dash(host1)).upcoming.items.filter((i) => i.campaignId === near && i.kind === 'TASK' && i.label === '廠商寄樣');
-    expect(before).toHaveLength(1);
-    await query(`UPDATE tasks SET status='DONE', completed_at=now() WHERE campaign_id=$1 AND step_key='SAMPLE_SHIP'`, [near]);
-    const after = (await dash(host1)).upcoming.items.filter((i) => i.campaignId === near && i.kind === 'TASK' && i.label === '廠商寄樣');
-    expect(after).toHaveLength(0);
-    await query(`UPDATE tasks SET status='TODO', completed_at=NULL WHERE campaign_id=$1 AND step_key='SAMPLE_SHIP'`, [near]);
+    const pick = async () => (await dash(host1)).upcoming.items.filter((i) => i.campaignId === near && i.kind === 'TASK' && i.label === '試用品到貨與試用');
+    expect(await pick()).toHaveLength(1);
+    await query(`UPDATE tasks SET status='DONE', completed_at=now() WHERE campaign_id=$1 AND step_key='TRIAL_ARRIVAL'`, [near]);
+    expect(await pick()).toHaveLength(0);
+    await query(`UPDATE tasks SET status='TODO', completed_at=NULL WHERE campaign_id=$1 AND step_key='TRIAL_ARRIVAL'`, [near]);
   });
   it('團主自己逾期未完成的作業另外列出；別人負責的逾期不算在團主頭上', async () => {
     const u = (await dash(host1)).upcoming;

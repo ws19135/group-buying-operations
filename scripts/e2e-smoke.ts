@@ -490,8 +490,10 @@ async function main() {
         const myY = await page.getByTestId('my-campaigns').boundingBox().then((b) => b?.y ?? 0);
         record('團主 Dashboard 最上面有「團購 SOP（標準作業流程）」與「接下來兩週的進程」', (await page.getByTestId('host-sop').count()) === 1 && (await page.getByTestId('host-next14').count()) === 1 && /團購 SOP（標準作業流程）/.test(await page.getByTestId('host-sop').innerText()) && topY < myY && topY < 400, `top y=${Math.round(topY)}`);
         const steps = await page.locator('[data-testid^="sop-step-"]').count();
-        const mineBadges = await page.getByTestId('host-sop-steps').getByText('我負責').count();
-        record('SOP 列出 11 個步驟，團主負責的步驟標「我負責」，不含結算以後的內部步驟', steps === 11 && mineBadges >= 2 && (await page.locator('[data-testid="sop-step-VENDOR_SETTLE"]').count()) === 0, `${steps} 步、我負責 ${mineBadges}`);
+        const mineBadges = await page.locator('[data-testid^="sop-mine-"]').count();
+        record('SOP 以圖示列出 11 個步驟，團主負責的步驟標「我來」，不含結算以後的內部步驟', steps === 11 && mineBadges >= 2 && (await page.locator('[data-testid="sop-step-VENDOR_SETTLE"]').count()) === 0, `${steps} 步、我來 ${mineBadges}`);
+        const counts = await page.getByTestId('host-next14-counts').innerText();
+        record('兩週進程最上面是圖示計數（要我做／曝光／開團／結團）', (await page.locator('[data-testid^="next14-count-"]').count()) === 4 && /要我做/.test(counts) && /曝光/.test(counts) && /開團/.test(counts) && /結團/.test(counts), counts.replace(/\s+/g, ' '));
         const nxt = await page.getByTestId('host-next14').innerText();
         record('兩週進程標示日期範圍與「今天／明天／N 天後」', /接下來兩週的進程（\d\d-\d\d ～ \d\d-\d\d）/.test(nxt) && /(今天|明天|後天|\d+ 天後)/.test(nxt), nxt.slice(0, 80).replace(/\s+/g, ' '));
         record('兩週進程裡的曝光類型是中文，不是英文代碼', !/\b(LAUNCH|REMINDER|POST|STORY|TOPIC)\b/.test(nxt), nxt.match(/\b(LAUNCH|REMINDER|POST|STORY|TOPIC)\b/)?.[0] ?? '');
