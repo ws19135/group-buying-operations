@@ -433,6 +433,25 @@
 
 索引：`exceptions_campaign_idx`、`exceptions_open_uq`（唯一）、`exceptions_org_status_idx`、`exceptions_pkey`（唯一）
 
+## `expense_corrections`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| expense_id | text | 否 |  | expenses.id |
+| old_amount | bigint | 否 |  |  |
+| new_amount | bigint | 否 |  |  |
+| old_payment_status | text | 否 |  |  |
+| new_payment_status | text | 否 |  |  |
+| old_paid_amount | bigint | 是 |  |  |
+| new_paid_amount | bigint | 是 |  |  |
+| reason | text | 否 |  |  |
+| corrected_by | text | 否 |  | users.id |
+| corrected_at | timestamp with time zone | 否 | `now()` |  |
+
+索引：`expense_corrections_expense_idx`、`expense_corrections_pkey`（唯一）
+
 ## `expenses`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -1386,6 +1405,7 @@
 | updated_by | text | 是 |  |  |
 | version | integer | 否 | `1` |  |
 | deleted_at | timestamp with time zone | 是 |  |  |
+| password_changed_at | timestamp with time zone | 是 |  |  |
 
 索引：`users_email_uq`（唯一）、`users_org_idx`、`users_pkey`（唯一）
 

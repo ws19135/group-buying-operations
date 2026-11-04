@@ -1,0 +1,41 @@
+name: Docker image check
+
+# 驗證正式環境映像（Dockerfile）可建置，且容器能在空資料庫上完成建置、通過 /api/health 與 /api/ready。
+# 只建置與測試，不推送映像、不部署。
+on:
+  pull_request:
+    paths: ['Dockerfile', '.dockerignore', 'docker-compose.prod.yml', 'deploy/**', 'package*.json', 'migrations/**', 'scripts/prod-*', '.github/workflows/docker-build.yml']
+  push:
+    branches: [main]
+    paths: ['Dockerfile', '.dockerignore', 'docker-compose.prod.yml', 'deploy/**', 'package*.json', 'migrations/**', 'scripts/prod-*', '.github/workflows/docker-build.yml']
+  workflow_dispatch:
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: erp, POSTGRES_PASSWORD: erp_ci_pw, POSTGRES_DB: erp_image }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U erp -d erp_image" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build --build-arg BUILD_SHA=${{ github.sha }} --build-arg APP_VERSION=ci-${{ github.run_number }} -t sdh-erp:ci .
+      - name: Bootstrap empty database (production mode)
+        run: |
+          docker run --rm --network host \
+            -e DATABASE_URL=postgres://erp:erp_ci_pw@127.0.0.1:5432/erp_image \
+            -e ORG_NAME='CI 映像檢查' -e ADMIN_EMAIL=ci-admin@company-ci.test -e ADMIN_INITIAL_PASSWORD="Ci-$(openssl rand -hex 10)-Qz7" \
+            sdh-erp:ci npm run prod:bootstrap
+      - name: Start container and check health/ready
+        run: |
+          docker run -d --name erp --network host -e DATABASE_URL=postgres://erp:erp_ci_pw@127.0.0.1:5432/erp_image sdh-erp:ci
+          for i in $(seq 1 40); do curl -fsS http://127.0.0.1:3000/api/ready && break; sleep 3; done
+          curl -fsS http://127.0.0.1:3000/api/health | tee /dev/stderr | grep -q "\"commit\":\"${{ github.sha }}\""
+          docker exec erp id -u | grep -vq '^0$'   # 以非 root 執行
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs erp || true

@@ -1,0 +1,15 @@
+# 自動向 Let's Encrypt 申請並續期 HTTPS 憑證；{$ERP_DOMAIN} 為正式網域（需先設定 DNS 指向這台主機）。
+{$ERP_DOMAIN} {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		-Server
+	}
+	reverse_proxy app:3000
+	log {
+		output stdout
+		format json
+	}
+}

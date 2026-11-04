@@ -116,7 +116,7 @@ export function computeTrialKpis(i: TrialKpiInput): TrialKpiResult {
   items.push(o.valid === 0 ? insufficient(k3, noOrders ? NO_ORDERS : '沒有有效訂單') : { ...k3, status: 'OK', value: Math.round((o.gmv - o.refund) / o.valid), completeness: 1, sampleSize: o.valid, lowSample: low(o.valid), reason: low(o.valid) ? `樣本偏小（少於 ${i.lowSampleBelow} 筆）` : null });
 
   // 4 每單貢獻利潤（K-3）：公司貢獻利潤 ÷ 有效訂單數；條款須為已確認的合約／正式商務條件，否則資料不足
-  const k4 = { key: 'contributionPerOrder', no: 4, label: '每單貢獻利潤', unit: 'TWD', formula: '每單 ＝ 公司貢獻利潤 ÷ 有效訂單數；公司貢獻利潤 ＝ 公司確認收入 − 團主分潤（若由公司支付）− 公司實際負擔的可歸屬成本。收款方與各項費用負擔方依該檔期的合作條款，不寫死', source: '該檔期「商業可行性」的合作條款（假設來源須為「合約」或「正式商務條件」）＋實際訂單；與商業可行性實際值回寫共用同一計算', periodNote: '同上', sensitive: true };
+  const k4 = { key: 'contributionPerOrder', no: 4, label: '每單貢獻利潤', unit: 'TWD', formula: '每單 ＝ 公司貢獻利潤 ÷ 有效訂單數；公司貢獻利潤 ＝ 公司確認收入 − 團主分潤（若由公司支付）− 公司實際負擔的可歸屬成本。收款方與各項費用負擔方依該檔期的合作條款，不寫死。【口徑說明】這個數值是「依已確認的合約條款與實際訂單推算」，**不是完成會計核對的實際淨利**；財務費用台帳另行記錄實際發生的費用，兩者分開、不重複計算（Owner 裁決 O-1）', source: '該檔期「商業可行性」的合作條款（假設來源須為「合約」或「正式商務條件」）＋實際訂單；與商業可行性實際值回寫共用同一計算', periodNote: '同上', sensitive: true };
   const ref = { label: '預估（來自商業可行性試算，不是實際值）', value: i.estimatedContributionPerOrder, sensitive: true };
   const cp = i.contribution;
   items.push(cp && cp.status === 'OK' && cp.perOrder != null

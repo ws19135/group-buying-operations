@@ -1,0 +1,58 @@
+# 正式環境（單機）：反向代理（Caddy，自動 HTTPS）＋ 應用程式 ＋ PostgreSQL。
+# 資料庫**不對外開放**（只在內部網路）；應用程式只透過反向代理對外；所有密鑰來自 .env.production（不提交、權限 600）。
+# 使用：docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+# 初次建置（空資料庫）：docker compose --env-file .env.production -f docker-compose.prod.yml run --rm app npm run prod:bootstrap
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - erp_pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # 不使用 ports：資料庫不暴露在主機或網際網路
+
+  app:
+    image: ${APP_IMAGE:-sdh-erp:local}
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      ORG_NAME: ${ORG_NAME:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-}
+      NOTIFY_ADAPTER: test
+      AUTOMATION_ENABLED: "off"
+    networks: [internal, web]
+    # 應用程式只在內部網路被反向代理存取，不直接對外
+
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [app]
+    ports: ["80:80", "443:443"]
+    environment:
+      ERP_DOMAIN: ${ERP_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [web]
+
+networks:
+  internal: { internal: true }
+  web: {}
+volumes:
+  erp_pgdata:
+  caddy_data:
+  caddy_config:

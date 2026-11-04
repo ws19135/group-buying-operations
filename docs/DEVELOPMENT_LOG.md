@@ -460,3 +460,11 @@ Owner 要求：不重建 SOP 02／03；把 1～5 分主觀評分升級成「可�
 **變更**：F-01 財務總覽三口徑；F-02 重新確認（服務層＋migration 025 觸發器）；F-03 付款一致性（驗證＋約束）；F-04 KPI 與台帳口徑說明；F-05 改檔期時關聯驗證；F-06 升級演練腳本（`npm run db:rehearsal`）。
 **與規格差異**：新增 migration 025（觸發器＋NOT VALID 約束）；財務模組只新增費用相關驗證與唯讀顯示欄位，結算、佣金、發票、G1–G5 零差異。
 **需要 Owner**：`FINAL_PREMERGE_REVIEW.md` §4（O-1～O-3；皆為財務政策，本輪未變更）。
+
+## 2026-11-04｜正式環境建置與 PR 合併（PR #20 → #21 → #22 → 正式環境準備）
+
+**合併**：#20（`6fe2c9c`）、#21（`e27c337`）、#22（`f798702`）依序合併，未強制推送、未繞過分支保護。#20 合併後 `main` CI 曾紅燈：`trial-kpis` 測試以「不含 25」斷言，剛好撞上期間起日 2026-10-25（日期相依的不穩定測試，非產品缺陷）；改為比對 `"value":N`，隨 #21 修正後 `main` 轉綠。
+**正式環境準備（分支 `feat/prod-readiness`）**：migration 026（`password_changed_at`）、027（`expense_corrections`）；強制變更密碼（後端擋下其他請求）；`/api/ready`；`prod:bootstrap`／`prod:check`；Dockerfile、compose、Caddy、部署與映像建置工作流程；備份與還原演練腳本；Live UAT 腳本；O-1 口徑標示、O-2 受控更正。
+**驗證**：全套測試 56 檔／921 項通過；`tsc`、`eslint` 無錯誤；本機 production 模式＋空資料庫：`prod:bootstrap`、`/api/health`、`/api/ready`、Live UAT 21/21、重啟後資料仍在、備份與還原演練。
+**未做（刻意）**：未部署、未連任何外部服務、未啟用通知／金流／排程、未碰既有資料庫、未改結算、佣金、發票。
+**需要 Owner**：`HANDOFF.md` §1。

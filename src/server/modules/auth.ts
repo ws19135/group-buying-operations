@@ -15,7 +15,7 @@ const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex'
 
 interface UserRow {
   id: string; organization_id: string; email: string; name: string; role_key: string;
-  password_hash: string; status: string; failed_login_count: number; locked_until: Date | null;
+  password_hash: string; status: string; failed_login_count: number; locked_until: Date | null; must_change_password: boolean;
 }
 
 async function loadScopes(userId: string, db: { query: Tx['query'] } | null = null): Promise<{ hostIds: string[]; vendorIds: string[] }> {
@@ -63,7 +63,7 @@ export async function login(email: string, password: string, ctx: { ip?: string 
   const scopes = await loadScopes(u.id);
   const actor: Actor = {
     type: 'USER', userId: u.id, orgId: u.organization_id, role: u.role_key as RoleKey, name: u.name,
-    ...scopes, requestId: ctx.requestId, source: 'WEB', ip: ctx.ip ?? null,
+    ...scopes, requestId: ctx.requestId, source: 'WEB', ip: ctx.ip ?? null, mustChangePassword: u.must_change_password,
   };
   await query(
     `INSERT INTO audit_logs (organization_id, actor_user_id, actor_role, action, entity_type, entity_id, request_id, source, ip)
@@ -86,7 +86,7 @@ export async function actorFromToken(token: string | null | undefined, ctx: { re
   const scopes = await loadScopes(r.id);
   return {
     type: 'USER', userId: r.id, orgId: r.organization_id, role: r.role_key as RoleKey, name: r.name,
-    ...scopes, requestId: ctx.requestId, source: ctx.source ?? 'WEB', ip: ctx.ip ?? null,
+    ...scopes, requestId: ctx.requestId, source: ctx.source ?? 'WEB', ip: ctx.ip ?? null, mustChangePassword: r.must_change_password,
   };
 }
 
@@ -165,4 +165,33 @@ export async function setUserStatus(actor: Actor, userId: string, status: 'ACTIV
     await audit(tx, actor, { action: 'user.set_status', entityType: 'user', entityId: userId, before: { status: before }, after: { status } });
     return { id: userId, status };
   });
+}
+
+/** 密碼規則（正式環境）：至少 12 字元、含英文字母與數字、不可與帳號相同、不可是常見或已公開的測試密碼 */
+const BANNED_PASSWORDS = ['password1234', 'admin-dev-pass-123', 'demo-dev-pass-123', 'test-password-123', 'changeme1234', '123456789012', 'qwerty123456'];
+export function validateNewPassword(pw: string, email: string): string | null {
+  const base = validatePasswordStrength(pw);
+  if (base) return base;
+  if (pw.length < 12) return '密碼至少 12 個字元';
+  if (pw.toLowerCase().includes(email.split('@')[0].toLowerCase()) && email.split('@')[0].length >= 4) return '密碼不可包含帳號名稱';
+  if (BANNED_PASSWORDS.includes(pw.toLowerCase())) return '這是常見或已公開的密碼，請換一組';
+  return null;
+}
+
+export const changePasswordSchema = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(1).max(200) }).strict();
+/** 使用者自行變更密碼：需驗證目前密碼；成功後清除「必須變更」旗標並撤銷其他所有 session（目前這個保留）；稽核不記密碼 */
+export async function changePassword(actor: Actor, currentToken: string | null, raw: z.input<typeof changePasswordSchema>) {
+  const input = changePasswordSchema.parse(raw);
+  const u = (await query<UserRow>('SELECT * FROM users WHERE id=$1 AND deleted_at IS NULL', [actor.userId]))[0];
+  if (!u) throw notFound('使用者');
+  if (!verifyPassword(input.currentPassword, u.password_hash)) throw new AppError('UNAUTHENTICATED', '目前密碼不正確');
+  if (input.newPassword === input.currentPassword) throw validation('新密碼不可與目前密碼相同');
+  const bad = validateNewPassword(input.newPassword, u.email);
+  if (bad) throw validation(bad);
+  await withTx(async (tx) => {
+    await tx.query('UPDATE users SET password_hash=$2, must_change_password=false, password_changed_at=now(), failed_login_count=0, locked_until=NULL WHERE id=$1', [u.id, hashPassword(input.newPassword)]);
+    await tx.query(`UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL AND ($2::text IS NULL OR token_hash <> $2)`, [u.id, currentToken ? sha256(currentToken) : null]);
+    await audit(tx, actor, { action: 'user.password_change', entityType: 'user', entityId: u.id, after: { mustChangePassword: false } });
+  });
+  return { ok: true as const };
 }

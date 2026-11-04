@@ -15,9 +15,11 @@ export async function getActor(): Promise<Actor | null> {
   return actorFromToken(token, { requestId: randomUUID(), ip, source: 'WEB' });
 }
 
-export async function requireActor(): Promise<Actor> {
+export async function requireActor(opts: { allowPasswordChange?: boolean } = {}): Promise<Actor> {
   const a = await getActor();
   if (!a) redirect('/login');
+  // 初次啟用：必須先變更密碼才能看到任何功能頁（後端 API 同樣擋，見 api/router）
+  if (a.mustChangePassword && !opts.allowPasswordChange) redirect('/account/password');
   return a;
 }
 

@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.production.example
+docs/uat
+docs/generated
+tests
+*.log
+backups

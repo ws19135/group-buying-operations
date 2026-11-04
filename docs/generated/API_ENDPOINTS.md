@@ -5,8 +5,10 @@
 | 方法 | 路徑 | 需登入 |
 |---|---|:-:|
 | GET | `/api/health` | 否（公開） |
+| GET | `/api/ready` | 否（公開） |
 | POST | `/api/auth/login` | 否（公開） |
 | POST | `/api/auth/logout` | 否（公開） |
+| POST | `/api/auth/change-password` | 是 |
 | GET | `/api/auth/me` | 是 |
 | GET | `/api/users` | 是 |
 | POST | `/api/users` | 是 |
@@ -184,6 +186,7 @@
 | GET | `/api/expenses` | 是 |
 | POST | `/api/expenses` | 是 |
 | PATCH | `/api/expenses/:id` | 是 |
+| POST | `/api/expenses/:id/correct-paid` | 是 |
 | GET | `/api/expenses/:id/history` | 是 |
 | PATCH | `/api/expenses/:id/attribution` | 是 |
 | POST | `/api/expenses/:id/claim/confirm` | 是 |
