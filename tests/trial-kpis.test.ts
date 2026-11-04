@@ -124,7 +124,7 @@ describe('小規模測試團 KPI：整合（真實資料庫）', () => {
     expect(asEd.reference!.value).toBeNull();
     const raw = JSON.stringify((await ed.call('GET', `/trials/${t}/kpis`)).json);
     expect(raw).not.toContain(String(COST));
-    expect(raw).not.toContain(`"value":${Math.round(fz.results.companyContribution / 100)}`);   // 比對 JSON 的值，不比對任意子字串（日期裡可能剛好有相同數字）
+    expect(raw).not.toContain(`"value":${Math.round(fz.results.companyContribution / 100)}`);   // 比對 JSON 的值，不比對任意子字串（日期裡可能剛好有相同數字；例如統計期間起日 2026-10-25 含「25」）
   });
 
   it('權限與隔離：團主與廠商不能看；其他組織看不到；範圍外的檔期看不到', async () => {
