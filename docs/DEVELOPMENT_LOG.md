@@ -362,6 +362,26 @@ Owner 要求：不重建 SOP 02／03；把 1～5 分主觀評分升級成「可�
 
 **下一步**：Owner 驗收畫面；確認 K-2 後補人工「觸及人數」欄位；累積測試團資料後再訂門檻。
 
+## 2026-11-03｜Owner 決策 K-1～K-3 落地：觸及與導購資料、實際貢獻利潤、測試團 KPI 彙整（分支 `feat/trial-kpi-owner-decisions`）
+
+**目標**：依 Owner 裁決實作 K-1（暫不設 KPI 門檻、累積 5 檔再審查）、K-2（人工填寫三種觸及資料，CVR 只用有效導購訪客）、K-3（沿用代理人口徑、承擔方依各檔合約、與實際值回寫共用定義、不改結算）。
+
+**變更**
+- K-2：migration 018 `trial_reach_records`；`lib/trial-reach.ts`、`modules/trial-reach.ts`、4 條 API；試用頁「觸及與導購資料」卡（新增／軟刪除）；KPI 的 CVR 改用有效導購訪客，另列「群組成員訂單比」。
+- K-3：`lib/actual-sales.ts`、`lib/actual-profit.ts`、`modules/actual-contribution.ts`；`calcFeasibility` 新增實際值模式（預設行為不變）；可行性新增「退款／退貨處理成本」與負擔方、來源「正式商務條件（已確認）」；KPI 與 `recordActuals` 共用；`recordActuals` 既有欄位維持原義，新增與 KPI 同定義的欄位與貢獻利潤（稽核不留金額、無權限者看「需權限」）。先寫 `TRIAL_KPI_FINANCE_ALIGNMENT.md` 差異分析，確認分潤結算程式零變動。
+- K-1：`/selection?tab=kpi` 測試團 KPI 彙整（進度 N／5、趨勢、風險提示、商品類別、團主類型）；風險提示只陳述事實。
+- 文件：`TRIAL_KPI.md` 改寫、新增 `TRIAL_KPI_FINANCE_ALIGNMENT.md`；SRS（FR-TRIAL-KPI-01～07）、SAD、SDD §18B.10、KNOWN_ISSUES、TEST_REPORT §10、API／資料字典已同步。
+
+**驗證**：`npm test` 41 檔 740 項；E2E 煙霧 146/146；全流程 34/34；tsc、eslint 無錯誤；10 種規則破壞的突變驗證皆使測試變紅。
+
+**與規格的差異**：新增 1 張表與 2 個可行性輸入欄位；其餘不變。分潤結算、財務、發票、G1–G5 語意都沒有改動。
+
+**風險與阻擋**：見 `TRIAL_KPI.md` §7（K-4～K-7）與 `TRIAL_KPI_FINANCE_ALIGNMENT.md` §5（K-6、K-8）。
+
+**需要 Owner 再次裁決**：K-6（分潤比例以合約還是財務規則為準）、K-7（多商品檔期）、K-4、K-5、K-8。
+
+**下一步**：開始用畫面累積小規模測試團資料；滿 5 檔後從彙整頁整理提交審查。
+
 ## 後續紀錄格式
 
 每次變更新增一節，至少包含：

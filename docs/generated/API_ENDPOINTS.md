@@ -82,6 +82,10 @@
 | POST | `/api/products/:id/trials` | 是 |
 | GET | `/api/trials/:id` | 是 |
 | GET | `/api/trials/:id/kpis` | 是 |
+| GET | `/api/trial-kpis/summary` | 是 |
+| GET | `/api/trials/:id/reach` | 是 |
+| POST | `/api/trials/:id/reach` | 是 |
+| POST | `/api/reach-records/:id/void` | 是 |
 | PATCH | `/api/trials/:id` | 是 |
 | POST | `/api/trials/:id/conclude` | 是 |
 | POST | `/api/trials/:id/review` | 是 |

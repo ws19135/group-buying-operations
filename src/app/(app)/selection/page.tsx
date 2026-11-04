@@ -4,6 +4,8 @@ import { selectionOverview } from '@/server/modules/selection';
 import { Badge, Banner, Card, EmptyState, PageHeader, StatusBadge, Table, Tabs } from '@/ui/components';
 import { SelectionConfigForm } from '@/ui/selection/SelectionConfigForm';
 import { SelectionV2ConfigForm } from '@/ui/selection/SelectionV2ConfigForm';
+import { TrialKpiSummaryView, type TrialKpiSummaryV } from '@/ui/selection/TrialKpiSummaryView';
+import { getTrialKpiSummary } from '@/server/modules/trial-kpis';
 import { getV2Config } from '@/server/modules/selection-v2';
 import type { CondDefV } from '@/ui/selection/V2ResultView';
 import { CONCLUSION, EVID_KIND, EVID_STATE, SEL_DIM, SEL_REC, TRIAL_LEVEL, TRIAL_TYPE } from '@/ui/labels';
@@ -35,8 +37,10 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
         ≥ {c.thresholds.proceed} 分建議進入商務審查、≥ {c.thresholds.supplement} 分補測／補件；合作資格審查有效 {c.ddValidDays} 天、商品資格試用有效 {c.trialValidDays} 天。
         分數與評估只是決策建議，<strong>不會</strong>自動核准商品或 G1（選品核准）。
       </Banner>
-      <Tabs tabs={[{ key: 'todo', label: '待辦與提醒' }, { key: 'config', label: '評分與有效期設定（V1）' }, { key: 'config2', label: '選品 V2 設定' }]} current={tab} base="/selection" />
-      {tab === 'config2' ? await (async () => {
+      <Tabs tabs={[{ key: 'todo', label: '待辦與提醒' }, { key: 'config', label: '評分與有效期設定（V1）' }, { key: 'config2', label: '選品 V2 設定' }, { key: 'kpi', label: '測試團 KPI 彙整' }]} current={tab} base="/selection" />
+      {tab === 'kpi' ? (
+        <Card title="小規模測試團 KPI 累積彙整" testid="selection-kpi-summary"><TrialKpiSummaryView s={as<TrialKpiSummaryV>(await getTrialKpiSummary(actor))} /></Card>
+      ) : tab === 'config2' ? await (async () => {
         const v = await getV2Config(actor);
         const cat = v.conditions as unknown as CondDefV[];
         return (

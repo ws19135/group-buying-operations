@@ -69,7 +69,7 @@ export const RECOVERY = m({ NOT_REQUIRED: ['不需回收', 'neutral'], PENDING: 
 export const LIGHT = m({ RED: ['有阻礙性風險', 'danger'], YELLOW: ['有缺口', 'warn'], GREEN: ['無已知缺口', 'ok'] });
 export const RISK_LEVEL = m({ BLOCKING: ['阻礙', 'danger'], GAP: ['缺口', 'warn'] });
 export const REGULATED: Record<string, string> = { FOOD: '食品', SUPPLEMENT: '保健食品', MEDICAL_DEVICE: '醫療器材', COSMETIC: '化妝品', CHILD_PRODUCT: '兒童／嬰幼兒用品', OTHER_REGULATED: '其他受規範品類' };
-export const SOURCE_KIND: Record<string, string> = { VENDOR_QUOTE: '廠商報價', TRIAL_ACTUAL: '試用／小團實際', HISTORICAL_DATA: '歷史資料', CONTRACT: '合約', MANUAL_ESTIMATE: '人工估計' };
+export const SOURCE_KIND: Record<string, string> = { VENDOR_QUOTE: '廠商報價', TRIAL_ACTUAL: '試用／小團實際', HISTORICAL_DATA: '歷史資料', CONTRACT: '合約', FORMAL_TERMS: '正式商務條件（已確認）', MANUAL_ESTIMATE: '人工估計' };
 export const SEL_DIM: Record<string, string> = { need: '客群需求符合度', quality: '商品品質與安全性', profit: '利潤與價格競爭力', supply: '供應商履約能力', content: '內容展示與說服力', repeat: '複購潛力' };
 
 // ---- 英文縮寫的中文名詞（畫面上出現縮寫時，一律附上中文）----

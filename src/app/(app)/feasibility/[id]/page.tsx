@@ -20,7 +20,7 @@ interface F {
   inputs: Record<string, unknown>; sources: Record<string, { kind: string; note?: string | null }>; results: Record<string, unknown>; actuals: Record<string, unknown> | null; actualsAt: string | null;
   restricted: boolean; createdAt: string; createdByName: string | null; evidence: never[]; versions: { id: string; versionNo: number; label: string | null; createdAt: string }[]; inputLabels: Record<string, string>;
 }
-interface Actuals { scope: string; orders: number; gmv: number; refund: number; nsv: number; aov: number | null; refundRatePct: number | null; complaints: number; refundCases: number; exchangeCases: number; shipments: number; shipmentExceptions: number; shipmentExceptionRatePct: number | null;
+interface Actuals { scope: string; validOrders?: number; refundedOrders?: number; cancelledOrders?: number; netAov?: number | null; contribution?: { status?: string; restricted?: boolean; total?: number | null; perOrder?: number | null; reasons?: string[]; basis?: string } | null; orders: number; gmv: number; refund: number; nsv: number; aov: number | null; refundRatePct: number | null; complaints: number; refundCases: number; exchangeCases: number; shipments: number; shipmentExceptions: number; shipmentExceptionRatePct: number | null;
   variance: { orders: { predicted: number; actual: number; diff: number; diffPct: number | null } | null; gmv: { predicted: number; actual: number; diff: number; diffPct: number | null } | null; refundRatePct: { predicted: number; actual: number; diff: number } | null }; note: string; campaignStatus: string }
 
 export default withActor(async (actor, props: { params: Params }) => {
@@ -51,12 +51,20 @@ export default withActor(async (actor, props: { params: Params }) => {
           <>
             <p className="small muted">回寫時間 {fmtDateTime(f.actualsAt)}・範圍：{a.scope === 'HOST' ? '指定團主歸因' : '整個檔期'}・檔期狀態 {a.campaignStatus}</p>
             <Kv rows={[
-              ['實際有效訂單', a.variance.orders ? `${a.orders}（預測 ${a.variance.orders.predicted}，差 ${a.variance.orders.diff}${a.variance.orders.diffPct == null ? '' : `／${a.variance.orders.diffPct}%`}）` : String(a.orders)],
+              ['計入銷售的訂單', a.variance.orders ? `${a.orders}（預測 ${a.variance.orders.predicted}，差 ${a.variance.orders.diff}${a.variance.orders.diffPct == null ? '' : `／${a.variance.orders.diffPct}%`}）` : String(a.orders)],
               ['實際 GMV（成交總額）', a.variance.gmv ? `${money(a.gmv)}（預測 ${money(a.variance.gmv.predicted)}，差 ${money(a.variance.gmv.diff)}）` : money(a.gmv)],
-              ['退款 / 淨銷售額', `${money(a.refund)} / ${money(a.nsv)}`], ['客單價', money(a.aov)],
+              ['有效訂單（已付款／部分退款）', a.validOrders == null ? '—' : String(a.validOrders)],
+              ['退款 / 淨銷售額', `${money(a.refund)} / ${money(a.nsv)}`], ['客單價（GMV ÷ 計入銷售訂單）', money(a.aov)], ['有效平均客單價（與 KPI 同一定義）', a.netAov == null ? '—' : money(a.netAov)],
               ['退款率', a.refundRatePct == null ? '—' : `${a.refundRatePct}%${a.variance.refundRatePct ? `（預測 ${a.variance.refundRatePct.predicted}%）` : ''}`],
               ['客訴／退款／換貨件數', `${a.complaints}／${a.refundCases}／${a.exchangeCases}`], ['出貨例外', `${a.shipmentExceptions}／${a.shipments}${a.shipmentExceptionRatePct == null ? '' : `（${a.shipmentExceptionRatePct}%）`}`],
             ]} />
+            {a.contribution ? (
+              <div data-testid="fz-actual-contribution"><strong>實際公司貢獻利潤（與小規模測試團 KPI 同一定義）：</strong>{' '}
+                {a.contribution.restricted ? <span className="muted">需有成本檢視權限</span>
+                  : a.contribution.status === 'OK' ? <span>{money(a.contribution.total ?? null)}（每單 {money(a.contribution.perOrder ?? null)}）</span>
+                  : <span className="unknown">資料不足：{(a.contribution.reasons ?? []).join('；')}</span>}
+                {a.contribution.basis ? <div className="small muted">{a.contribution.basis}</div> : null}
+              </div>) : null}
             <p className="small muted">{a.note}</p>
           </>
         )}

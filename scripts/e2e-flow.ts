@@ -258,19 +258,49 @@ async function main() {
     await page.waitForLoadState('networkidle');
     const miniUrl = page.url();
     const kpiText = await page.getByTestId('trial-kpis').innerText();
-    record('SOP 03 小規模測試團：沿用資格後只需 12 項檢核；成效 KPI 8 項，沒有訂單／出貨資料的顯示「資料不足」（不是 0）', (await page.locator('[data-testid^="check-row-"]').count()) === 12 && (await page.locator('[data-testid^="kpi-value-"]').count()) === 8 && /資料不足/.test(kpiText) && /不做通過／不通過的判定/.test(kpiText));
+    record('SOP 03 小規模測試團：沿用資格後只需 12 項檢核；成效 KPI 8 項，沒有訂單／出貨資料的顯示「資料不足」（不是 0）', (await page.locator('[data-testid^="check-row-"]').count()) === 12 && (await page.locator('[data-testid^="kpi-value-"]').count()) === 8 && /資料不足/.test(kpiText) && /尚未制定/.test(kpiText) && /不判定是否值得放大銷售/.test(kpiText));
     await page.getByTestId('btn-host-intent').click();
     const idlg = page.getByTestId('btn-host-intent-dialog');
     await idlg.getByTestId('field-hostIntent').selectOption('WILLING');
     await submitAndWait(page, () => idlg.getByTestId('host-intent-form-submit').click(), /\/api\/trials\/TRL-/);
     record('SOP 03 KPI：記錄團主再次合作意願（畫面）後，第 8 項顯示「願意再次合作」', /願意再次合作/.test(await page.getByTestId('kpi-value-hostIntent').innerText()));
+    // K-2：觸及與導購資料（人工填寫；三種分開；每筆有來源、期間、填寫人、日期、可信度）
+    const addReach = async (metric: string, value: number, sourceKind: string, sourceText: string, credibility: string) => {
+      await page.getByTestId('btn-reach-add').click();
+      const rdlg2 = page.getByTestId('btn-reach-add-dialog');
+      await rdlg2.getByTestId('field-metric').selectOption(metric);
+      await rdlg2.getByTestId('field-value').fill(String(value));
+      await rdlg2.getByTestId('field-sourceKind').selectOption(sourceKind);
+      await rdlg2.getByTestId('field-sourceText').fill(sourceText);
+      await rdlg2.getByTestId('field-periodStart').fill(addDays(today, 14));
+      await rdlg2.getByTestId('field-periodEnd').fill(addDays(today, 24));
+      await rdlg2.getByTestId('field-credibility').selectOption(credibility);
+      return submitAndWait(page, () => rdlg2.getByTestId('reach-form-submit').click(), /\/api\/trials\/TRL-[^/]+\/reach$/);
+    };
+    await addReach('POTENTIAL_REACH', 120, 'LINE_GROUP_MEMBERS', '[E2E] LINE 群組成員數（團主截圖）', 'MEDIUM');
+    await addReach('ACTUAL_REACH', 80, 'PLATFORM_POST_REACH', '[E2E] 社群貼文後台', 'HIGH');
+    await addReach('QUALIFIED_VISITORS', 60, 'SHORT_LINK_UNIQUE_VISITORS', '[E2E] 導購短連結後台', 'HIGH');
+    const reachText = await page.getByTestId('trial-reach').innerText();
+    record('K-2 觸及與導購資料（畫面）：潛在觸及、實際觸及、有效導購訪客三種分開填寫，每筆有來源、統計期間、填寫人、填寫日期與可信度', ['潛在觸及人數', '實際觸及人數', '有效導購訪客', '[E2E] 導購短連結後台', '導購短連結不重複訪客'].every((t) => reachText.includes(t)) && /\d{4}-\d{2}-\d{2}/.test(reachText));
+    const cvrText = await page.getByTestId('kpi-conversionRate').innerText();
+    record('K-2 沒有有效訂單時 CVR 仍是資料不足；群組成員訂單比另列且標明「不是 CVR、不代表實際觸及」；潛在與實際觸及不會被當成分母', /資料不足/.test(cvrText) && /群組成員訂單比/.test(cvrText) && /不是 CVR/.test(cvrText) && /不代表實際觸及/.test(cvrText) && /潛在觸及人數：120 人/.test(cvrText) && /實際觸及人數：80 人/.test(cvrText));
+    record('K-3 每單貢獻利潤在條款不全或來源未確認時是資料不足（未知成本不當 0）', /資料不足/.test(await page.getByTestId('kpi-value-contributionPerOrder').innerText()));
     await shot(page, '07-trial-mini-group-kpi');
+    // 刪除一筆（軟刪除，保留紀錄與原因）
+    const voidBtn = page.locator('button[data-testid^="btn-reach-void-"]').first();
+    const voidId = (await voidBtn.getAttribute('data-testid')) as string;
+    await voidBtn.click();
+    const vdlg = page.getByTestId(`${voidId}-dialog`);
+    await vdlg.getByTestId('field-reason').fill('[E2E] 數字填錯，重新填寫');
+    await submitAndWait(page, () => vdlg.getByTestId(`${voidId}-submit`).click(), /\/api\/reach-records\/RCH-[^/]+\/void$/);
+    record('K-2 刪除是軟刪除：畫面保留「已刪除的紀錄」與原因，不計入', (await page.getByTestId('reach-removed-summary').count()) === 1);
     void miniUrl;
 
     // ---- 8. 商業可行性（試算） ----
     await page.goto(productUrl, { waitUntil: 'networkidle' });
     await page.getByTestId('btn-fz-open').click();
     const fdlg = page.getByTestId('btn-fz-open-dialog');
+    record('K-3 可行性表單：有「退款／退貨處理成本與負擔方」、收款方欄位，來源可選「合約」或「正式商務條件（已確認）」，並說明未確認來源的實際貢獻利潤維持資料不足', (await fdlg.getByTestId('fz-terms-note').count()) === 1 && (await fdlg.getByTestId('fz-returnCostPerRefundOrder').count()) === 1 && (await fdlg.getByTestId('fz-returnCostBorneBy').count()) === 1 && (await fdlg.getByTestId('fz-src-hostCommissionPct').locator('option', { hasText: '正式商務條件（已確認）' }).count()) === 1);
     await fdlg.getByTestId('fz-campaign').selectOption(campId).catch(() => undefined);
     const vals: Record<string, string> = { expectedOrders: '100', unitPrice: '450', refundRatePct: '5', unitCost: '220', shippingPerOrder: '40', platformFeePct: '2', otherVariablePerOrder: '0', fixedCost: '1000', brandFeePct: '10', serviceFeeFixed: '0', hostCommissionPct: '8' };
     for (const [k, v] of Object.entries(vals)) await fdlg.getByTestId(`fz-${k}`).fill(v);
@@ -306,6 +336,11 @@ async function main() {
     await page.goto(`${campUrl}?tab=approvals`, { waitUntil: 'networkidle' });
     await shot(page, '11-approvals-g1');
     record('G1 核准區（檔期推進到「評估中」後）有唯讀的決策摘要提示；必要檢查（前置任務、團主確認）未過時仍「無法申請」——評分與試用不會自動核准、也不會繞過 G1', (await page.getByTestId('g1-selection-note').count()) > 0 && /不影響核准/.test(await page.getByTestId('g1-selection-note').innerText()) && (await page.getByTestId('btn-request-G1').count()) === 0 && /必要檢查未通過，無法申請/.test(await page.locator('body').innerText()));
+    // ---- K-1：測試團 KPI 累積彙整（只整理，不設門檻） ----
+    await page.goto(`${BASE}/selection?tab=kpi`, { waitUntil: 'networkidle' });
+    const sumText = await page.getByTestId('kpi-summary-view').innerText();
+    record('K-1 測試團 KPI 彙整：顯示累積檔數進度（／5）、各測試團的商品類別與團主類型，明講不判定是否值得放大銷售，沒有任何達標字眼', /已累積/.test(sumText) && /[／/] ?5 檔/.test(sumText) && /不判定是否值得放大銷售/.test(sumText) && sumText.includes(productName) && sumText.includes(hostName) && /團媽/.test(sumText) && !/已達標|未達標|建議放大/.test(sumText));
+    await shot(page, '13-kpi-summary');
     // ---- 11. 選品 V2 設定畫面（提案設定；未經 Owner 確認不啟用門檻） ----
     await page.goto(`${BASE}/selection?tab=config2`, { waitUntil: 'networkidle' });
     const cfgBanner = await page.getByTestId('v2-config-banner').innerText();

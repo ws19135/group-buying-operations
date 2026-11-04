@@ -1262,6 +1262,33 @@
 
 索引：`trial_checks_pkey`（唯一）、`trial_checks_trial_id_item_key_key`（唯一）、`trial_checks_trial_idx`
 
+## `trial_reach_records`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| trial_id | text | 否 |  | product_trials.id |
+| metric | text | 否 |  |  |
+| value | integer | 否 |  |  |
+| source_kind | text | 否 |  |  |
+| source_text | text | 否 |  |  |
+| period_start | date | 否 |  |  |
+| period_end | date | 否 |  |  |
+| credibility | text | 否 |  |  |
+| note | text | 是 |  |  |
+| filled_on | date | 否 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 否 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+| deleted_at | timestamp with time zone | 是 |  |  |
+| deleted_by | text | 是 |  |  |
+| delete_reason | text | 是 |  |  |
+
+索引：`trial_reach_records_pkey`（唯一）、`trial_reach_trial_idx`
+
 ## `user_scopes`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |

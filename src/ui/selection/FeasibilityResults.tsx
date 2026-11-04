@@ -11,7 +11,7 @@ export function FeasibilityResults({ results, testid = 'fz-results' }: { results
   const row = (key: string, label: string, note?: string): [string, React.ReactNode] => [label, n(results[key]) == null ? (results.restricted && !['gmv', 'refund', 'nsv'].includes(key) ? <span className="muted">無權限查看</span> : <Unknown why={miss[key]} />) : <span data-testid={`${testid}-${key}`}>{money(n(results[key]))}{note ? <span className="small muted"> {note}</span> : null}</span>];
   const rows: [string, React.ReactNode][] = [
     row('gmv', 'GMV（成交總額）', '＝ 訂單 × 團購價；不是公司收入'), row('refund', '預估退款'), row('nsv', 'NSV（有效淨銷售額）'),
-    row('productCost', '商品成本'), row('companyRevenue', '公司營業收入（品牌端服務費）'), row('hostCommission', '團主分潤'),
+    row('productCost', '商品成本'), ...(results.returnCostTotal != null || (results.missing ?? {}).returnCostTotal ? [row('returnCostTotal', '退款／退貨處理成本')] : []), row('companyRevenue', '公司營業收入（品牌端服務費）'), row('hostCommission', '團主分潤'),
     row('companyContribution', '公司貢獻利潤'), row('brandProfit', '品牌利潤'), row('hostIncome', '團主收入'),
   ];
   if (n(results.takeRatePct) != null) rows.push(['公司抽成率（營業收入 ÷ NSV 有效淨銷售額）', `${results.takeRatePct}%`]);

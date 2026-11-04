@@ -4,6 +4,8 @@ import { can } from '@/server/lib/permissions';
 import { getTrial } from '@/server/modules/trials';
 import { getTrialKpis } from '@/server/modules/trial-kpis';
 import { TrialKpiCard, type TrialKpisV } from '@/ui/selection/TrialKpiCard';
+import { TrialReachCard } from '@/ui/selection/TrialReachCard';
+import { listReach } from '@/server/modules/trial-reach';
 import { listAssignableUsers } from '@/server/ui/lookups';
 import { ActionButton } from '@/ui/ActionButton';
 import { ApiForm } from '@/ui/ApiForm';
@@ -29,6 +31,7 @@ export default withActor(async (actor, props: { params: Params }) => {
   const ep = `/api/trials/${t.id}`;
   const sug = t.suggestion;
   const kpi = t.campaignId || t.trialType === 'MINI_GROUP' ? as<TrialKpisV>(await getTrialKpis(actor, t.id)) : null;
+  const reach = kpi ? (await listReach(actor, t.id)).records : null;
   return (
     <>
       <PageHeader title={<>{TRIAL_LEVEL[t.level]}・{TRIAL_TYPE[t.trialType]} <StatusBadge map={TRIAL_STATUS} value={t.status} testid="trial-status" />{t.conclusion ? <> <StatusBadge map={CONCLUSION} value={t.conclusion} testid="trial-conclusion" /></> : null}</>} testid="trial-header"
@@ -81,6 +84,7 @@ export default withActor(async (actor, props: { params: Params }) => {
           ) : <p className="muted">{open ? '只有營運人員可以下結論。' : '—'}</p>}
         </Card>
       </div>
+      {reach ? <TrialReachCard trialId={t.id} records={reach} canWrite={write && t.status !== 'CANCELLED'} /> : null}
       {kpi ? <TrialKpiCard kpi={kpi} canWrite={write && t.status !== 'CANCELLED'} hostIntent={(t as unknown as { hostIntent: string | null }).hostIntent} /> : null}
       <Card title="四大面向檢核" testid="trial-checks-card">
         <TrialChecks trialId={t.id} editable={write && open} canCost={t.permissions.cost} checks={plain(t.checks) as never} />

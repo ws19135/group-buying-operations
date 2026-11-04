@@ -8,8 +8,10 @@ import { z } from 'zod';
  */
 export const PARTIES = ['BRAND', 'COMPANY', 'HOST'] as const;
 export const CASH_FLOW_MODES = ['BRAND_COLLECTS', 'HOST_COLLECTS', 'COMPANY_ESCROW'] as const;
-export const SOURCE_KINDS = ['VENDOR_QUOTE', 'TRIAL_ACTUAL', 'HISTORICAL_DATA', 'CONTRACT', 'MANUAL_ESTIMATE'] as const;
-export const SOURCE_LABEL: Record<string, string> = { VENDOR_QUOTE: '廠商報價', TRIAL_ACTUAL: '試用／小團實際', HISTORICAL_DATA: '歷史資料', CONTRACT: '合約', MANUAL_ESTIMATE: '人工估計' };
+export const SOURCE_KINDS = ['VENDOR_QUOTE', 'TRIAL_ACTUAL', 'HISTORICAL_DATA', 'CONTRACT', 'FORMAL_TERMS', 'MANUAL_ESTIMATE'] as const;
+export const SOURCE_LABEL: Record<string, string> = { VENDOR_QUOTE: '廠商報價', TRIAL_ACTUAL: '試用／小團實際', HISTORICAL_DATA: '歷史資料', CONTRACT: '合約', FORMAL_TERMS: '正式商務條件（已確認）', MANUAL_ESTIMATE: '人工估計' };
+/** 只有這兩種來源算「已確認的合作合約或正式商務條件」：實際貢獻利潤只採用這類來源的條件（Owner 決策 K-3） */
+export const CONFIRMED_SOURCE_KINDS: readonly string[] = ['CONTRACT', 'FORMAL_TERMS'];
 export const PARTY_LABEL: Record<string, string> = { BRAND: '品牌', COMPANY: '公司', HOST: '團主' };
 
 const nn = <T extends z.ZodTypeAny>(s: T) => s.nullable().optional();
@@ -36,6 +38,9 @@ export const feasibilityInputSchema = z.object({
   platformFeeBorneBy: nn(z.enum(PARTIES)),
   otherCostBorneBy: nn(z.enum(PARTIES)),
   fixedCostBorneBy: nn(z.enum(PARTIES)),
+  /** 每一筆退款／退貨的處理成本（退貨運費、處理費等）與負擔方 */
+  returnCostPerRefundOrder: nn(money),
+  returnCostBorneBy: nn(z.enum(PARTIES)),
 }).strict();
 export type FeasibilityInputs = z.infer<typeof feasibilityInputSchema>;
 
@@ -43,14 +48,16 @@ export type FeasibilityInputs = z.infer<typeof feasibilityInputSchema>;
 export const SENSITIVE_INPUT_KEYS = [
   'unitCost', 'shippingPerOrder', 'platformFeePct', 'platformFeePerOrder', 'otherVariablePerOrder', 'fixedCost',
   'brandFeePct', 'serviceFeeFixed', 'hostCommissionPct', 'commissionBasis', 'hostPaidBy',
-  'shippingBorneBy', 'platformFeeBorneBy', 'otherCostBorneBy', 'fixedCostBorneBy',
+  'shippingBorneBy', 'platformFeeBorneBy', 'otherCostBorneBy', 'fixedCostBorneBy', 'returnCostPerRefundOrder', 'returnCostBorneBy',
 ] as const;
 export const NON_SENSITIVE_INPUT_KEYS = ['expectedOrders', 'unitPrice', 'refundRatePct', 'cashFlowMode'] as const;
-export const SENSITIVE_RESULT_KEYS = ['productCost', 'shippingTotal', 'platformFeeTotal', 'otherVariableTotal', 'fixedCost', 'companyRevenue', 'hostCommission', 'companyContribution', 'brandProfit', 'hostIncome', 'takeRatePct', 'brandMarginPct', 'contributionMarginPct', 'escrowRemitToBrand'] as const;
+export const SENSITIVE_RESULT_KEYS = ['productCost', 'shippingTotal', 'platformFeeTotal', 'otherVariableTotal', 'returnCostTotal', 'fixedCost', 'companyRevenue', 'hostCommission', 'companyContribution', 'brandProfit', 'hostIncome', 'takeRatePct', 'brandMarginPct', 'contributionMarginPct', 'escrowRemitToBrand'] as const;
 
 export interface FeasibilityResults {
   gmv: number | null; refund: number | null; nsv: number | null;
   productCost: number | null; shippingTotal: number | null; platformFeeTotal: number | null; otherVariableTotal: number | null; fixedCost: number | null;
+  /** 退款／退貨處理成本合計（沒有填這項輸入、也不要求時為 null，不影響其他結果） */
+  returnCostTotal?: number | null;
   companyRevenue: number | null; hostCommission: number | null;
   companyContribution: number | null; brandProfit: number | null; hostIncome: number | null;
   takeRatePct: number | null; brandMarginPct: number | null; contributionMarginPct: number | null;
@@ -64,6 +71,7 @@ export const INPUT_LABEL: Record<string, string> = {
   expectedOrders: '預估訂單數', unitPrice: '團購價', refundRatePct: '退款率', unitCost: '單位商品成本', shippingPerOrder: '運費／單', platformFeePct: '平台費比例', platformFeePerOrder: '平台費／單',
   otherVariablePerOrder: '其他變動成本／單', fixedCost: '固定費用', brandFeePct: '品牌端服務費比例', serviceFeeFixed: '品牌端服務費（固定）', hostCommissionPct: '團主分潤比例',
   commissionBasis: '分潤基礎', hostPaidBy: '團主分潤付款方', cashFlowMode: '收款模式', shippingBorneBy: '運費負擔方', platformFeeBorneBy: '平台費負擔方', otherCostBorneBy: '其他變動成本負擔方', fixedCostBorneBy: '固定費用負擔方',
+  returnCostPerRefundOrder: '退款／退貨處理成本（每筆）', returnCostBorneBy: '退款／退貨費用負擔方',
 };
 
 /** 四捨五入到整數元（half-up）；費率以千分位整數運算避免浮點誤差 */
@@ -72,17 +80,23 @@ const pctOf = (amount: number, ratePct: number) => rnd((amount * Math.round(rate
 const pct2 = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 10_000) / 100 : null);
 const has = (v: unknown): v is number => typeof v === 'number';
 
-export function calcFeasibility(i: FeasibilityInputs): FeasibilityResults {
+/** 實際值模式：用實際訂單、GMV、退款與退款訂單數取代「預估訂單數 × 團購價 × 退款率」，其餘條款（費率、負擔方、付款方）與試算完全相同 */
+export interface ActualBasis { orders: number; gmv: number; refund: number; refundedOrders: number }
+export interface CalcOptions { actual?: ActualBasis; /** 退款／退貨處理成本與負擔方一定要填（實際貢獻利潤用）；預設不要求，維持舊試算結果不變 */ requireReturnCost?: boolean }
+
+export function calcFeasibility(input: FeasibilityInputs, opts: CalcOptions = {}): FeasibilityResults {
+  const act = opts.actual;
+  const i: FeasibilityInputs = act ? { ...input, expectedOrders: act.orders, unitPrice: input.unitPrice ?? 0, refundRatePct: input.refundRatePct ?? 0 } : input;
   const missing: Record<string, string[]> = {};
   const need = (res: string, ...keys: (keyof FeasibilityInputs)[]) => {
     const m = keys.filter((k) => i[k] == null).map((k) => INPUT_LABEL[k] ?? k);
     if (m.length) missing[res] = [...(missing[res] ?? []), ...m];
     return m.length === 0;
   };
-  const notes: string[] = ['試算：口徑待 Owner 確認（見 docs/biz-model/04）；只支援單一費率與固定費', '商品成本以出貨量（預估訂單數）計算，未扣除退貨回收', '平台費比例以 GMV（成交總額）為基礎'];
+  const notes: string[] = [act ? '實際值：訂單、GMV、退款來自實際訂單；費率、負擔方與付款方沿用商業可行性的條件（口徑同 docs/biz-model/04 §2.2）' : '試算：口徑待 Owner 確認（見 docs/biz-model/04）；只支援單一費率與固定費', '商品成本以出貨量（預估訂單數）計算，未扣除退貨回收', '平台費比例以 GMV（成交總額）為基礎'];
 
-  const gmv = need('gmv', 'expectedOrders', 'unitPrice') ? (i.expectedOrders as number) * (i.unitPrice as number) : null;
-  const refund = gmv != null && need('refund', 'refundRatePct') ? pctOf(gmv, i.refundRatePct as number) : null;
+  const gmv = act ? act.gmv : need('gmv', 'expectedOrders', 'unitPrice') ? (i.expectedOrders as number) * (i.unitPrice as number) : null;
+  const refund = act ? act.refund : gmv != null && need('refund', 'refundRatePct') ? pctOf(gmv, i.refundRatePct as number) : null;
   if (gmv == null) missing.refund = [...(missing.refund ?? []), 'GMV（成交總額）'];
   const nsv = gmv != null && refund != null ? gmv - refund : null;
   if (nsv == null && !missing.nsv) missing.nsv = [...new Set([...(missing.gmv ?? []), ...(missing.refund ?? [])])];
@@ -99,6 +113,10 @@ export function calcFeasibility(i: FeasibilityInputs): FeasibilityResults {
   }
   const otherVariableTotal = need('otherVariableTotal', 'otherVariablePerOrder', 'expectedOrders') ? (i.otherVariablePerOrder as number) * (i.expectedOrders as number) : null;
   const fixedCost = need('fixedCost', 'fixedCost') ? (i.fixedCost as number) : null;
+  // 退款／退貨處理成本：筆數＝（預估）退款訂單數；預估＝預估訂單數 × 退款率，實際＝實際有退款的訂單數
+  const refundedOrders = act ? act.refundedOrders : has(i.expectedOrders) && has(i.refundRatePct) ? rnd((i.expectedOrders * Math.round(i.refundRatePct * 1000)) / 100_000) : null;
+  const returnCostWanted = opts.requireReturnCost === true || i.returnCostPerRefundOrder != null || i.returnCostBorneBy != null;
+  const returnCostTotal = i.returnCostPerRefundOrder != null && refundedOrders != null ? i.returnCostPerRefundOrder * refundedOrders : null;
 
   const basisAmount = i.commissionBasis === 'NSV' ? nsv : i.commissionBasis === 'GMV' ? gmv : null;
   const basisMissing = (res: string) => {
@@ -119,6 +137,7 @@ export function calcFeasibility(i: FeasibilityInputs): FeasibilityResults {
   const items: [string, number | null, FeasibilityInputs['shippingBorneBy'], keyof FeasibilityInputs][] = [
     ['運費', shippingTotal, i.shippingBorneBy, 'shippingBorneBy'], ['平台費', platformFeeTotal, i.platformFeeBorneBy, 'platformFeeBorneBy'],
     ['其他變動成本', otherVariableTotal, i.otherCostBorneBy, 'otherCostBorneBy'], ['固定費用', fixedCost, i.fixedCostBorneBy, 'fixedCostBorneBy'],
+    ...(returnCostWanted ? [['退款／退貨處理成本', returnCostTotal, i.returnCostBorneBy, 'returnCostBorneBy'] as [string, number | null, FeasibilityInputs['shippingBorneBy'], keyof FeasibilityInputs]] : []),
   ];
   /** 某一方負擔的成本合計；任何成本未知，或金額大於 0 卻沒指定負擔方，就是未知 */
   const borne = (who: (typeof PARTIES)[number], res: string): number | null => {
@@ -164,7 +183,7 @@ export function calcFeasibility(i: FeasibilityInputs): FeasibilityResults {
   const escrowRemitToBrand = i.cashFlowMode === 'COMPANY_ESCROW' && nsv != null && companyRevenue != null ? nsv - companyRevenue : null;
   if (i.cashFlowMode === 'COMPANY_ESCROW') notes.push('代營運居中：代收款是負債（應付品牌貨款），不是公司收入');
   return {
-    gmv, refund, nsv, productCost, shippingTotal, platformFeeTotal, otherVariableTotal, fixedCost, companyRevenue, hostCommission,
+    gmv, refund, nsv, productCost, shippingTotal, platformFeeTotal, otherVariableTotal, fixedCost, returnCostTotal: returnCostWanted ? returnCostTotal : null, companyRevenue, hostCommission,
     companyContribution, brandProfit, hostIncome,
     takeRatePct: companyRevenue != null && nsv != null ? pct2(companyRevenue, nsv) : null,
     brandMarginPct: brandProfit != null && nsv != null ? pct2(brandProfit, nsv) : null,

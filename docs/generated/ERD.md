@@ -94,6 +94,7 @@ erDiagram
     campaigns ||--o{ tasks : "campaign_id"
     roles ||--o{ tasks : "owner_role"
     product_trials ||--o{ trial_checks : "trial_id"
+    product_trials ||--o{ trial_reach_records : "trial_id"
     users ||--o{ user_scopes : "user_id"
     roles ||--o{ users : "role_key"
     vendors ||--o{ vendor_contacts : "vendor_id"
