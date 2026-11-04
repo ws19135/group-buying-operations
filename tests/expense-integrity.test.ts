@@ -85,8 +85,12 @@ describe('F-02：重要欄位變更後，已確認的應收／應付必須重新
     expect(x.claim_status).toBe('UNCONFIRMED'); expect(x.claim_confirmed_by).toBeNull(); expect(x.claim_confirmed_at).toBeNull();
   };
   it('金額、承擔方、實際付款方、對應團主／商品、檔期被改：一律退回未確認（不能靜默變更）', async () => {
-    const a = await confirmed(); await updateExpense(w.finance, a, { amount: 1234 }); await expectReset(a);
+    const a = await confirmed(); const ra = await updateExpense(w.finance, a, { amount: 1234 }) as { reconfirmRequired: boolean }; await expectReset(a);
+    expect(ra.reconfirmRequired).toBe(true);
+    expect((await query(`SELECT action FROM audit_logs WHERE organization_id=$1 AND entity_id=$2 AND action='expense.claim.reconfirm_required'`, [w.orgId, a])).length).toBe(1);   // 服務層留下「需要重新確認」的稽核（不只靠資料庫守衛）
     const b = await confirmed(); await updateExpenseAttribution(w.finance, b, { bearerParty: 'BRAND' }); await expectReset(b);
+    const ab = (await query<{ after_data: { reconfirmRequired?: boolean } }>(`SELECT after_data FROM audit_logs WHERE organization_id=$1 AND entity_id=$2 AND action='expense.attribution.update'`, [w.orgId, b]))[0];
+    expect(ab.after_data.reconfirmRequired).toBe(true);                   // 服務層明確標示需要重新確認（不只靠資料庫守衛）
     const c = await confirmed(); await updateExpenseAttribution(w.finance, c, { payerParty: 'BRAND' }); await expectReset(c);
     const d = await confirmed(); await updateExpenseAttribution(w.finance, d, { hostId: null, productId: null }); await expectReset(d);
     const e = await confirmed({ hostId: null, productId: null }); await updateExpense(w.finance, e, { campaignId: camp2 }); await expectReset(e);
@@ -126,6 +130,9 @@ describe('F-03：已付款／部分付款與金額、日期的一致性', () => 
     await expect(updateExpense(w.finance, part.id, { amount: 500 })).rejects.toMatchObject({ code: 'VALIDATION' });
     await updateExpense(w.finance, part.id, { amount: 900 });                                 // 仍大於已付金額：可以
     expect((await row(part.id)).amount).toBe(900);
+    const paidNoAmt = await createExpense(w.finance, exp({ bearerParty: 'COMPANY', paymentStatus: 'PAID', paidOn: dayOffset(-1) }) as never);   // 已付款、已付金額留空（視為全額）
+    await expect(updateExpense(w.finance, paidNoAmt.id, { amount: 800 })).rejects.toMatchObject({ code: 'VALIDATION' });
+    expect((await row(paidNoAmt.id)).amount).toBe(1000);
     const unpaid = await createExpense(w.finance, exp({ bearerParty: 'COMPANY', paymentStatus: 'UNPAID' }) as never);
     await updateExpense(w.finance, unpaid.id, { amount: 1 });                                 // 未付款改金額不受限制
   });
@@ -199,6 +206,13 @@ describe('F-05：跨組織、跨檔期的資料關聯與後端權限', () => {
     expect((await row(r.id)).campaign_id).toBe(camp2);
     // 資料庫層：不存在於任何檔期的對應也不能直接寫成跨組織的團主（外鍵＋服務層）
     await expect(query(`UPDATE expenses SET host_id='OWN-NOPE' WHERE id=$1`, [r.id])).rejects.toThrow();
+  });
+  it('跨檔期（只有團主、或只有商品）：各自都會被擋，不依賴另一個檢查', async () => {
+    const onlyHost = await createExpense(w.finance, exp({ campaignId: camp, hostId: hostA, bearerParty: 'COMPANY' }) as never);
+    await expect(updateExpense(w.finance, onlyHost.id, { campaignId: camp2 })).rejects.toThrow(/對應的團主不在新的檔期/);
+    const onlyProd = await createExpense(w.finance, exp({ campaignId: camp, productId: prodA, bearerParty: 'COMPANY' }) as never);
+    await expect(updateExpense(w.finance, onlyProd.id, { campaignId: camp2 })).rejects.toThrow(/對應的商品不在新的檔期/);
+    expect((await row(onlyHost.id)).campaign_id).toBe(camp); expect((await row(onlyProd.id)).campaign_id).toBe(camp);
   });
   it('後端權限（API）：小編／團主／廠商 403；營運主管只讀；他組織財務 404；歷史與待補清單同樣', async () => {
     const mine = await createExpense(w.finance, exp({ bearerParty: 'COMPANY' }) as never);
