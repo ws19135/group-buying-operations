@@ -63,3 +63,5 @@
 ## 7. 合併前最終審查（F-01～F-06）
 
 逐項 PASS／FAIL、證據、合併阻擋與待裁決事項（O-1～O-3）見 `docs/phase2/FINAL_PREMERGE_REVIEW.md`。
+
+> 2026-11-05 Owner 補充：目前沒有實際財務資料，升級演練以虛構 DEMO 資料為準（見 `FINAL_PREMERGE_REVIEW.md` §3）；匯入真實資料前再於資料庫副本重做。
