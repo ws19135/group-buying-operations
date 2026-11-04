@@ -41,7 +41,7 @@ jobs:
         run: |
           docker run --rm --network host \
             -e DATABASE_URL=postgres://erp:erp_ci_pw@127.0.0.1:5432/erp_image \
-            -e ORG_NAME='CI 映像檢查' -e ADMIN_EMAIL=ci-admin@company-ci.test -e ADMIN_INITIAL_PASSWORD="Ci-$(openssl rand -hex 10)-Qz7" \
+            -e BOOTSTRAP_CONFIRM=yes -e ORG_NAME='CI 映像檢查' -e ADMIN_EMAIL=ci-admin@company-ci.test -e ADMIN_INITIAL_PASSWORD="Ci-$(openssl rand -hex 10)-Qz7" \
             sdh-erp:ci npm run prod:bootstrap
       - name: Start container and check health/ready
         run: |

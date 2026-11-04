@@ -38,3 +38,37 @@ do_backup() {
   echo "備份完成：$file（$(du -h "$file" | cut -f1)）" >&2
   printf '%s\n' "$file"
 }
+
+env_get() { # 取 .env.production 的值（不印出、不 source）
+  grep -E "^$1=" "$ENV_FILE" | tail -1 | cut -d= -f2- | sed -e 's/[[:space:]]*#.*$//' -e 's/^"//' -e 's/"$//' || true
+}
+
+# 設定檢查：不通過就停止（不會做任何變更）
+preflight_env() {
+  local k v bad=0
+  for k in ERP_DOMAIN POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD; do
+    [ -n "$(env_get $k)" ] || { echo "❌ $ENV_FILE 缺少 $k" >&2; bad=1; }
+  done
+  v="$(env_get ERP_DOMAIN)"; case "$v" in *example*|"") echo "❌ ERP_DOMAIN 還是範本值或空白：$v" >&2; bad=1;; esac
+  v="$(env_get POSTGRES_PASSWORD)"; [ "${#v}" -ge 24 ] || { echo "❌ POSTGRES_PASSWORD 長度不足 24 字元（請用 openssl rand -base64 36 產生）" >&2; bad=1; }
+  grep -qE '^(ALLOW_DEMO_IN_PRODUCTION|DEMO_PASSWORD)=' "$ENV_FILE" && { echo "❌ $ENV_FILE 含有 DEMO 設定，正式／預備環境不可使用" >&2; bad=1; }
+  [ "$bad" = 0 ] || fail "設定檢查未通過，請依 docs/OWNER_SETUP_CHECKLIST.md 步驟 7 修正後再執行"
+}
+
+# 先詢問是否已依 docs/OWNER_SETUP_CHECKLIST.md 設置。互動：輸入 yes；非互動（CI）：必須明確給 CONFIRM_CHECKLIST=yes。其他一律停止。
+confirm_checklist() {
+  [ "${CONFIRM_CHECKLIST:-}" = yes ] && return 0
+  if [ ! -t 0 ] || [ ! -t 1 ]; then
+    fail "部署前需要確認已依 docs/OWNER_SETUP_CHECKLIST.md 設置。非互動環境請明確設定 CONFIRM_CHECKLIST=yes（由 GitHub 部署工作流程的確認欄位帶入）。"
+  fi
+  cat <<'MSG'
+
+即將部署到這台主機。請先確認已依 docs/OWNER_SETUP_CHECKLIST.md 完成：
+  1) 主機與防火牆（只開 22／80／443）   2) Docker 與部署帳號   3) 網域 DNS 已指向本主機
+  4) 部署用 SSH 金鑰   5) GitHub Environments 與 Secrets   6) 本機已登入 ghcr.io
+  7) .env.production（權限 600、密碼為隨機值）   8) 初次建置（prod:bootstrap）已由你親自執行
+  （部署 production 前：staging 已通過 Live UAT 與備份還原演練）
+MSG
+  local ans; read -r -p "以上都已照步驟設置完成嗎？輸入 yes 繼續，其他任何輸入都會停止：" ans
+  [ "$ans" = yes ] || fail "已停止：尚未確認依清單設置。"
+}

@@ -69,3 +69,32 @@ describe('GitHub workflows', () => {
     }
   });
 });
+
+describe('正式建置前先詢問是否依 OWNER_SETUP_CHECKLIST 設置（三處守門）', () => {
+  it('prod:bootstrap：先詢問、再寫入（confirmChecklist 在 migrate 之前）；只接受 yes；CI 映像檢查明確帶入確認', () => {
+    const s = read('scripts/prod-bootstrap.ts');
+    const call = s.indexOf('await confirmChecklist()'), mig = s.indexOf('await migrate()');
+    expect(call).toBeGreaterThan(-1); expect(mig).toBeGreaterThan(call);
+    expect(s).toMatch(/ans !== 'yes'/); expect(s).toMatch(/process\.env\.BOOTSTRAP_CONFIRM === 'yes'/);
+    expect(read('.github/workflows/docker-build.yml')).toMatch(/-e BOOTSTRAP_CONFIRM=yes/);
+  });
+  it('deploy-remote.sh：任何變更之前先 confirm_checklist 與 preflight_env', () => {
+    const s = read('deploy/deploy-remote.sh');
+    const c = s.indexOf('confirm_checklist'), p = s.indexOf('preflight_env'), pull = s.indexOf('C pull app');
+    expect(c).toBeGreaterThan(-1); expect(p).toBeGreaterThan(c); expect(pull).toBeGreaterThan(p);
+  });
+  it('confirm_checklist：非互動必須 CONFIRM_CHECKLIST=yes，互動只接受 yes；preflight 擋範本網域／短密碼／DEMO 設定', () => {
+    const s = read('deploy/host-common.sh');
+    expect(s).toMatch(/\[ "\$\{CONFIRM_CHECKLIST:-\}" = yes \] && return 0/);
+    expect(s).toMatch(/\[ ! -t 0 \] \|\| \[ ! -t 1 \]/); expect(s).toMatch(/\[ "\$ans" = yes \] \|\| fail/);
+    expect(s).toMatch(/\*example\*/); expect(s).toMatch(/-ge 24/); expect(s).toMatch(/ALLOW_DEMO_IN_PRODUCTION\|DEMO_PASSWORD/);
+  });
+  it('部署工作流程：production 必須兩個確認欄位都是 yes，否則停止；主機端帶入 CONFIRM_CHECKLIST=yes', () => {
+    const s = read('.github/workflows/deploy-production.yml');
+    expect(s).toMatch(/checklist_confirmed:/); expect(s).toMatch(/staging_verified:/);
+    expect(s).toMatch(/inputs\.target \}\}" = production/);
+    expect(s).toMatch(/inputs\.checklist_confirmed \}\}" != yes \] \|\| \[ "\$\{\{ inputs\.staging_verified \}\}" != yes/);
+    expect(s.indexOf('正式建置前詢問')).toBeLessThan(s.indexOf('actions/checkout@v4'));
+    expect(s).toMatch(/CONFIRM_CHECKLIST=yes '\$P\/deploy-remote\.sh'/);
+  });
+});

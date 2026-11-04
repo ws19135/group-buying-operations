@@ -8,6 +8,7 @@
  * 密碼不會被印出或寫入 log。
  *
  * 用法：npm run prod:bootstrap          （建置或補齊）
+ *   正式建置前會先詢問是否已依 docs/OWNER_SETUP_CHECKLIST.md 設置（互動輸入 yes；非互動需 BOOTSTRAP_CONFIRM=yes）。
  *       npm run prod:bootstrap -- --check   （唯讀檢查：是否已完成建置、有無 DEMO 資料；不寫入任何資料）
  */
 import { closePool, query, withTx } from '../src/server/lib/db';
@@ -15,6 +16,7 @@ import { migrate } from '../src/server/lib/migrate';
 import { appEnv } from '../src/server/lib/config';
 import { createInitialUser, createOrganization, firstOrganization } from '../src/server/modules/org';
 import { validateNewPassword } from '../src/server/modules/auth';
+import { createInterface } from 'node:readline/promises';
 import { loadEnv } from './load-env';
 
 const checkOnly = process.argv.includes('--check');
@@ -27,6 +29,25 @@ async function demoRows(): Promise<number> {
     + await q(`SELECT count(*)::int AS n FROM products WHERE name LIKE '[DEMO]%'`)
     + await q(`SELECT count(*)::int AS n FROM users WHERE email LIKE 'demo-%@example.invalid'`);
   return n;
+}
+
+/** 正式建置前先詢問：是否已依 docs/OWNER_SETUP_CHECKLIST.md 設置。互動環境要輸入 yes；非互動（CI／腳本）必須明確給 BOOTSTRAP_CONFIRM=yes。
+ *  任何其他回答都停止，並且在詢問之前不會對資料庫做任何寫入。 */
+async function confirmChecklist() {
+  if (process.env.BOOTSTRAP_CONFIRM === 'yes') return;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error('正式建置前需要確認已依 docs/OWNER_SETUP_CHECKLIST.md 設置。非互動環境請明確設定 BOOTSTRAP_CONFIRM=yes（表示你已確認）；否則請在終端機互動執行。');
+  }
+  console.log('\n即將在這個資料庫做「正式環境初次建置」（建立 schema、組織、一位初次啟用的系統管理者；不匯入任何資料）。');
+  console.log('請先確認已依 docs/OWNER_SETUP_CHECKLIST.md 完成：');
+  console.log('  1) 主機與防火牆（只開 22／80／443）   2) Docker 與部署帳號   3) 網域 DNS 已指向本主機');
+  console.log('  4) 部署用 SSH 金鑰   5) GitHub Environments 與 Secrets   6) 主機已登入 ghcr.io');
+  console.log('  7) .env.production（權限 600、密碼為隨機值、ADMIN_EMAIL 為真實公司信箱）');
+  console.log('  8) 這是全新的空資料庫（不是現有營運資料庫）；staging 已通過 Live UAT 與備份還原演練\n');
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const ans = (await rl.question('以上都已照步驟設置完成嗎？輸入 yes 繼續，其他任何輸入都會停止：')).trim();
+  rl.close();
+  if (ans !== 'yes') throw new Error('已停止：尚未確認依清單設置。請先完成 docs/OWNER_SETUP_CHECKLIST.md，再重新執行。');
 }
 
 async function main() {
@@ -46,6 +67,7 @@ async function main() {
     return;
   }
 
+  await confirmChecklist(); // 先詢問，再寫入（之前只有讀取／環境檢查）
   await migrate();
   if ((await demoRows()) > 0) throw new Error('這個資料庫含 DEMO／虛構資料，拒絕作為正式資料庫。請改用全新的空資料庫。');
 

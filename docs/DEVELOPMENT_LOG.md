@@ -475,3 +475,9 @@ Owner 要求：不重建 SOP 02／03；把 1～5 分主觀評分升級成「可�
 **變更**：`deploy/deploy-remote.sh`（拉映像→確認已初次建置→部署前備份→migration→啟動→就緒）、`host-backup.sh`、`host-restore-drill.sh`；部署工作流程支援 `staging`／`production` 兩個 Environment 並同步設定檔；新增 `uat-staging.yml`（只能對 staging、需 https、需確認空資料庫）；`docker-build.yml` 加入 compose 結構、Caddyfile、腳本語法驗證；`tests/deploy-scripts.test.ts`；`OWNER_SETUP_CHECKLIST.md`。
 **驗證**：見 TEST_REPORT §16。**未做**：任何真實主機部署（缺主機、DNS、金鑰）。
 **需要 Owner**：`OWNER_SETUP_CHECKLIST.md` 全部步驟。
+
+## 2026-11-04｜正式建置前先詢問（PR #24 之後）
+
+**需求**：正式建置時，先詢問是否已依 `OWNER_SETUP_CHECKLIST.md` 設置。
+**作法**：三處守門——`prod:bootstrap`（互動輸入 yes 或 `BOOTSTRAP_CONFIRM=yes`；詢問前不寫資料庫）、主機 `deploy-remote.sh`（`confirm_checklist` ＋ `preflight_env`）、GitHub 部署工作流程（production 需 `checklist_confirmed`、`staging_verified` 皆為 yes，且在 checkout 之前）。CI 的映像檢查明確帶 `BOOTSTRAP_CONFIRM=yes`。
+**驗證**：見 TEST_REPORT §17。**注意**：這是流程上的確認，不是權限控制；真正的權限仍是 GitHub Environment 的 Required reviewers。
