@@ -21,7 +21,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends postgresql-clie
  && groupadd -r erp && useradd -r -g erp -d /app erp
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
 COPY package.json next.config.mjs tsconfig.json ./
 COPY migrations ./migrations
 COPY scripts ./scripts
