@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { todayTaipei } from './ids';
 
 /**
  * 費用歸屬（Owner 決策 K-8a；純規則，沒有資料庫相依）。
@@ -72,15 +73,17 @@ export const attributionShape = {
 };
 
 /** 付款狀態與日期、金額的一致性（服務層與資料庫都檢查）；回傳問題清單 */
-export function paymentProblems(i: { paymentStatus?: string; paidOn?: string | null; paidAmount?: number | null; amount: number }): string[] {
+export function paymentProblems(i: { paymentStatus?: string; paidOn?: string | null; paidAmount?: number | null; amount: number }, today: string = todayTaipei()): string[] {
   const p: string[] = [];
   const st = i.paymentStatus ?? 'UNRECORDED';
   if (st === 'PAID' && !i.paidOn) p.push('已付款需填付款日期');
+  if (st === 'PAID' && i.paidAmount != null && i.paidAmount !== i.amount) p.push('已付款時已付金額需等於費用金額（或留空）；若只付了一部分，請選「部分付款」');
   if (st === 'PARTIALLY_PAID') {
     if (!i.paidOn) p.push('部分付款需填付款日期');
     if (!i.paidAmount || i.paidAmount <= 0 || i.paidAmount >= i.amount) p.push('部分付款的已付金額需大於 0 且小於費用金額');
   }
   if (['UNRECORDED', 'UNPAID', 'NOT_APPLICABLE'].includes(st) && (i.paidOn || i.paidAmount)) p.push('這個付款狀態不應填付款日期或已付金額');
+  if (i.paidOn && i.paidOn > today) p.push('付款日期不可是未來（尚未付款請選「尚未付款」）');
   return p;
 }
 

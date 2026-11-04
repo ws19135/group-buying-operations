@@ -29,8 +29,8 @@ const ATTR_FIELDS = [
 
 export const dynamic = 'force-dynamic';
 
-interface OvRow { id: string; title: string; status: string; netSales: number; estimatedCommission: number; hostsWithoutRate: number; paidIn: number; paidOut: number; expenses: number; invoiced: number; unmatchedPayments: number; settlementId: string | null; settlementStatus: string | null }
-interface Ov { campaigns: OvRow[]; totals: { netSales: number; estimatedCommission: number; paidIn: number; paidOut: number; expenses: number; unmatchedPayments: number; unmatchedWithoutCampaign: number } }
+interface OvRow { id: string; title: string; status: string; netSales: number; estimatedCommission: number; hostsWithoutRate: number; paidIn: number; paidOut: number; expenses: number; expensesCompanyConfirmed?: number; expensesPendingBearer?: number; expensesNotCompany?: number; invoiced: number; unmatchedPayments: number; settlementId: string | null; settlementStatus: string | null }
+interface Ov { campaigns: OvRow[]; totals: { netSales: number; estimatedCommission: number; paidIn: number; paidOut: number; expenses: number; expensesCompanyConfirmed?: number; expensesPendingBearer?: number; expensesNotCompany?: number; unmatchedPayments: number; unmatchedWithoutCampaign: number } }
 interface SetRow { id: string; status: string; campaignId: string; campaignTitle: string; dataStatus: string | null; dataAsOf: string | null; createdAt: string; confirmedAt: string | null; itemCount: number; netSalesTotal: number }
 interface PayRow { id: string; direction: string; counterpartyType: string; counterpartyId: string | null; counterpartyName: string | null; amount: number; paidOn: string; referenceNo: string | null; note: string | null; campaignId: string | null; campaignTitle: string | null; settlementItemId: string | null; matchStatus: string; status: string }
 interface InvRow { id: string; invoiceNo: string; invoiceDate: string; amount: number; titleText: string | null; taxIdText: string | null; campaignId: string | null; campaignTitle: string | null; note: string | null; status: string; version: number }
@@ -57,7 +57,9 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
           <KpiCard id="comm" label="試算佣金合計" value={money(ov.totals.estimatedCommission)} note="尚未設費率的團主不計入" />
           <KpiCard id="in" label="已入帳（收入）" value={money(ov.totals.paidIn)} />
           <KpiCard id="out" label="已付款（支出）" value={money(ov.totals.paidOut)} />
-          <KpiCard id="exp" label="費用合計" value={money(ov.totals.expenses)} />
+          <KpiCard id="exp" label="費用合計（全部已登錄）" value={money(ov.totals.expenses)} />
+          {ov.totals.expensesCompanyConfirmed != null ? <KpiCard id="exp-company" label="其中：已確認公司承擔" value={money(ov.totals.expensesCompanyConfirmed)} /> : null}
+          {ov.totals.expensesPendingBearer != null ? <KpiCard id="exp-pending" label="其中：承擔方待確認（不算公司成本）" value={money(ov.totals.expensesPendingBearer)} /> : null}
           <KpiCard id="unm" label="未核對入帳／付款" value={String(ov.totals.unmatchedPayments)} note={ov.totals.unmatchedWithoutCampaign ? `其中 ${ov.totals.unmatchedWithoutCampaign} 筆尚未關聯檔期` : undefined} />
         </div>
         <Card title="各檔期" flush testid="finance-overview">
@@ -67,7 +69,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
                 <tr key={c.id} data-testid={`ov-row-${c.id}`}>
                   <td><Link href={`/campaigns/${c.id}`}>{c.title}</Link><div className="small"><StatusBadge map={CAMPAIGN_STATUS} value={c.status} /></div></td>
                   <td>{money(c.netSales)}</td><td>{money(c.estimatedCommission)}{c.hostsWithoutRate ? <div className="small muted">{c.hostsWithoutRate} 位團主無費率</div> : null}</td>
-                  <td>{money(c.paidIn)}</td><td>{money(c.paidOut)}</td><td>{money(c.expenses)}</td><td>{money(c.invoiced)}</td><td>{c.unmatchedPayments || '—'}</td>
+                  <td>{money(c.paidIn)}</td><td>{money(c.paidOut)}</td><td data-testid={`ov-exp-${c.id}`}>{money(c.expenses)}{c.expensesCompanyConfirmed != null ? <div className="small muted">公司已確認 {money(c.expensesCompanyConfirmed)}・待確認 {money(c.expensesPendingBearer ?? 0)}・品牌／團主 {money(c.expensesNotCompany ?? 0)}</div> : null}</td><td>{money(c.invoiced)}</td><td>{c.unmatchedPayments || '—'}</td>
                   <td>{c.settlementId ? <><Link href={`/finance/settlements/${c.settlementId}`}>{c.settlementId}</Link> <StatusBadge map={SETTLEMENT_STATUS} value={c.settlementStatus} /></> : <span className="muted">—</span>}</td>
                 </tr>
               ))}

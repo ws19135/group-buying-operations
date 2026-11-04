@@ -367,7 +367,8 @@ export async function updateExpenseAttribution(actor: Actor, id: string, raw: un
     const sets: string[] = []; const vals: unknown[] = [id];
     for (const k of Object.keys(p)) { vals.push(k === 'evidenceUrl' ? (p[k] || null) : p[k]); sets.push(`${col[k]}=$${vals.length}`); }
     // 已確認的應收應付，只要方向或對象被改動就退回「未確認」，必須重新確認（不能靜默變更）
-    const claimChanged = ('claimDirection' in p && p.claimDirection !== e.claim_direction) || ('claimParty' in p && p.claimParty !== e.claim_party);
+    // F-02：確認所依據的重要欄位（承擔方、實際付款方、對應團主／商品、應收應付方向與對象）任何一個被改動，都退回未確認重新確認；付款狀態、憑證連結、條款來源、備註不影響
+    const claimChanged = (['bearerParty', 'payerParty', 'hostId', 'productId', 'claimDirection', 'claimParty'] as const).some((k) => k in p && (p[k] ?? null) !== (e[col[k]] ?? null));
     if (e.claim_status === 'CONFIRMED' && claimChanged) sets.push(`claim_status='UNCONFIRMED'`, `claim_confirmed_by=NULL`, `claim_confirmed_at=NULL`);
     if (!sets.length) return { id, changed: false };
     vals.push(actor.userId); sets.push(`updated_by=$${vals.length}`);
@@ -426,13 +427,34 @@ export async function updateExpense(actor: Actor, id: string, raw: unknown) {
   requirePerm(actor, 'finance.write');
   const p = applyClears(expensePatchSchema.parse(raw), raw, ['campaignId', 'note']);
   return withTx(async (tx) => {
-    const r0 = await tx.query(`SELECT status FROM expenses WHERE id=$1 AND organization_id=$2 FOR UPDATE`, [id, actor.orgId]);
-    if (!r0.rows[0]) throw notFound('費用紀錄');
-    if (r0.rows[0].status !== 'RECORDED') throw precondition('已作廢的費用紀錄不可修改');
+    const r0 = await tx.query(`SELECT * FROM expenses WHERE id=$1 AND organization_id=$2 FOR UPDATE`, [id, actor.orgId]);
+    const e = r0.rows[0] as Record<string, unknown> | undefined;
+    if (!e) throw notFound('費用紀錄');
+    if (e.status !== 'RECORDED') throw precondition('已作廢的費用紀錄不可修改');
     if (p.campaignId) await campaignOk(tx, actor, p.campaignId);
+    const newAmount = p.amount ?? Number(e.amount);
+    const amountChanged = p.amount !== undefined && p.amount !== Number(e.amount);
+    const campaignChanged = p.campaignId !== undefined && (p.campaignId ?? null) !== ((e.campaign_id as string | null) ?? null);
+    // F-03：改金額要與付款狀態一致（已付款不可直接改金額；部分付款的已付金額需仍小於新金額）——用清楚的驗證訊息，不讓資料庫錯誤外洩
+    if (amountChanged) {
+      if (e.payment_status === 'PAID') throw validation('這筆費用已標為「已付款」，不能直接改金額；請先把付款狀態改為「部分付款」或更正付款資料');
+      const pay = paymentProblems({ paymentStatus: e.payment_status as string, paidOn: (e.paid_on as string | null) ?? null, paidAmount: e.paid_amount == null ? null : Number(e.paid_amount), amount: newAmount });
+      if (pay.length) throw validation(`新的金額與付款資料不一致：${pay.join('；')}`);
+    }
+    // F-05：改檔期時，原有的對應團主／商品必須也屬於新檔期（不留下跨檔期的不一致關聯）
+    if (campaignChanged && p.campaignId) {
+      if (e.host_id && !(await tx.query(`SELECT 1 FROM campaign_hosts WHERE campaign_id=$1 AND host_id=$2 AND deleted_at IS NULL AND status <> 'DECLINED'`, [p.campaignId, e.host_id])).rowCount) throw validation('對應的團主不在新的檔期內（或已婉拒）；請先調整費用歸屬的對應團主');
+      if (e.product_id && !(await tx.query(`SELECT 1 FROM campaign_products WHERE campaign_id=$1 AND product_id=$2 AND deleted_at IS NULL`, [p.campaignId, e.product_id])).rowCount) throw validation('對應的商品不在新的檔期內；請先調整費用歸屬的對應商品');
+    }
+    if (campaignChanged && !p.campaignId && (e.host_id || e.product_id)) throw validation('移除檔期前，請先清除費用歸屬的對應團主與商品');
+    const willReconfirm = e.claim_status === 'CONFIRMED' && (amountChanged || campaignChanged);   // F-02：金額或檔期被改，已確認的應收應付退回未確認（資料庫觸發器同樣保護）
     const { version, ...patch } = p;
     const r = await patchEntity(tx, actor, { table: 'expenses', entityType: 'expense', id, patch, allowed: ['category', 'amount', 'incurredOn', 'campaignId', 'note'], expectedVersion: version, campaignId: (row) => (row.campaign_id as string | null) });
-    return { id, changed: r.changed };
+    if (willReconfirm && r.changed) {
+      await tx.query(`UPDATE expenses SET claim_status='UNCONFIRMED', claim_confirmed_by=NULL, claim_confirmed_at=NULL WHERE id=$1`, [id]);
+      await audit(tx, actor, { action: 'expense.claim.reconfirm_required', entityType: 'expense', entityId: id, campaignId: (e.campaign_id as string | null) ?? null, before: { claimStatus: 'CONFIRMED' }, after: { claimStatus: 'UNCONFIRMED', reason: amountChanged ? '金額被修改' : '檔期被修改' } });
+    }
+    return { id, changed: r.changed, reconfirmRequired: willReconfirm && r.changed };
   });
 }
 
@@ -478,7 +500,7 @@ export async function financeOverview(actor: Actor) {
   const sc = campaignScope(actor, 1, 'c');
   if (sc.sql === 'FALSE') throw forbidden();
   const rows = await query<{
-    id: string; title: string; status: string; net_sales: number; paid_in: number; paid_out: number; expenses: number; invoiced: number;
+    id: string; title: string; status: string; net_sales: number; paid_in: number; paid_out: number; expenses: number; exp_company: number; exp_pending: number; exp_other: number; invoiced: number;
     unmatched: number; settlement_id: string | null; settlement_status: string | null;
   }>(
     `SELECT c.id, c.title, c.status,
@@ -486,6 +508,9 @@ export async function financeOverview(actor: Actor) {
        coalesce((SELECT sum(p.amount) FROM payments p WHERE p.campaign_id=c.id AND p.status='ACTIVE' AND p.direction='IN'),0) AS paid_in,
        coalesce((SELECT sum(p.amount) FROM payments p WHERE p.campaign_id=c.id AND p.status='ACTIVE' AND p.direction='OUT'),0) AS paid_out,
        coalesce((SELECT sum(e.amount) FROM expenses e WHERE e.campaign_id=c.id AND e.status='RECORDED'),0) AS expenses,
+       coalesce((SELECT sum(e.amount) FROM expenses e WHERE e.campaign_id=c.id AND e.status='RECORDED' AND e.bearer_party='COMPANY'),0) AS exp_company,
+       coalesce((SELECT sum(e.amount) FROM expenses e WHERE e.campaign_id=c.id AND e.status='RECORDED' AND e.bearer_party IS NULL),0) AS exp_pending,
+       coalesce((SELECT sum(e.amount) FROM expenses e WHERE e.campaign_id=c.id AND e.status='RECORDED' AND e.bearer_party IN ('BRAND','HOST')),0) AS exp_other,
        coalesce((SELECT sum(i.amount) FROM invoices i WHERE i.campaign_id=c.id AND i.status='ISSUED'),0) AS invoiced,
        (SELECT count(*)::int FROM payments p WHERE p.campaign_id=c.id AND p.status='ACTIVE' AND p.match_status='UNMATCHED') AS unmatched,
        (SELECT s.id FROM settlements s WHERE s.campaign_id=c.id AND s.status IN ('DRAFT','CONFIRMED') LIMIT 1) AS settlement_id,
@@ -494,14 +519,17 @@ export async function financeOverview(actor: Actor) {
        AND (EXISTS (SELECT 1 FROM orders o WHERE o.campaign_id=c.id) OR EXISTS (SELECT 1 FROM payments p WHERE p.campaign_id=c.id) OR EXISTS (SELECT 1 FROM expenses e WHERE e.campaign_id=c.id)
             OR EXISTS (SELECT 1 FROM settlements s WHERE s.campaign_id=c.id) OR EXISTS (SELECT 1 FROM invoices i WHERE i.campaign_id=c.id))
      ORDER BY c.open_date DESC NULLS LAST, c.id DESC LIMIT 100`, [...sc.params, [...SALES_STATUSES]]);
-  const campaigns = [];
+  const campaigns: (Record<string, unknown> & { id: string; netSales: number; estimatedCommission: number; paidIn: number; paidOut: number; expenses: number; unmatchedPayments: number; expensesCompanyConfirmed?: number; expensesPendingBearer?: number; expensesNotCompany?: number })[] = [];
   for (const r of rows) {
     const calc = await campaignHostCommission(pool(), actor.orgId, r.id);
     const known = calc.filter((c) => c.commissionAuto != null);
     campaigns.push({
       id: r.id, title: r.title, status: r.status, netSales: Number(r.net_sales),
       estimatedCommission: known.reduce((s, c) => s + (c.commissionAuto ?? 0), 0), hostsWithoutRate: calc.length - known.length,
-      paidIn: Number(r.paid_in), paidOut: Number(r.paid_out), expenses: Number(r.expenses), invoiced: Number(r.invoiced),
+      paidIn: Number(r.paid_in), paidOut: Number(r.paid_out), expenses: Number(r.expenses),
+      // F-01：費用口徑（只給有成本檢視權限者）：expenses＝全部已登錄（不含作廢）＝已確認公司承擔＋承擔方待確認＋品牌或團主承擔；待確認不是公司正式成本
+      ...(can(actor, 'product.cost.read') ? { expensesCompanyConfirmed: Number(r.exp_company), expensesPendingBearer: Number(r.exp_pending), expensesNotCompany: Number(r.exp_other) } : {}),
+      invoiced: Number(r.invoiced),
       unmatchedPayments: r.unmatched, settlementId: r.settlement_id, settlementStatus: r.settlement_status,
     });
   }
@@ -512,6 +540,7 @@ export async function financeOverview(actor: Actor) {
     totals: {
       netSales: campaigns.reduce((s, c) => s + c.netSales, 0), estimatedCommission: campaigns.reduce((s, c) => s + c.estimatedCommission, 0),
       paidIn: campaigns.reduce((s, c) => s + c.paidIn, 0), paidOut: campaigns.reduce((s, c) => s + c.paidOut, 0), expenses: campaigns.reduce((s, c) => s + c.expenses, 0),
+      ...(can(actor, 'product.cost.read') ? { expensesCompanyConfirmed: campaigns.reduce((s, c) => s + (c.expensesCompanyConfirmed ?? 0), 0), expensesPendingBearer: campaigns.reduce((s, c) => s + (c.expensesPendingBearer ?? 0), 0), expensesNotCompany: campaigns.reduce((s, c) => s + (c.expensesNotCompany ?? 0), 0) } : {}),
       unmatchedPayments: campaigns.reduce((s, c) => s + c.unmatchedPayments, 0) + unlinked, unmatchedWithoutCampaign: unlinked,
     },
   };
