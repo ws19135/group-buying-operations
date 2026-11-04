@@ -1531,3 +1531,13 @@ NSV            = GMV − 退款
 - **算例**：§8.2 的日期表是實際執行 `computeSchedule(DEFAULT_STEPS, …)` 的輸出。
 - **未做的核對**：沒有實際對資料庫執行 SQL 驗證每個 CHECK 約束的行為（以 migration 文字與既有測試為準）；沒有重新執行 E2E（引用 `docs/uat/e2e-results.json` 與 `docs/phase2/aftersales-e2e.json` 的紀錄：49／49、52／52）。
 - **圖的語法檢查**：SAD 8 張、SDD 14 張、共 22 張 Mermaid 圖，已用 mermaid 11.4.1 在 headless Chromium（Playwright）逐一 `parse` 並 `render`，全部無錯誤（共 22 張 `failed=0`）。這只證明語法與渲染引擎可處理，不代表在你的閱讀工具上版面一定相同。
+
+### 18B.12 K-4a～K-8a 實作設計（migration 021、022、023）
+
+規格見 `docs/phase2/TRIAL_KPI.md` §8、`COMMISSION_RECONCILIATION.md` §8、`MULTI_PRODUCT_COST_ALLOCATION_PROPOSAL.md` §8、`FEE_ATTRIBUTION_REPORT.md` §6、`KPI_SETTLEMENT_INTEGRATION_PROPOSAL.md`。
+
+- **021**：`trial_reach_records` 新增 `assigned_verifier_id／assigned_by／assigned_at／assignment_note`、`resubmits_id`（補件鏈）；唯一索引限制同一筆原紀錄只能有一筆有效補件；`trial_reach_guard()` 更新。規則版本 `reach-rules/2026-11-05.1`（指紋測試保留舊版）。API：`POST /api/reach-records/:id/assign-verifier`、`GET /api/trials/:id/reach-history`。
+- **022**：`expenses` 新增 `bearer_party`、`payer_party`、`claim_direction／claim_party／claim_status／claim_confirmed_by／claim_confirmed_at／claim_note`、`host_id`、`product_id`、`terms_source_kind／terms_ref`、`payment_status／paid_on／paid_amount`、`evidence_url`（皆選填或有預設，舊資料不變）。API：`PATCH /api/expenses/:id/attribution`、`POST /api/expenses/:id/claim/confirm`。承擔方與付款方分開；`claimHint` 只回傳「可能」的往來款。
+- **023**：`commission_recon_items`（`RCI-` 編號；狀態 `OPEN／ACKNOWLEDGED／SUPERSEDED／RESOLVED`；內容指紋；`forbid_delete`；每組只有一個進行中項目）。API：`GET /api/reconciliation/commission/items`、`POST /api/reconciliation/commission/sync`、`POST /api/reconciliation/commission/items/:id/acknowledge`。
+- **無 migration**：K-5a 加權（`lib/complaint-attribution.ts`）、K-7a～e（`lib/cost-allocation-impact.ts`，`GET /api/campaigns/:id/cost-allocation-analysis` 新增 `impact`）。
+- **不變**：結算、佣金計算、發票、G1–G5、`lib/kpi.ts`。

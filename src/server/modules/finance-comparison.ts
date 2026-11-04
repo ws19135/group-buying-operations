@@ -36,7 +36,7 @@ export async function getFeeAttributionReport(actor: Actor, opts: { campaignId?:
     `SELECT c.id, c.title FROM campaigns c WHERE c.organization_id=$1 AND c.status <> 'CANCELLED' AND (${sc.sql}) ${opts.campaignId ? `AND c.id=$${sc.params.length + 2}` : ''} ORDER BY c.open_date DESC NULLS LAST, c.id DESC LIMIT 30`,
     [actor.orgId, ...sc.params, ...(opts.campaignId ? [opts.campaignId] : [])]);
   for (const c of camps) {
-    const prods = await query<{ product_id: string; name: string }>(`SELECT cp.product_id, p.name FROM campaign_products cp JOIN products p ON p.id=cp.product_id WHERE cp.campaign_id=$1 AND cp.deleted_at IS NULL ORDER BY p.name`, [c.id]);
+    const prods = await query<{ product_id: string; name: string }>(`SELECT DISTINCT cp.product_id, p.name FROM campaign_products cp JOIN products p ON p.id=cp.product_id WHERE cp.campaign_id=$1 AND cp.deleted_at IS NULL ORDER BY p.name`, [c.id]);
     if (!prods.length) continue;
     const multi = prods.length > 1;
     const expenses = await expensesByCategory(db, actor.orgId, c.id);
@@ -83,7 +83,7 @@ export async function getCostAllocationAnalysis(actor: Actor, campaignId: string
   const sc = campaignScope(actor, 2, 'c');
   const camp = sc.sql === 'FALSE' ? undefined : (await query<{ id: string; title: string; open_date: string | null; close_date: string | null }>(`SELECT c.id, c.title, c.open_date, c.close_date FROM campaigns c WHERE c.id=$1 AND (${sc.sql}) AND c.organization_id=$${sc.params.length + 2}`, [campaignId, ...sc.params, actor.orgId]))[0];
   if (!camp) throw notFound('檔期');
-  const prods = await query<{ product_id: string; name: string }>(`SELECT cp.product_id, p.name FROM campaign_products cp JOIN products p ON p.id=cp.product_id WHERE cp.campaign_id=$1 AND cp.deleted_at IS NULL ORDER BY p.name`, [campaignId]);
+  const prods = await query<{ product_id: string; name: string }>(`SELECT DISTINCT cp.product_id, p.name FROM campaign_products cp JOIN products p ON p.id=cp.product_id WHERE cp.campaign_id=$1 AND cp.deleted_at IS NULL ORDER BY p.name`, [campaignId]);
   const multi = prods.length > 1;
   const SALES = [...SALES_STATUSES];
   // 以訂單明細（SKU → 商品）彙整：明細金額、數量、行數、SKU 成本是否齊全

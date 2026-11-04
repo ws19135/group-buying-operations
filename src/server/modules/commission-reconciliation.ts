@@ -67,7 +67,7 @@ export async function getCommissionReconciliation(actor: Actor, opts: { campaign
     const hosts = await query<{ host_id: string; name: string; commission_rule_id: string | null }>(
       `SELECT ch.host_id, h.display_name AS name, ch.commission_rule_id FROM campaign_hosts ch JOIN hosts h ON h.id=ch.host_id WHERE ch.campaign_id=$1 AND ch.organization_id=$2 AND ch.deleted_at IS NULL AND ch.status <> 'DECLINED' ORDER BY h.display_name`, [c.id, actor.orgId]);
     if (!hosts.length) continue;
-    const prods = await query<{ product_id: string; name: string }>(`SELECT cp.product_id, p.name FROM campaign_products cp JOIN products p ON p.id=cp.product_id WHERE cp.campaign_id=$1 AND cp.deleted_at IS NULL ORDER BY p.name`, [c.id]);
+    const prods = await query<{ product_id: string; name: string }>(`SELECT DISTINCT cp.product_id, p.name FROM campaign_products cp JOIN products p ON p.id=cp.product_id WHERE cp.campaign_id=$1 AND cp.deleted_at IS NULL ORDER BY p.name`, [c.id]);
     const net = new Map((await campaignHostCommission(db, actor.orgId, c.id)).map((x) => [x.hostId, x.netSales]));
     for (const h of hosts) {
       const fin = await financeFor(db, actor.orgId, { id: c.id, open_date: c.open_date, commission_rule_id: h.commission_rule_id }, h.host_id, today);

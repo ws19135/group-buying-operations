@@ -10,7 +10,7 @@ export async function actualContribution(db: Queryable, p: {
   scenario: { inputs: Record<string, unknown>; sources: Record<string, { kind?: string }> } | null;
   actual: { valid: number; gmv: number; refund: number; refunded: number };
 }): Promise<ActualProfitResult> {
-  const prods = Number((await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM campaign_products WHERE campaign_id=$1 AND deleted_at IS NULL`, [p.campaignId])).rows[0].n);
+  const prods = Number((await db.query<{ n: number }>(`SELECT count(DISTINCT product_id)::int AS n FROM campaign_products WHERE campaign_id=$1 AND deleted_at IS NULL`, [p.campaignId])).rows[0].n);
   const others = p.hostId ? Number((await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM campaign_hosts WHERE campaign_id=$1 AND host_id<>$2 AND deleted_at IS NULL AND status <> 'DECLINED'`, [p.campaignId, p.hostId])).rows[0].n) : 0;
   return computeActualContribution({
     inputs: p.scenario?.inputs ?? {}, sources: p.scenario?.sources ?? {},

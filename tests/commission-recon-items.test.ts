@@ -8,6 +8,7 @@ import { createCommissionRule } from '@/server/modules/commission';
 import { createSettlement } from '@/server/modules/settlements';
 import { acknowledgeReconItem, listCommissionReconItems, syncCommissionReconItems } from '@/server/modules/commission-recon-items';
 import { getCommissionReconciliation } from '@/server/modules/commission-reconciliation';
+import { getCostAllocationAnalysis } from '@/server/modules/finance-comparison';
 import { campaignHostCommission } from '@/server/lib/commission-calc';
 import { Client } from './api-helper';
 import { addUser, dayOffset, makeWorld, mkCampaign, mkHost, mkProduct, mkVendor, type World } from './helpers';
@@ -139,6 +140,24 @@ describe('K-6a：差異發生時建立待人工確認項目', () => {
     await expect(query(`DELETE FROM commission_recon_items WHERE id=$1`, [it.id])).rejects.toThrow();
     await expect(query(`UPDATE commission_recon_items SET status='ACKNOWLEDGED' WHERE id=$1`, [it.id])).rejects.toThrow();
     await expect(query(`INSERT INTO commission_recon_items (id, organization_id, campaign_id, host_id, product_id, fingerprint, review_reasons, snapshot) VALUES ('RCI-DUP',$1,$2,$3,$4,'x','[]','{}')`, [w.orgId, camp, hostA, it.product_id])).rejects.toThrow();
+  });
+});
+
+describe('同一商品多個規格（SKU）不是多商品檔期（E2E 抓到的缺陷）', () => {
+  it('一個商品兩個規格：差異核對每組（檔期×團主×商品）只有一列；同步不衝突；成本分攤分析不視為多商品；每單貢獻利潤不因「多個商品」而資料不足', async () => {
+    const v = (await mkVendor(w, `[DEMO] R 雙規格廠商 ${++n}`)).id;
+    const p = await mkProduct(w, v, { name: `[DEMO] R 雙規格商品 ${n}`, skus: [{ skuCode: `RS${n}A`, name: 'a', groupPrice: 800, costPrice: 500 }, { skuCode: `RS${n}B`, name: 'b', groupPrice: 900, costPrice: 550 }] });
+    const camp = (await mkCampaign(w, v, { products: [{ productId: p.id, skuId: p.skuIds[0] }, { productId: p.id, skuId: p.skuIds[1] }], hosts: [{ hostId: hostA }], sampleReadyDate: dayOffset(-30), openDate: dayOffset(-10), closeDate: dayOffset(10) })).id;
+    expect((await query(`SELECT count(*)::int AS n FROM campaign_products WHERE campaign_id=$1 AND deleted_at IS NULL`, [camp]))[0].n).toBe(2);   // 前提：兩列 campaign_products、同一商品
+    const rows = (await getCommissionReconciliation(w.finance, { campaignId: camp })).rows;
+    expect(rows).toHaveLength(1);
+    expect((await syncCommissionReconItems(w.finance)).created).toBeGreaterThanOrEqual(1);
+    const a = await getCostAllocationAnalysis(w.finance, camp);
+    expect(a.multiProduct).toBe(false); expect(a.impact).toBeNull();
+    await query(`UPDATE campaigns SET status='RUNNING' WHERE id=$1`, [camp]);
+    const t = (await createTrial(w.manager, p.id, { level: 'HOST_FIT', trialType: 'MINI_GROUP', hostId: hostA, campaignId: camp })).id;
+    const k = (await getTrialKpis(w.manager, t)).items.find((x) => x.key === 'contributionPerOrder')!;
+    expect(k.reason ?? '').not.toContain('多個商品');
   });
 });
 
