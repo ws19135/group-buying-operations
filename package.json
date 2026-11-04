@@ -33,7 +33,9 @@
     "bootstrap:demo": "tsx scripts/bootstrap-demo.ts",
     "snapshot": "tsx scripts/build-snapshot.ts",
     "verify:biz-model": "tsx docs/biz-model/prototype/verify.ts",
-    "db:rehearsal": "tsx scripts/migration-rehearsal.ts"
+    "db:rehearsal": "tsx scripts/migration-rehearsal.ts",
+    "prod:bootstrap": "tsx scripts/prod-bootstrap.ts",
+    "prod:check": "tsx scripts/prod-bootstrap.ts --check"
   },
   "dependencies": {
     "next": "^15.5.0",

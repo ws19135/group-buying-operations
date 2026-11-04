@@ -393,7 +393,51 @@ export async function expenseHistory(actor: Actor, id: string) {
   const rows = await query<Record<string, unknown>>(
     `SELECT a.id, a.occurred_at, a.action, a.actor_user_id, u.name AS actor_name, a.before_data, a.after_data, a.reason FROM audit_logs a LEFT JOIN users u ON u.id=a.actor_user_id
      WHERE a.organization_id=$1 AND a.entity_type='expense' AND a.entity_id=$2 ORDER BY a.id`, [actor.orgId, id]);
-  return { id, events: camelize(rows), note: '原始費用不被覆蓋；每次歸屬調整都保留修改前後內容（承擔方、付款方、依據、付款狀態…）' };
+  const corrections = await query<Record<string, unknown>>(`SELECT c.*, u.name AS corrected_by_name FROM expense_corrections c LEFT JOIN users u ON u.id=c.corrected_by WHERE c.organization_id=$1 AND c.expense_id=$2 ORDER BY c.corrected_at, c.id`, [actor.orgId, id]);
+  return { id, events: camelize(rows), corrections: camelize(corrections), note: '原始費用不被覆蓋；每次歸屬調整都保留修改前後內容（承擔方、付款方、依據、付款狀態…）；已付款費用的金額更正另列於 corrections（舊值、新值、原因、更正人）' };
+}
+
+export const expenseCorrectionSchema = z.object({
+  newAmount: z.number().int().min(1).max(10_000_000_000),
+  /** 更正後的付款狀態；省略＝維持。已付款：已付金額需等於新金額（或留空）；部分付款：已付金額需小於新金額 */
+  paymentStatus: z.enum(['UNPAID', 'PARTIALLY_PAID', 'PAID']).optional(),
+  paidAmount: z.number().int().min(0).max(10_000_000_000).nullable().optional(),
+  reason: z.string().trim().min(5, '請說明更正原因（至少 5 個字）').max(500),
+}).strict();
+/**
+ * 已付款費用的**受控更正**（Owner 裁決 O-2）：已付款或部分付款的費用不能用一般的「修改」改金額；改走這裡——
+ * 需要財務寫入＋成本檢視權限、必填原因；更正前後的金額與付款狀態完整保留（expense_corrections：不可修改、不可刪除）並寫入稽核；
+ * 已確認的應收應付退回未確認；不產生任何付款、撥款、扣款或發票，也不改結算。
+ */
+export async function correctPaidExpense(actor: Actor, id: string, raw: unknown) {
+  requirePerm(actor, 'finance.write');
+  if (!can(actor, 'product.cost.read')) throw forbidden('費用金額更正屬敏感財務資料，需有成本檢視權限');
+  const input = expenseCorrectionSchema.parse(raw);
+  assertNoPii({ 更正原因: input.reason });
+  return withTx(async (tx) => {
+    const cur = await tx.query(`SELECT * FROM expenses WHERE id=$1 AND organization_id=$2 FOR UPDATE`, [id, actor.orgId]);
+    const e = cur.rows[0] as Record<string, unknown> | undefined;
+    if (!e) throw notFound('費用紀錄');
+    if (e.status !== 'RECORDED') throw precondition('已作廢的費用紀錄不可更正');
+    if (e.campaign_id) await campaignOk(tx, actor, e.campaign_id as string);
+    if (e.payment_status !== 'PAID' && e.payment_status !== 'PARTIALLY_PAID') throw precondition('只有已付款或部分付款的費用需要走受控更正；其他費用請用一般的修改');
+    const oldAmount = Number(e.amount), oldStatus = e.payment_status as string, oldPaid = e.paid_amount == null ? null : Number(e.paid_amount);
+    const newStatus = input.paymentStatus ?? oldStatus;
+    const newPaid = input.paidAmount !== undefined ? input.paidAmount : (newStatus === 'PAID' ? null : oldPaid);
+    const paidOn = newStatus === 'UNPAID' ? null : ((e.paid_on as string | null) ?? null);
+    const problems = paymentProblems({ paymentStatus: newStatus, paidOn, paidAmount: newStatus === 'UNPAID' ? null : newPaid, amount: input.newAmount });
+    if (problems.length) throw validation(`更正後的金額與付款資料不一致：${problems.join('；')}`);
+    if (input.newAmount === oldAmount && newStatus === oldStatus && (newStatus === 'UNPAID' ? null : newPaid) === oldPaid) throw validation('更正內容與目前相同');
+    const claimWasConfirmed = e.claim_status === 'CONFIRMED';
+    await tx.query(`UPDATE expenses SET amount=$2, payment_status=$3, paid_amount=$4, paid_on=$5, updated_by=$6 WHERE id=$1`, [id, input.newAmount, newStatus, newStatus === 'UNPAID' ? null : newPaid, paidOn, actor.userId]);
+    const cid = await ids.expenseCorrection(tx);
+    await tx.query(
+      `INSERT INTO expense_corrections (id, organization_id, expense_id, old_amount, new_amount, old_payment_status, new_payment_status, old_paid_amount, new_paid_amount, reason, corrected_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [cid, actor.orgId, id, oldAmount, input.newAmount, oldStatus, newStatus, oldPaid, newStatus === 'UNPAID' ? null : newPaid, input.reason, actor.userId]);
+    await audit(tx, actor, { action: 'expense.correct_paid', entityType: 'expense', entityId: id, campaignId: (e.campaign_id as string | null) ?? null, reason: input.reason,
+      before: { amount: oldAmount, paymentStatus: oldStatus, paidAmount: oldPaid }, after: { amount: input.newAmount, paymentStatus: newStatus, paidAmount: newStatus === 'UNPAID' ? null : newPaid, correctionId: cid, reconfirmRequired: claimWasConfirmed } });
+    return { id, correctionId: cid, reconfirmRequired: claimWasConfirmed, paymentInstruction: false as const };
+  });
 }
 
 export const claimConfirmSchema = z.object({ note: z.string().trim().max(300).optional() }).strict();

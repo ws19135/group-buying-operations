@@ -12,6 +12,22 @@ function migrationsDir(): string {
   return path.resolve(process.cwd(), 'migrations');
 }
 
+/** 唯讀：檢查 migration 狀態（不套用）。pending＝程式隨附但資料庫尚未套用的檔案；mismatched＝已套用但內容被改動的檔案 */
+export async function migrationStatus(): Promise<{ applied: number; pending: string[]; mismatched: string[] }> {
+  const p = pool();
+  const files = fs.readdirSync(migrationsDir()).filter((f) => f.endsWith('.sql')).sort();
+  const done = new Map<string, string>();
+  try { for (const r of (await p.query('SELECT name, checksum FROM schema_migrations')).rows) done.set(r.name, r.checksum); } catch { /* 資料庫尚未建置 */ }
+  const pending: string[] = [], mismatched: string[] = [];
+  for (const f of files) {
+    const prev = done.get(f);
+    if (!prev) { pending.push(f); continue; }
+    const sum = crypto.createHash('sha256').update(fs.readFileSync(path.join(migrationsDir(), f), 'utf8')).digest('hex');
+    if (prev !== sum) mismatched.push(f);
+  }
+  return { applied: done.size, pending, mismatched };
+}
+
 /** 依檔名順序套用 migrations/*.sql；已套用的以 checksum 驗證不可被改動 */
 export async function migrate(): Promise<MigrationResult> {
   const p = pool();

@@ -5,7 +5,8 @@ import { AppError, validation } from '../lib/errors';
 import { rateLimit } from '../lib/rate-limit';
 import { can, isInternal, requirePerm, ROLE_LABEL, ROLE_PERMISSIONS } from '../lib/permissions';
 import { camelize } from '../lib/case';
-import { login, logout, createUser, listUsers, setUserStatus, parseCookie } from '../modules/auth';
+import { migrationStatus } from '../lib/migrate';
+import { login, logout, createUser, listUsers, setUserStatus, parseCookie, changePassword } from '../modules/auth';
 import * as vendors from '../modules/vendors';
 import * as hosts from '../modules/hosts';
 import * as products from '../modules/products';
@@ -54,7 +55,14 @@ export const routes: RouteDef[] = [
   P('GET', '/health', async () => {
     const t0 = Date.now();
     await query('SELECT 1');
-    return { ok: true, db: 'up', latencyMs: Date.now() - t0, env: appEnv(), time: new Date().toISOString() };
+    return { ok: true, db: 'up', latencyMs: Date.now() - t0, env: appEnv(), version: process.env.APP_VERSION ?? 'dev', commit: process.env.BUILD_SHA ?? null, time: new Date().toISOString() };
+  }),
+  // 就緒檢查（公開，不含資料）：資料庫可連線且 migration 都已套用、沒有被改動；供部署流程與負載平衡器判斷能否接流量
+  P('GET', '/ready', async () => {
+    const m = await migrationStatus();
+    const ok = m.pending.length === 0 && m.mismatched.length === 0;
+    if (!ok) throw new AppError('CONFLICT', `尚未就緒：待套用 migration ${m.pending.length} 個、內容不符 ${m.mismatched.length} 個`);
+    return { ok: true, migrationsApplied: m.applied, version: process.env.APP_VERSION ?? 'dev', commit: process.env.BUILD_SHA ?? null };
   }),
 
   // ---------- 認證 ----------
@@ -63,7 +71,7 @@ export const routes: RouteDef[] = [
     const ip = (c.req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'local';
     if (!rateLimit(`login:ip:${ip}`, 30, 60_000) || !rateLimit(`login:acct:${b.email.toLowerCase()}`, 10, 60_000)) throw new AppError('RATE_LIMITED', '嘗試次數過多，請稍後再試');
     const r = await login(b.email, b.password, { ip, userAgent: c.req.headers.get('user-agent'), requestId: c.requestId });
-    return { data: { user: { id: r.actor.userId, name: r.actor.name, role: r.actor.role, roleLabel: ROLE_LABEL[r.actor.role] } },
+    return { data: { user: { id: r.actor.userId, name: r.actor.name, role: r.actor.role, roleLabel: ROLE_LABEL[r.actor.role] }, mustChangePassword: !!r.actor.mustChangePassword },
       headers: { 'set-cookie': cookieHeader(r.token, SESSION_TTL_HOURS * 3600) } };
   }),
   P('POST', '/auth/logout', async (c) => {
@@ -71,8 +79,9 @@ export const routes: RouteDef[] = [
     if (token) await logout(token);
     return { data: { ok: true }, headers: { 'set-cookie': cookieHeader('', 0) } };
   }),
+  R('POST', '/auth/change-password', async (c) => changePassword(c.actor, parseCookie(c.req.headers.get('cookie'), SESSION_COOKIE), c.body as never)),
   R('GET', '/auth/me', async (c) => ({
-    id: c.actor.userId, name: c.actor.name, role: c.actor.role, roleLabel: ROLE_LABEL[c.actor.role],
+    mustChangePassword: !!c.actor.mustChangePassword, id: c.actor.userId, name: c.actor.name, role: c.actor.role, roleLabel: ROLE_LABEL[c.actor.role],
     permissions: ROLE_PERMISSIONS[c.actor.role], hostIds: c.actor.hostIds, vendorIds: c.actor.vendorIds,
   })),
 
@@ -302,6 +311,7 @@ export const routes: RouteDef[] = [
   R('GET', '/expenses', async (c) => finance.listExpenses(c.actor, c.query)),
   R('POST', '/expenses', async (c) => created(await finance.createExpense(c.actor, c.body as never, c.idemKey))),
   R('PATCH', '/expenses/:id', async (c) => finance.updateExpense(c.actor, c.params.id, c.body)),
+  R('POST', '/expenses/:id/correct-paid', async (c) => finance.correctPaidExpense(c.actor, c.params.id, c.body)),
   R('GET', '/expenses/:id/history', async (c) => finance.expenseHistory(c.actor, c.params.id)),
   R('PATCH', '/expenses/:id/attribution', async (c) => finance.updateExpenseAttribution(c.actor, c.params.id, c.body)),
   R('POST', '/expenses/:id/claim/confirm', async (c) => finance.confirmExpenseClaim(c.actor, c.params.id, c.body)),

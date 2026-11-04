@@ -82,6 +82,8 @@ export function sameOrigin(req: Request): boolean {
 
 export function setRoutes(defs: RouteDef[]) { compile(defs); }
 
+const PASSWORD_CHANGE_ALLOWED = new Set(['POST /auth/change-password', 'POST /auth/logout', 'GET /auth/me']);
+
 export async function dispatch(req: Request, pathSegments: string[]): Promise<Response> {
   const requestId = randomUUID();
   const method = req.method.toUpperCase();
@@ -123,6 +125,8 @@ export async function dispatch(req: Request, pathSegments: string[]): Promise<Re
     const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || null;
     const actor = await actorFromToken(token, { requestId, ip, source: 'API' });
     if (!hit.def.public && !actor) return json(401, { error: { code: 'UNAUTHENTICATED', message: '請先登入', requestId } });
+    // 初次啟用／被要求變更密碼：只允許變更密碼、登出與讀取自己的狀態；其餘 API 一律擋下（不只靠前端導頁）
+    if (actor?.mustChangePassword && !PASSWORD_CHANGE_ALLOWED.has(`${method} ${path}`)) return json(403, { error: { code: 'PASSWORD_CHANGE_REQUIRED', message: '請先變更密碼才能繼續使用系統', requestId } });
     const ctx = { req, actor, params: hit.params, query: url.searchParams, body, idemKey: req.headers.get('idempotency-key'), requestId } as Ctx;
     const out = await (hit.def.handler as (c: Ctx) => Promise<unknown>)(ctx);
     if (isHandled(out)) return json(out.status ?? 200, { data: out.data }, out.headers);

@@ -218,6 +218,15 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
                       </Modal>
                       {e.claimStatus !== 'CONFIRMED' && (e.claimDirection === 'RECEIVABLE' || e.claimDirection === 'PAYABLE') ? <ActionButton endpoint={`/api/expenses/${e.id}/claim/confirm`} label="確認應收／應付" small reasonLabel="確認說明（只是確認紀錄，不會產生付款）" reasonKey="note" reasonRequired={false} testid={`btn-confirm-claim-${e.id}`} successMessage="已確認紀錄（沒有產生任何付款）" /> : null}
                     </div>) : null}
+                    {w && canAttr && e.status === 'RECORDED' && (e.paymentStatus === 'PAID' || e.paymentStatus === 'PARTIALLY_PAID') ? (
+                      <Modal label="更正金額" title="已付款費用的受控更正" size="btn sm" testid={`btn-correct-exp-${e.id}`}>
+                        <p className="small muted">已付款或部分付款的費用不能直接改金額，只能在這裡更正：必須填原因；更正前後的金額與付款狀態會完整保留在歷史與稽核；已確認的應收／應付會退回未確認。不會產生任何付款、撥款、扣款或發票。</p>
+                        <ApiForm endpoint={`/api/expenses/${e.id}/correct-paid`} submitLabel="送出更正" testid={`correct-form-${e.id}`} successMessage="已更正（歷史已保留）" fields={[
+                          { name: 'newAmount', label: `更正後金額（目前 ${money(e.amount)}）`, type: 'number', required: true, min: 1 },
+                          { name: 'paymentStatus', label: '更正後付款狀態（不變可留空）', type: 'select', options: opt(PAYMENT_STATUS_LABEL, ['UNPAID', 'PARTIALLY_PAID', 'PAID']) },
+                          { name: 'paidAmount', label: '已付金額（部分付款時填；已付款留空＝全額）', type: 'number', min: 0 },
+                          { name: 'reason', label: '更正原因（必填，至少 5 個字）', required: true }]} />
+                      </Modal>) : null}
                     {w && e.status === 'RECORDED' ? <ActionButton endpoint={`/api/expenses/${e.id}/void`} label="作廢" small variant="danger" reasonLabel="作廢原因" testid={`btn-void-exp-${e.id}`} /> : null}</td>
                 </tr>))}
             </Table>)}

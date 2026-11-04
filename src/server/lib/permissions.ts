@@ -118,6 +118,8 @@ export interface Actor {
   requestId: string;
   source: 'WEB' | 'API' | 'WORKER' | 'SEED' | 'IMPORT' | 'TEST';
   ip?: string | null;
+  /** 初次啟用或管理者重設後，必須先變更密碼才能使用其他功能 */
+  mustChangePassword?: boolean;
 }
 
 export function can(actor: Actor, perm: Permission): boolean {

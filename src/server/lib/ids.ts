@@ -58,6 +58,7 @@ export const ids = {
   payment: async (db: Queryable) => `PAY-${pad(await next(db, 'PAY', ''), 6)}`,
   invoice: async (db: Queryable) => `INV-${pad(await next(db, 'INV', ''), 6)}`,
   expense: async (db: Queryable) => `EXP-${pad(await next(db, 'EXP', ''), 6)}`,
+  expenseCorrection: async (db: Queryable) => `ECR-${pad(await next(db, 'ECR', ''), 6)}`,
   settlement: async (db: Queryable, now: Date = new Date()) => {
     const d = todayTaipei(now).replace(/-/g, '');
     return `SET-${d}-${pad(await next(db, 'SET', d), 4)}`;
