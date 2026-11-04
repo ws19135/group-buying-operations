@@ -253,3 +253,12 @@
 | 本機 production 模式＋全新空資料庫 | `prod:bootstrap`（27 支 migration、demoRows=0）；`/api/health`、`/api/ready`；**Live UAT 21/21**；重啟後資料仍在；備份＋還原演練（各表筆數一致） |
 | 未能執行 | Docker 映像本機建置（映像庫連線被拒）→ 由 `docker-build.yml` 在 GitHub 上驗證；**任何主機上的部署與 HTTPS 驗證**（沒有主機） |
 | 不得宣稱 | DEPLOYED、LIVE_VERIFIED（見 `PRODUCTION_UAT.md`、`FEATURE_STATUS_MATRIX.md`） |
+
+## 16. 部署加固（2026-11-04，分支 `feat/deploy-hardening`）
+
+| 檢查 | 結果（本次實際執行） |
+|---|---|
+| main 最終狀態（`d43f887`） | `CI` 成功、`Docker image check` 成功（容器內 `prod:bootstrap`、`/api/ready`、`/api/health` 的 commit、非 root）；Pages 快照執行中（另行確認） |
+| 主機腳本（`deploy/*.sh`），以替身 `docker` 對**真實 PostgreSQL** 執行 | 空資料庫拒絕部署 ✅；初次建置後部署成功（備份→migration→啟動→就緒） ✅；備份檔權限 600＋SHA-256 ✅；還原演練通過並清除暫存資料庫 ✅；備份之後新增的資料仍通過 ✅；損毀備份失敗 ✅；資料表集合不同失敗 ✅；`.env.production` 權限 644 被拒 ✅ |
+| 結構性守衛測試 `tests/deploy-scripts.test.ts` | 11 項通過；**8 種變異全部使測試變紅**（對調備份與 migration 順序、移除未初次建置拒絕、部署腳本自跑 bootstrap、資料庫開放 5432、UAT 指向 production、備份不驗證、放寬權限、部署加 push 觸發）。第一輪 1 種倖存（備份驗證的檢查被註解字樣滿足），收緊後變紅 |
+| 未能執行 | 真實 VPS 上的部署、HTTPS 憑證簽發、`docker login ghcr.io`、staging Live UAT——**沒有主機**；故不得標示 DEPLOYED／LIVE_VERIFIED |

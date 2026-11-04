@@ -18,3 +18,11 @@
 4. 把 `DATABASE_URL` 指向新資料庫、啟動 app，檢查 `/api/ready`、抽查資料；通知使用者備份時間點之後的資料需要補登。
 5. 事後檢討並記錄於 `DEVELOPMENT_LOG.md`。
 **正式資料庫的任何還原都屬於高風險操作，需要 Owner 明確授權。**
+
+## 主機端腳本（資料庫不對外，一律經由 `docker compose exec db`）
+| 腳本 | 用途 |
+|---|---|
+| `host-backup.sh` | 每日備份（cron）：`pg_dump -Fc` → 權限 600 → SHA-256 → `pg_restore --list` 驗證 → 依 `KEEP_DAYS`（預設 30）清理 |
+| `host-restore-drill.sh <備份檔>` | 還原到同一個 PostgreSQL 內的暫存資料庫並移除；判讀規則：資料表集合必須一致、還原筆數不可多於現行（備份之後新增的資料只列出參考）、損毀備份會失敗；**不修改正式資料庫** |
+| `deploy-remote.sh` | 每次部署前自動呼叫備份（`pre-deploy-*.dump`） |
+**驗證狀態**：以替身 `docker` 對真實 PostgreSQL 測過（含備份後新增資料仍通過、損毀備份失敗、資料表集合不同失敗）；尚未在真實主機執行。

@@ -17,3 +17,13 @@
 | `APP_IMAGE` | — | 映像 tag | 映像 tag（commit SHA） | 回滾時改成舊 tag |
 
 GitHub Environment「production」：Required reviewers（Owner）＋Secrets：`DEPLOY_HOST`、`DEPLOY_USER`、`DEPLOY_SSH_KEY`、`DEPLOY_PATH`；Variable：`ERP_URL`。任何密鑰都**不得**出現在程式、文件或 log。
+
+## GitHub Environments（每個環境獨立）
+| | `staging` | `production` |
+|---|---|---|
+| 審核人 | 可不設 | **Owner（必設）**；限定 `main` |
+| Secrets | `DEPLOY_HOST`、`DEPLOY_USER`、`DEPLOY_SSH_KEY`、`DEPLOY_PATH`；另有 `UAT_ADMIN_EMAIL`、`UAT_ADMIN_PASSWORD`、`UAT_ADMIN_NEW_PASSWORD` | `DEPLOY_HOST`、`DEPLOY_USER`、`DEPLOY_SSH_KEY`、`DEPLOY_PATH`（**不放 UAT 設定**） |
+| Variable | `ERP_URL=https://erp-staging.<公司網域>` | `ERP_URL=https://erp.<公司網域>` |
+| 主機與資料庫 | 獨立主機（或首次上線時序列使用同一台）、獨立資料庫與密碼 | 獨立主機、獨立資料庫與密碼 |
+| 工作流程 | Deploy（target=staging）、Live UAT (staging only) | Deploy（target=production） |
+詳細設定位置與驗證方法見 `OWNER_SETUP_CHECKLIST.md`。
