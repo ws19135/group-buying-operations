@@ -1,0 +1,77 @@
+name: Deploy production
+
+# 正式環境部署：**只能手動觸發**（workflow_dispatch），且綁定 GitHub Environment「production」——
+# 請在 Repository Settings → Environments → production 設定 Required reviewers（Owner 核准後才會執行）與下列 Secrets。
+# 沒有設定主機 Secrets 時，只會建置並推送映像（不會部署）。部署紀錄保存為 artifact；回滾見 docs/ROLLBACK_PLAN.md。
+# 所需 Secrets（均不得出現在程式或文件中）：DEPLOY_HOST、DEPLOY_USER、DEPLOY_SSH_KEY、DEPLOY_PATH（主機上 docker-compose.prod.yml 所在目錄）。
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: '要部署的 Git ref（預設 main）；回滾時填舊的 commit／tag'
+        required: false
+        default: main
+      image_tag:
+        description: '回滾用：直接指定已存在的映像 tag（填了就不重新建置）'
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      REGISTRY: ghcr.io
+      IMAGE: ghcr.io/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ inputs.ref }}' }
+      - id: meta
+        run: |
+          sha="$(git rev-parse HEAD)"; tag="${{ inputs.image_tag }}"; [ -n "$tag" ] || tag="$sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"; echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: Gate — CI must be green on this commit
+        if: ${{ inputs.image_tag == '' }}
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          state="$(gh api repos/${{ github.repository }}/commits/${{ steps.meta.outputs.sha }}/check-runs --jq '[.check_runs[] | select(.name=="verify") | .conclusion] | if length==0 then "none" elif all(.=="success") then "success" else "fail" end')"
+          echo "CI state: $state"; [ "$state" = "success" ] || { echo "此 commit 的 CI 尚未全部成功，拒絕部署"; exit 1; }
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
+      - name: Build and push image
+        if: ${{ inputs.image_tag == '' }}
+        run: |
+          docker build --build-arg BUILD_SHA=${{ steps.meta.outputs.sha }} --build-arg APP_VERSION=${{ steps.meta.outputs.sha }} -t "$IMAGE:${{ steps.meta.outputs.tag }}" .
+          docker push "$IMAGE:${{ steps.meta.outputs.tag }}"
+      - name: Deploy over SSH (only when host secrets are configured)
+        id: ssh
+        env:
+          H: ${{ secrets.DEPLOY_HOST }}
+          U: ${{ secrets.DEPLOY_USER }}
+          K: ${{ secrets.DEPLOY_SSH_KEY }}
+          P: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          if [ -z "$H" ] || [ -z "$U" ] || [ -z "$K" ] || [ -z "$P" ]; then echo "deployed=false" >> "$GITHUB_OUTPUT"; echo "尚未設定主機 Secrets：只建置映像，沒有部署。" | tee deploy-log.txt; exit 0; fi
+          install -m 600 /dev/null key; printf '%s\n' "$K" > key
+          ssh -i key -o StrictHostKeyChecking=accept-new "$U@$H" "cd '$P' && APP_IMAGE='$IMAGE:${{ steps.meta.outputs.tag }}' docker compose --env-file .env.production -f docker-compose.prod.yml pull app && APP_IMAGE='$IMAGE:${{ steps.meta.outputs.tag }}' docker compose --env-file .env.production -f docker-compose.prod.yml up -d app proxy" | tee deploy-log.txt
+          echo "deployed=true" >> "$GITHUB_OUTPUT"
+      - name: Post-deploy readiness check
+        if: steps.ssh.outputs.deployed == 'true'
+        run: |
+          : "${{ vars.ERP_URL }}"; url="${{ vars.ERP_URL }}"
+          for i in $(seq 1 30); do curl -fsS "$url/api/ready" | tee -a deploy-log.txt && break; sleep 5; done
+          curl -fsS "$url/api/health" | tee -a deploy-log.txt
+      - name: Deploy log
+        if: always()
+        run: |
+          { echo "ref=${{ inputs.ref }} commit=${{ steps.meta.outputs.sha }} tag=${{ steps.meta.outputs.tag }} actor=${{ github.actor }} run=${{ github.run_id }} time=$(date -u +%FT%TZ)"; } >> deploy-log.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: deploy-log, path: deploy-log.txt }

@@ -242,3 +242,14 @@
 | 突變驗證（規則 7） | F 系列 **12 種**規則破壞版本，**全部使測試變紅**（第一輪 8 種變紅、4 種倖存——皆為測試缺口：改承擔方被資料庫守衛涵蓋、已付款留空金額未測、改檔期的團主與商品檢查互相掩護；補測後 4 種皆變紅） |
 | 結算不受影響 | `commission-calc`、`kpi`、`settlements`、`commission`、`invoices`、`gates`、`workflow` 與 PR #21 零差異 |
 | 逐項結論 | `docs/phase2/FINAL_PREMERGE_REVIEW.md` |
+
+## 15. 正式環境準備（2026-11-04，分支 `feat/prod-readiness`）
+
+| 檢查 | 結果（本次實際執行） |
+|---|---|
+| `tsc --noEmit`／`eslint . --quiet`／`npm run build` | 無錯誤 |
+| `npm test`（真實 PostgreSQL） | **56 個檔案、921 項通過**（新增 `prod-readiness` 8 項：密碼規則、強制變更、bootstrap 守衛、O-2 更正） |
+| E2E 煙霧／全流程 UI | 煙霧 **146/146**；全流程 **46/46** |
+| 本機 production 模式＋全新空資料庫 | `prod:bootstrap`（27 支 migration、demoRows=0）；`/api/health`、`/api/ready`；**Live UAT 21/21**；重啟後資料仍在；備份＋還原演練（各表筆數一致） |
+| 未能執行 | Docker 映像本機建置（映像庫連線被拒）→ 由 `docker-build.yml` 在 GitHub 上驗證；**任何主機上的部署與 HTTPS 驗證**（沒有主機） |
+| 不得宣稱 | DEPLOYED、LIVE_VERIFIED（見 `PRODUCTION_UAT.md`、`FEATURE_STATUS_MATRIX.md`） |

@@ -31,6 +31,8 @@ erDiagram
     vendors ||--o{ evidence_items : "vendor_id"
     campaigns ||--o{ exceptions : "campaign_id"
     users ||--o{ exceptions : "owner_user_id"
+    users ||--o{ expense_corrections : "corrected_by"
+    expenses ||--o{ expense_corrections : "expense_id"
     campaigns ||--o{ expenses : "campaign_id"
     hosts ||--o{ expenses : "host_id"
     products ||--o{ expenses : "product_id"
