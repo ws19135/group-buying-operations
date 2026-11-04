@@ -395,6 +395,11 @@ async function main() {
     const itemsNote = await pageF.getByTestId('recon-items-note').innerText();
     record('K-6a 待人工確認項目（財務畫面）：同步後建立項目並顯示差異原因；明講不覆蓋合約／可行性／財務規則、不改已確認結算與實際付款', itemsAfter >= 1 && itemsAfter >= itemsBefore && /不會覆蓋合約、可行性或財務規則/.test(itemsNote) && /財務應依既有規則版本與核准流程處理/.test(itemsNote), `前 ${itemsBefore}／後 ${itemsAfter}`);
     await shot(pageF, '17-recon-items');
+    // D-3／D-4：財務費用頁顯示「待補清單」，說明承擔方未知不算公司正式成本、不當 0
+    await pageF.goto(`${BASE}/finance?tab=expenses`, { waitUntil: 'networkidle' });
+    const pendTxt = await pageF.getByTestId('expense-pending-note').innerText();
+    record('D-3／D-4 費用頁待補清單：承擔方／付款方待確認的筆數；明講承擔方未知的費用不算公司正式成本、也不當 0；有「只看待補清單」連結', /待補清單/.test(pendTxt) && /不算公司正式成本/.test(pendTxt) && /不當 0/.test(pendTxt) && (await pageF.getByTestId('expense-pending-filter').count()) === 1, pendTxt.slice(0, 40));
+    await shot(pageF, '18-expense-pending');
     await ctxF.close();
     await page.goto(`${BASE}/finance/reconciliation?tab=fees`, { waitUntil: 'networkidle' });
     const feeText = await page.getByTestId('fee-summary').innerText();

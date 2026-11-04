@@ -210,7 +210,7 @@ export async function getCase(actor: Actor, id: string) {
   const hostNames = attr.hostIds.length ? await query<{ id: string; display_name: string }>(`SELECT id, display_name FROM hosts WHERE id = ANY($1::text[]) AND organization_id=$2`, [attr.hostIds, actor.orgId]) : [];
   const campaignHosts = await query<{ id: string; display_name: string }>(
     `SELECT h.id, h.display_name FROM campaign_hosts ch JOIN hosts h ON h.id=ch.host_id WHERE ch.campaign_id=$1 AND ch.organization_id=$2 AND ch.deleted_at IS NULL AND ch.status <> 'DECLINED' ORDER BY h.display_name`, [row['campaign_id'], actor.orgId]);
-  const hostAttribution = { kind: attr.kind, label: ATTRIBUTION_LABEL[attr.kind], hosts: hostNames.map((h) => ({ id: h.id, name: h.display_name, weight: attr.weights[h.id] ?? 0 })), manualAllowed: attr.kind === 'UNATTRIBUTED' || attr.kind === 'MANUAL',
+  const hostAttribution = { kind: attr.kind, label: ATTRIBUTION_LABEL[attr.kind], basis: attr.basis, reviewReason: attr.reviewReason, hosts: hostNames.map((h) => ({ id: h.id, name: h.display_name, weight: attr.weights[h.id] ?? 0 })), manualAllowed: attr.kind === 'UNATTRIBUTED' || attr.kind === 'MANUAL',
     note: (row['host_attribution_note'] as string | null) ?? null, attributedAt: row['host_attributed_at'] ?? null, options: campaignHosts.map((h) => ({ value: h.id, label: h.display_name })) };
   return { ...c, assigneeName: assignee, events, refunds, order, hostAttribution };
 }
@@ -229,7 +229,7 @@ export async function setCaseHostAttribution(actor: Actor, id: string, raw: z.in
     const cur = await loadCaseScoped(tx, actor, id, true);
     if (cur['status'] === 'CANCELLED') throw precondition('已取消的案件不能調整團主歸屬');
     const derived = (await loadCaseAttributions(tx, actor.orgId, [{ id, order_id: (cur['order_id'] as string | null) ?? null, attributed_host_id: null }]))[0];
-    if (derived.kind === 'ORDER_SINGLE' || derived.kind === 'ORDER_SHARED') throw precondition('這件客訴可由關聯訂單的歸因取得團主，以訂單歸因為準，不需要也不能人工指定');
+    if (derived.kind === 'ORDER_SINGLE' || derived.kind === 'ORDER_SHARED' || derived.kind === 'ORDER_SHARED_UNWEIGHTED') throw precondition('這件客訴可由關聯訂單的歸因取得團主，以訂單歸因為準，不需要也不能人工指定');
     if (input.hostId) {
       if (!input.note || input.note.length < 2) throw validation('人工指定團主需說明原因（例如：買家來自某團主的群組）');
       const h = await tx.query(`SELECT 1 FROM campaign_hosts WHERE campaign_id=$1 AND host_id=$2 AND organization_id=$3 AND deleted_at IS NULL AND status <> 'DECLINED'`, [cur['campaign_id'], input.hostId, actor.orgId]);

@@ -73,6 +73,33 @@ describe('K-5：客訴歸屬團主', () => {
     expect(Object.values(s.byHost).reduce((x, h) => x + h.relatedCases, 0)).toBeGreaterThan(s.total - s.unattributed);
   });
 
+  it('D-2：共同歸因沒有可靠比例（兩位團主都是預設的 100%）：不平均分配、不計入任何團主加權；保留相關團主、依據與待人工確認原因；KPI 團主層級客訴率資料不足；整體仍每件一次', async () => {
+    const { p, camp, oid } = await scenario();
+    const s2 = await oid('A3');
+    await query(`INSERT INTO attributions (order_id, host_id, organization_id, share_percent, method) VALUES ($1,$2,$3,100,'MANUAL')`, [s2, hostB, w.orgId]);   // A3 變成甲 100%、乙 100%（合計 200%，不可靠）
+    const bad = await mk(camp, s2, '[DEMO] 共同歸因但比例不可靠');
+    await mk(camp, await oid('A1'), '[DEMO] 甲單一'); await mk(camp, await oid('S1'), '[DEMO] 可靠共同（甲 60／乙 40）'); await mk(camp, null, '[DEMO] 未歸屬');
+    const before = await query(`SELECT count(*)::int AS n FROM service_cases WHERE organization_id=$1 AND attributed_host_id IS NOT NULL`, [w.orgId]);
+    const stats = await loadComplaintStats(pool(), w.orgId, camp);
+    expect(stats).toMatchObject({ total: 4, unattributed: 1, sharedCases: 2, sharedUnweighted: 1 });
+    expect(stats.byHost[hostA]).toMatchObject({ pendingShared: 1, relatedCases: 3 }); expect(stats.byHost[hostA].weighted).toBeCloseTo(1.6, 9);    // 1（單一）＋0.6；待確認的那件沒有被平均分成 0.5
+    expect(stats.byHost[hostB]).toMatchObject({ pendingShared: 1, relatedCases: 2 }); expect(stats.byHost[hostB].weighted).toBeCloseTo(0.4, 9);
+    expect(Object.values(stats.byHost).reduce((x, h) => x + h.weighted, 0) + stats.unattributed + stats.sharedUnweighted).toBeCloseTo(stats.total, 9);
+    const d = (await getCase(w.manager, bad.id)) as { hostAttribution: { kind: string; basis: string; reviewReason: string; hosts: { id: string; weight: number }[]; manualAllowed: boolean } };
+    expect(d.hostAttribution).toMatchObject({ kind: 'ORDER_SHARED_UNWEIGHTED', manualAllowed: false });
+    expect(d.hostAttribution.hosts.map((h) => h.id).sort()).toEqual([hostA, hostB].sort()); expect(d.hostAttribution.hosts.every((h) => h.weight === 0)).toBe(true);
+    expect(d.hostAttribution.basis).toContain('沒有可靠的歸因比例'); expect(d.hostAttribution.reviewReason).toContain('不預設平均分配');
+    await expect(setCaseHostAttribution(w.manager, bad.id, { hostId: hostA, note: '[DEMO] 想硬指定' })).rejects.toThrow(/以訂單歸因為準/);
+    // KPI：此團主（甲）的團主層級客訴率資料不足；整體客訴率照常
+    const t = (await createTrial(w.manager, p.id, { level: 'HOST_FIT', trialType: 'MINI_GROUP', hostId: hostA, campaignId: camp })).id;
+    const k = kpi(await getTrialKpis(w.manager, t), 'complaintDefect');
+    const host = k.parts!.find((x) => x.key === 'hostComplaintPer100')!;
+    expect(host.value).toBeNull(); expect(host.reason).toContain('資料不足'); expect(host.reason).toContain('沒有可靠的歸因比例');
+    expect(k.parts!.find((x) => x.key === 'complaintPer100')!.value).not.toBeNull();
+    expect((await getTrialKpis(w.manager, t)).notices.join('\n')).toContain('不預設平均分配');
+    expect((await query(`SELECT count(*)::int AS n FROM service_cases WHERE organization_id=$1 AND attributed_host_id IS NOT NULL`, [w.orgId]))[0].n).toBe(before[0].n);   // 沒有任何自動寫入歸屬
+  });
+
   it('人工指定：只有無法由訂單歸因推導的案件才可以；需說明；團主需在檔期內；記錄來源、操作者、時間；可清除；稽核有紀錄', async () => {
     const { camp, oid } = await scenario();
     const orderCase = await mk(camp, await oid('A1'), '[DEMO] 有訂單歸因');

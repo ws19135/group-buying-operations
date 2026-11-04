@@ -97,7 +97,7 @@ describe('K-7d：風險偵測（只提示，不自動排除或改資料）', () 
     await exp(camp, { category: 'OTHER', amount: 80, bearerParty: undefined });
     const risks = (await getCostAllocationAnalysis(w.finance, camp)).impact!.risks;
     const msg = (c: string) => risks.filter((x) => x.code === c).map((x) => x.message).join('\n');
-    expect(msg('UNALLOCATED')).toContain('特定團主費用 200 元'); expect(msg('UNALLOCATED')).toContain('尚未記錄承擔方');
+    expect(msg('UNALLOCATED')).toContain('特定團主費用 200 元'); expect(msg('UNALLOCATED')).toContain('承擔方待確認');
     expect(msg('CROSS_PERIOD')).toContain('1 筆費用（1000 元）發生日在檔期'); expect(msg('CROSS_PERIOD')).toContain('不自動排除');
   });
   it('跨期的費用仍留在分攤池（不自動排除）', async () => {
@@ -131,5 +131,23 @@ describe('K-7e：唯讀；沒有核准的規則前多商品仍是資料不足', 
     const p = await mkProduct(w, v, { name: `[DEMO] I 單品商品 ${n}`, skus: [{ skuCode: `IS${n}`, name: 'a', groupPrice: 800, costPrice: 500 }] });
     const camp = (await mkCampaign(w, v, { products: [{ productId: p.id, skuId: p.skuIds[0] }], hosts: [{ hostId: hostA }], sampleReadyDate: dayOffset(-30), openDate: dayOffset(-10), closeDate: dayOffset(10) })).id;
     expect((await getCostAllocationAnalysis(w.finance, camp)).impact).toBeNull();
+  });
+});
+
+describe('D-4：承擔方未知（待確認）在唯讀分析中的處理', () => {
+  it('不進入已確認的分攤池與公司成本；已確認口徑的利潤資料不足；另列保守情境（標示不是已確認成本）；原資料不被改', async () => {
+    const { camp } = await multi();
+    await exp(camp, { amount: 1000 });                                     // 公司已確認
+    await exp(camp, { category: 'OTHER', amount: 400, bearerParty: undefined });   // 承擔方未知
+    const before = await counts();
+    const a = await getCostAllocationAnalysis(w.finance, camp);
+    expect(a.costs.map((c) => [c.key, c.amount])).toEqual([['SHIPPING', 1000]]);
+    const imp = a.impact!;
+    expect(imp.companyCostTotal).toBe(1000); expect(imp.pendingBearer).toMatchObject({ count: 1, total: 400 });
+    expect(imp.impact.every((i) => i.companyProfit === null && i.products.every((p) => p.productProfit === null))).toBe(true);
+    expect(imp.conservative!.label).toContain('保守情境估計'); expect(imp.conservative!.note).toContain('不得用於正式 KPI');
+    expect(imp.conservative!.companyCostTotal).toBe(1400);
+    expect(imp.conservative!.companyProfit).toBe((1600 - 1000) + (800 - 320) - 1400);
+    expect(await counts()).toEqual(before);
   });
 });

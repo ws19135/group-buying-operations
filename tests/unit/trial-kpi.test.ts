@@ -17,7 +17,7 @@ const noProfit: ActualProfitResult = { status: 'INSUFFICIENT', total: null, perO
 const base = (): TrialKpiInput => ({
   period: { from: '2026-11-01', to: '2026-11-10' }, dataAsOf: '2026-11-10 09:00',
   orders: { total: 12, established: 10, valid: 8, refunded: 2, cancelled: 2, gmv: 8000, refund: 400 },
-  reach: noReach(), contribution: noProfit, complaints: { total: 1, unattributed: 0, sharedCases: 0, hostExclusive: 0, hostShared: 0, hostWeighted: 0, hostRelated: 0, hostValidWeighted: 0, campaignValid: 8 }, hostScoped: false, checks: { tested: 10, failed: 2 }, shipments: { nonCancelled: 8, withDates: 8, onTime: 6 }, hostIntent: 'WILLING', estimatedContributionPerOrder: 123, lowSampleBelow: 30,
+  reach: noReach(), contribution: noProfit, complaints: { total: 1, unattributed: 0, sharedCases: 0, sharedUnweighted: 0, hostPendingShared: 0, hostExclusive: 0, hostShared: 0, hostWeighted: 0, hostRelated: 0, hostValidWeighted: 0, campaignValid: 8 }, hostScoped: false, checks: { tested: 10, failed: 2 }, shipments: { nonCancelled: 8, withDates: 8, onTime: 6 }, hostIntent: 'WILLING', estimatedContributionPerOrder: 123, lowSampleBelow: 30,
 });
 const get = (r: ReturnType<typeof computeTrialKpis>, key: string) => r.items.find((x) => x.key === key)!;
 
@@ -165,7 +165,7 @@ describe('K-5／K-5a：客訴率分開呈現（檔期整體 vs 團主層級加�
     const i = base();
     i.hostScoped = true;
     // 檔期 20 張有效訂單；此團主歸因的有效訂單（加權）8 張；5 件案件：單一歸屬 1、共同歸因 1（此團主分到 0.6 件）、未歸屬 2、其他團主 1
-    i.complaints = { total: 5, unattributed: 2, sharedCases: 1, hostExclusive: 1, hostShared: 1, hostWeighted: 1.6, hostRelated: 2, hostValidWeighted: 8, campaignValid: 20, ...over };
+    i.complaints = { total: 5, unattributed: 2, sharedCases: 1, sharedUnweighted: 0, hostPendingShared: 0, hostExclusive: 1, hostShared: 1, hostWeighted: 1.6, hostRelated: 2, hostValidWeighted: 8, campaignValid: 20, ...over };
     return i;
   };
   it('檔期整體＝全部案件（每件一次）÷ 檔期有效訂單；團主層級＝加權客訴數 ÷ 此團主有效訂單（加權）；兩個分母不同、不混用', () => {
@@ -209,10 +209,32 @@ describe('K-5／K-5a：客訴率分開呈現（檔期整體 vs 團主層級加�
     const i = base(); i.hostScoped = true;
     i.orders = { total: 0, established: 0, valid: 0, refunded: 0, cancelled: 0, gmv: 0, refund: 0 };
     i.checks = { tested: 0, failed: 0 };
-    i.complaints = { total: 2, unattributed: 1, sharedCases: 0, hostExclusive: 1, hostShared: 0, hostWeighted: 1, hostRelated: 1, hostValidWeighted: 0, campaignValid: 0 };
+    i.complaints = { total: 2, unattributed: 1, sharedCases: 0, sharedUnweighted: 0, hostPendingShared: 0, hostExclusive: 1, hostShared: 0, hostWeighted: 1, hostRelated: 1, hostValidWeighted: 0, campaignValid: 0 };
     const k = get(computeTrialKpis(i), 'complaintDefect');
     expect(k).toMatchObject({ status: 'INSUFFICIENT', value: null });
     expect(k.facts!.join()).toContain('客訴（客服案件）2 件'); expect(k.facts!.join()).toContain('未歸屬 1 件');
     expect(k.parts!.every((p) => p.value === null)).toBe(true);
+  });
+});
+
+describe('D-2：共同歸因沒有可靠比例時，團主層級客訴率不給數字（資料不足），不預設平均分配', () => {
+  const pending = (): TrialKpiInput => {
+    const i = base(); i.hostScoped = true;
+    i.complaints = { total: 4, unattributed: 1, sharedCases: 2, sharedUnweighted: 1, hostPendingShared: 1, hostExclusive: 1, hostShared: 2, hostWeighted: 1.6, hostRelated: 3, hostValidWeighted: 8, campaignValid: 20 };
+    return i;
+  };
+  it('涉及此團主的共同歸因件沒有可靠比例：團主層級客訴率為資料不足並說明原因；檔期整體客訴率不受影響', () => {
+    const r = computeTrialKpis(pending());
+    const k = get(r, 'complaintDefect');
+    const host = k.parts!.find((x) => x.key === 'hostComplaintPer100')!;
+    expect(host.value).toBeNull();
+    expect(host.reason).toContain('資料不足'); expect(host.reason).toContain('沒有可靠的歸因比例'); expect(host.reason).toContain('不預設平均分配');
+    expect(k.parts!.find((x) => x.key === 'complaintPer100')!.value).toBe(20);        // 4 ÷ 20 × 100：公司整體每件只算一次
+    expect(k.facts!.join('\n')).toContain('沒有可靠的歸因比例');
+    expect(r.notices.join('\n')).toContain('不預設平均分配');
+  });
+  it('沒有待確認件時維持原本的加權比率', () => {
+    const i = pending(); i.complaints = { ...i.complaints, sharedUnweighted: 0, hostPendingShared: 0 };
+    expect(get(computeTrialKpis(i), 'complaintDefect').parts!.find((x) => x.key === 'hostComplaintPer100')!.value).toBe(20);   // 1.6 ÷ 8 × 100
   });
 });

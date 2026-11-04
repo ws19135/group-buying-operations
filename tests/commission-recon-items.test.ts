@@ -184,3 +184,34 @@ describe('K-6a：KPI 與結算結果不一致時顯示口徑差異提醒', () =>
     expect((await getTrialKpis(w.manager, t)).notices.join()).not.toContain('口徑差異提醒');
   });
 });
+
+describe('D-5／D-7：維持財務手動同步；不新增排程或觸發器；同步只建立待確認項目，不自動改寫任何財務資料', () => {
+  it('同步只能由人按下（沒有排程、觸發器或其他程式自動呼叫）；待確認項目表沒有新增觸發器；自動化排程設定不變', async () => {
+    const { readdirSync, readFileSync } = await import('node:fs');
+    const walk = (d: string): string[] => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(`${d}/${e.name}`) : [`${d}/${e.name}`]));
+    const callers = walk('src').filter((f) => /\.(ts|tsx)$/.test(f) && readFileSync(f, 'utf8').includes('syncCommissionReconItems'));
+    expect(callers.sort()).toEqual(['src/server/api/routes.ts', 'src/server/modules/commission-recon-items.ts'].sort());   // 只有模組本身與手動 API 路由
+    const trig = (await query<{ t: string }>(`SELECT tgname AS t FROM pg_trigger WHERE tgrelid='commission_recon_items'::regclass AND NOT tgisinternal ORDER BY 1`)).map((x) => x.t);
+    expect(trig.filter((t) => !/touch|nodelete/.test(t))).toEqual([]);                    // 只有更新時間與禁止刪除，沒有同步或寫入其他表的觸發器
+    expect(readFileSync('src/server/modules/commission-recon-items.ts', 'utf8')).not.toMatch(/INSERT INTO (commission_rules|settlements|settlement_items|payments|invoices|expenses)|UPDATE (commission_rules|settlements|settlement_items|payments|invoices|expenses)/);
+  });
+  it('階段 3 的安全邊界：同步與確認不改合約、可行性、財務規則、已確認結算、歷史佣金、實際付款、發票（資料筆數與佣金計算結果不變）；待確認項目可追蹤狀態與稽核', async () => {
+    const { camp } = await single(5);
+    await createCommissionRule(w.finance, { scopeType: 'CAMPAIGN_HOST', hostId: hostA, campaignId: camp, ratePercent: 8, effectiveFrom: dayOffset(-365) });
+    await createSettlement(w.finance, { campaignId: camp });
+    const before = await counts();
+    const settlementBefore = await query(`SELECT * FROM settlement_items WHERE campaign_id=$1 ORDER BY id`, [camp]);
+    const commission = await campaignHostCommission(pool(), w.orgId, camp);
+    await syncCommissionReconItems(w.finance);
+    const it = ((await listCommissionReconItems(w.finance)).items as { id: string; campaignId: string; snapshot: { fields: { field: string; values: { source: string; version: string | null }[] }[] } }[]).find((x) => x.campaignId === camp)!;
+    await acknowledgeReconItem(w.finance, it.id, { note: '[DEMO] 已知悉，將依規則版本流程處理' });
+    expect(await counts()).toEqual(before);
+    expect(await query(`SELECT * FROM settlement_items WHERE campaign_id=$1 ORDER BY id`, [camp])).toEqual(settlementBefore);
+    expect(await campaignHostCommission(pool(), w.orgId, camp)).toEqual(commission);
+    // 規則版本對照：項目快照保留各來源的值與版本（財務規則 v1、可行性 v1…），供人工對照
+    const rate = it.snapshot.fields.find((f) => f.field === 'ratePercent')!;
+    expect(rate.values.some((v) => v.source === 'FINANCE' && (v.version ?? '').includes('v'))).toBe(true);
+    const acts = (await query<{ action: string }>(`SELECT action FROM audit_logs WHERE organization_id=$1 AND entity_id=$2 ORDER BY id`, [w.orgId, it.id])).map((x) => x.action);
+    expect(acts).toEqual(['finance.recon_item.create', 'finance.recon_item.acknowledge']);   // 狀態追蹤與稽核
+  });
+});

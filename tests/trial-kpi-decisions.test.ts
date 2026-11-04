@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { query } from '@/server/lib/db';
 import { createTrial } from '@/server/modules/trials';
 import { getTrialKpis, getTrialKpiSummary } from '@/server/modules/trial-kpis';
@@ -6,6 +7,7 @@ import { addReach, assignVerifier, listReach, reachHistory, verifierCandidates, 
 import { createFeasibility, recordActuals } from '@/server/modules/feasibility';
 import { importOrders } from '@/server/modules/orders';
 import { createCommissionRule } from '@/server/modules/commission';
+import { createExpense, updateExpenseAttribution } from '@/server/modules/finance';
 import { campaignHostCommission } from '@/server/lib/commission-calc';
 import { Client } from './api-helper';
 import { addUser, dayOffset, makeWorld, mkCampaign, mkHost, mkProduct, mkVendor, type World } from './helpers';
@@ -458,5 +460,67 @@ describe('K-1：累積彙整（只整理、不設門檻、不判定）', () => {
     expect(sEd.rows.every((r) => r.items.find((x) => x.key === 'contributionPerOrder')!.status !== 'OK')).toBe(true);
     expect((await hostC.call('GET', '/trial-kpis/summary')).status).toBe(403);
     expect((await getTrialKpiSummary(other.manager)).total).toBe(0);
+  });
+});
+
+describe('D-4：承擔方未知的費用＝待確認；不自動算公司成本、不當 0；貢獻利潤資料不足', () => {
+  it('條款完整且來自合約時貢獻利潤正常；財務記錄一筆承擔方未知的費用 → 貢獻利潤資料不足（說明待確認、不洩漏金額）；財務依合約補充承擔方後恢復；原始費用與修正歷史保留', async () => {
+    const { p, camp, t } = await scenario({ hostBToo: false });
+    await createFeasibility(w.manager, p.id, { campaignId: camp, trialId: t, inputs: TERMS, sources: src('CONTRACT', Object.keys(TERMS)) } as never);
+    expect(kpi(await getTrialKpis(w.manager, t), 'contributionPerOrder')).toMatchObject({ status: 'OK', value: 28 });
+    const e = await createExpense(w.finance, { category: 'SHIPPING', amount: 777, incurredOn: dayOffset(-3), campaignId: camp } as never);   // 沒填承擔方
+    const k = kpi(await getTrialKpis(w.manager, t), 'contributionPerOrder');
+    expect(k).toMatchObject({ status: 'INSUFFICIENT', value: null });                  // 不是 0，也不是自動算公司成本後的數字
+    expect(k.reason).toContain('承擔方尚未確認'); expect(k.reason).toContain('不會被自動算作公司成本'); expect(k.reason).not.toContain('777');
+    // 財務依正式合約補充承擔方（由品牌承擔）→ 不是公司成本 → 恢復；原始紀錄與歷史仍在
+    await updateExpenseAttribution(w.finance, e.id, { bearerParty: 'BRAND', termsSourceKind: 'CONTRACT', termsRef: 'C-D4-1' } as never);
+    expect(kpi(await getTrialKpis(w.manager, t), 'contributionPerOrder')).toMatchObject({ status: 'OK', value: 28 });
+    const row = (await query(`SELECT amount, category, bearer_party, terms_source_kind FROM expenses WHERE id=$1`, [e.id]))[0];
+    expect(row).toMatchObject({ amount: 777, category: 'SHIPPING', bearer_party: 'BRAND', terms_source_kind: 'CONTRACT' });
+    const logs = await query<{ action: string; before_data: Record<string, unknown> | null; after_data: Record<string, unknown> | null }>(`SELECT action, before_data, after_data FROM audit_logs WHERE entity_type='expense' AND entity_id=$1 ORDER BY id`, [e.id]);
+    expect(logs.map((x) => x.action)).toEqual(['expense.create', 'expense.attribution.update']);
+    expect(logs[1].before_data).toMatchObject({ bearerParty: null }); expect(logs[1].after_data).toMatchObject({ bearerParty: 'BRAND' });   // 修正前後都留下
+  });
+  it('承擔方已確認為公司的費用不影響 KPI 的資料狀態（只有「未知」才待確認）；作廢的待確認費用不再擋', async () => {
+    const { p, camp, t } = await scenario({ hostBToo: false });
+    await createFeasibility(w.manager, p.id, { campaignId: camp, trialId: t, inputs: TERMS, sources: src('CONTRACT', Object.keys(TERMS)) } as never);
+    await createExpense(w.finance, { category: 'SHIPPING', amount: 100, incurredOn: dayOffset(-3), campaignId: camp, bearerParty: 'COMPANY' } as never);
+    expect(kpi(await getTrialKpis(w.manager, t), 'contributionPerOrder').status).toBe('OK');
+    const e = await createExpense(w.finance, { category: 'OTHER', amount: 50, incurredOn: dayOffset(-3), campaignId: camp } as never);
+    expect(kpi(await getTrialKpis(w.manager, t), 'contributionPerOrder').status).toBe('INSUFFICIENT');
+    await query(`UPDATE expenses SET status='VOID', void_reason='[DEMO] 作廢測試' WHERE id=$1`, [e.id]);
+    expect(kpi(await getTrialKpis(w.manager, t), 'contributionPerOrder').status).toBe('OK');
+  });
+});
+
+describe('D-1：只使用既有授權的有效帳號擔任第二位查核人；不建立使用者、不擴張權限', () => {
+  it('指派前後使用者數量與角色完全不變；候選人只含既有、啟用中、具查核權限、非填寫者的內部人員；停用／無權限／其他組織／不存在的帳號不能被指派', async () => {
+    const { t } = await scenario({ hostBToo: false });
+    const r = await addReach(w.editor, t, V() as never);                              // 填寫者：小編
+    const usersBefore = await query(`SELECT id, role_key, status FROM users WHERE organization_id=$1 ORDER BY id`, [w.orgId]);
+    const rolesBefore = await query(`SELECT * FROM roles ORDER BY key`);
+    const cands = await verifierCandidates(w.orgId, w.editor.userId as string);
+    expect(cands.length).toBeGreaterThanOrEqual(1);
+    expect(cands.map((c) => c.id)).not.toContain(w.editor.userId);
+    expect(cands.map((c) => c.id)).not.toContain((hostUser.userId as string));
+    const disabled = await addUser(w.orgId, 'OPS_MANAGER'); await query(`UPDATE users SET status='DISABLED' WHERE id=$1`, [disabled.userId]);
+    expect((await verifierCandidates(w.orgId, w.editor.userId as string)).map((c) => c.id)).not.toContain(disabled.userId);
+    await expect(assignVerifier(w.manager, r.id, { userId: disabled.userId as string })).rejects.toThrow();
+    await expect(assignVerifier(w.manager, r.id, { userId: hostUser.userId as string })).rejects.toThrow();            // 團主帳號沒有查核權限
+    await expect(assignVerifier(w.manager, r.id, { userId: (other.manager.userId as string) })).rejects.toThrow();      // 其他組織
+    await expect(assignVerifier(w.manager, r.id, { userId: 'USR-NOT-EXIST' })).rejects.toThrow();
+    await assignVerifier(w.manager, r.id, { userId: (w.admin.userId as string), note: '[DEMO] 指派既有管理者查核' });
+    const usersAfter = await query(`SELECT id, role_key, status FROM users WHERE organization_id=$1 AND id <> $2 ORDER BY id`, [w.orgId, disabled.userId]);
+    expect(usersAfter).toEqual(usersBefore.filter((u) => u.id !== disabled.userId));          // 沒有新增使用者、沒有變更任何人的角色或狀態（排除本測試自己停用的那位）
+    expect(await query(`SELECT * FROM roles ORDER BY key`)).toEqual(rolesBefore);               // 角色與權限定義沒有被改
+    // 程式碼：查核人員指派沒有任何建立使用者或改角色的路徑
+    const src = readFileSync('src/server/modules/trial-reach.ts', 'utf8');
+    expect(src).not.toMatch(/INSERT INTO users|UPDATE users SET/);
+  });
+  it('未完成第二人查核前，CVR 維持資料不足（填寫者不能查核自己）', async () => {
+    const { t } = await scenario();
+    await addReach(w.manager, t, V() as never);                                              // 主管自己填
+    const k = kpi(await getTrialKpis(w.manager, t), 'conversionRate');
+    expect(k.status).toBe('INSUFFICIENT'); expect(k.reason).toContain('獨立查核');
   });
 });

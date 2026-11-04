@@ -28,7 +28,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
   if (tab === 'commission') {
     const r = as<{ rows: ReconRow[]; summary: { rows: number; different: number; insufficient: number; consistent: number; needsReview: number }; note: string }>(await getCommissionReconciliation(actor));
     const review = r.rows.filter((x) => x.needsManualReview);
-    const items = as<{ items: { id: string; status: string; campaignId: string; campaignTitle: string; hostName: string; productName: string; reviewReasons: string[]; firstSeenAt: string; lastSeenAt: string; acknowledgeNote: string | null; acknowledgedByName: string | null; acknowledgedAt: string | null }[]; note: string }>(await listCommissionReconItems(actor));
+    const items = as<{ items: { id: string; status: string; campaignId: string; campaignTitle: string; hostName: string; productName: string; reviewReasons: string[]; snapshot?: { fields?: { field: string; label: string; verdict: string; values: { source: string; value: unknown; version: string | null; approved: boolean }[] }[] }; firstSeenAt: string; lastSeenAt: string; acknowledgeNote: string | null; acknowledgedByName: string | null; acknowledgedAt: string | null }[]; note: string }>(await listCommissionReconItems(actor));
     const canWrite = can(actor, 'finance.write');
     body = (
       <>
@@ -41,6 +41,11 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
             <ul>{items.items.map((it) => (
               <li key={it.id} data-testid={`recon-item-${it.id}`}><strong>{it.campaignTitle}</strong>・{it.hostName}・{it.productName}・<Badge tone={it.status === 'OPEN' ? 'warn' : 'info'}>{it.status === 'OPEN' ? '待確認' : '財務已知悉'}</Badge>
                 <ul className="small">{it.reviewReasons.map((t) => <li key={t}>{t}</li>)}</ul>
+                {it.snapshot?.fields?.length ? (
+                  <details className="small" data-testid={`recon-item-versions-${it.id}`}>
+                    <summary>規則版本對照（合約／可行性／財務規則的值與版本；只供對照，不會被系統改寫）</summary>
+                    <ul>{it.snapshot.fields.filter((f) => f.values.length).map((f) => <li key={f.field}><strong>{f.label}</strong>（{f.verdict === 'DIFFERENT' ? '有差異' : f.verdict === 'CONSISTENT' ? '一致' : '資料不足'}）：{f.values.map((v) => `${v.source} ${v.value == null ? '未提供' : String(v.value)}${v.version ? `（${v.version}）` : ''}${v.approved ? '' : '〔未核准〕'}`).join('｜')}</li>)}</ul>
+                  </details>) : null}
                 <div className="small muted">首次發現 {fmtDateTime(it.firstSeenAt)}・最近一次 {fmtDateTime(it.lastSeenAt)}{it.acknowledgedAt ? `・${it.acknowledgedByName ?? ''} ${fmtDateTime(it.acknowledgedAt)} 確認：${it.acknowledgeNote}` : ''}</div>
                 {canWrite && it.status === 'OPEN' ? <ActionButton endpoint={`/api/reconciliation/commission/items/${it.id}/acknowledge`} label="財務已知悉，將依既有流程處理" small reasonLabel="確認說明（只改這個項目的狀態，不修改任何財務資料）" reasonKey="note" testid={`btn-recon-ack-${it.id}`} successMessage="已確認（沒有修改任何財務資料）" /> : null}
               </li>))}</ul>)}
@@ -138,6 +143,19 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
                   </table></div>
                   <p className="small muted" style={{ padding: '8px 16px' }}>{a.impact.companyProfitInvariant === true ? '公司利潤在各方法下相同，方法只改變商品之間的分法。' : ''}{a.impact.note}</p>
                 </Card>
+                {a.impact.pendingBearer.count > 0 ? (
+                  <Banner kind="warn" testid="alloc-pending-bearer">
+                    {a.impact.pendingBearer.count} 筆費用（{money(a.impact.pendingBearer.total)}）承擔方待確認：<strong>不算公司正式成本</strong>、也不當 0，所以上表的公司利潤與受影響的商品利潤顯示「資料不足」。請財務依正式合約或已確認的商務條件補充承擔方。
+                  </Banner>) : null}
+                {a.impact.conservative ? (
+                  <Card title={a.impact.conservative.label} flush testid="alloc-conservative">
+                    <p className="small" style={{ padding: '8px 16px' }} data-testid="alloc-conservative-note">{a.impact.conservative.note}</p>
+                    <div className="table-wrap"><table>
+                      <thead><tr><th>方法</th>{a.products.map((p) => <th key={p.productId}>{p.name}<div className="small muted">商品利潤（保守估計）</div></th>)}<th>公司利潤（保守估計）</th></tr></thead>
+                      <tbody>{a.impact.conservative.impact.map((i) => (
+                        <tr key={i.method}><td>{i.label}</td>{i.products.map((x) => <td key={x.productId}>{x.productProfit == null ? <span className="unknown">資料不足</span> : money(x.productProfit)}</td>)}<td>{i.companyProfit == null ? <span className="unknown">資料不足</span> : money(i.companyProfit)}</td></tr>))}</tbody>
+                    </table></div>
+                  </Card>) : null}
                 <Card title="風險提示（重複分攤・未分攤・跨期）" testid="alloc-risks">
                   {a.impact.risks.length ? <ul className="small">{a.impact.risks.map((r, idx) => <li key={idx}><Badge tone={r.level === 'REVIEW' ? 'warn' : 'info'}>{{ DOUBLE_ALLOCATION: '重複分攤', UNALLOCATED: '未分攤', CROSS_PERIOD: '跨期' }[r.code]}</Badge> {r.message}</li>)}</ul> : <p className="small muted">目前沒有偵測到風險。</p>}
                 </Card>

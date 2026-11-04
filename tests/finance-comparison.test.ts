@@ -175,7 +175,7 @@ describe('K-7：多商品檔期成本分攤提案分析（唯讀、未生效）'
 
   it('盤點資料可用性，並用財務已記錄的共同費用比較四種候選方法；明確標示提案、未生效；缺資料的項目維持缺資料', async () => {
     const { camp } = await multi();
-    await createExpense(w.finance, { category: 'SHIPPING', amount: 1000, incurredOn: dayOffset(-3), campaignId: camp } as never);
+    await createExpense(w.finance, { category: 'SHIPPING', amount: 1000, incurredOn: dayOffset(-3), campaignId: camp, bearerParty: 'COMPANY' } as never);   // D-4：承擔方已確認為公司才進入分攤池
     const before = await counts();
     const a = await getCostAllocationAnalysis(w.finance, camp);
     expect(a).toMatchObject({ multiProduct: true, effective: false });

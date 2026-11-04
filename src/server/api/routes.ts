@@ -302,6 +302,7 @@ export const routes: RouteDef[] = [
   R('GET', '/expenses', async (c) => finance.listExpenses(c.actor, c.query)),
   R('POST', '/expenses', async (c) => created(await finance.createExpense(c.actor, c.body as never, c.idemKey))),
   R('PATCH', '/expenses/:id', async (c) => finance.updateExpense(c.actor, c.params.id, c.body)),
+  R('GET', '/expenses/:id/history', async (c) => finance.expenseHistory(c.actor, c.params.id)),
   R('PATCH', '/expenses/:id/attribution', async (c) => finance.updateExpenseAttribution(c.actor, c.params.id, c.body)),
   R('POST', '/expenses/:id/claim/confirm', async (c) => finance.confirmExpenseClaim(c.actor, c.params.id, c.body)),
   R('POST', '/expenses/:id/void', async (c) => finance.voidExpense(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),

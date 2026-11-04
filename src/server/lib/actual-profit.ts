@@ -23,6 +23,8 @@ export interface ActualProfitInput {
   hostScopedWithOtherHosts: boolean;
   /** 檔期有多個商品：訂單無法歸屬到單一商品的成本 */
   multiProduct: boolean;
+  /** Owner 決策 D-4：此檔期（及此團主）財務已記錄、但承擔方尚未確認（未知）的費用筆數；有就一律資料不足（不自動算作公司成本、不當 0） */
+  pendingBearerExpenses?: number;
 }
 export interface ActualProfitResult {
   status: 'OK' | 'INSUFFICIENT';
@@ -42,6 +44,7 @@ export function computeActualContribution(i: ActualProfitInput): ActualProfitRes
   const reasons: string[] = [], missing: string[] = [], unconfirmed: string[] = [];
   const fail = (): ActualProfitResult => ({ status: 'INSUFFICIENT', total: null, perOrder: null, reasons, missing, unconfirmed, results: null });
   if (i.multiProduct) reasons.push('這個檔期有多個商品，訂單無法歸屬到單一商品的成本與費用（不猜測）');
+  if ((i.pendingBearerExpenses ?? 0) > 0) reasons.push(`財務已記錄 ${i.pendingBearerExpenses} 筆費用的承擔方尚未確認（待確認）：不能判斷是否為公司成本，不會被自動算作公司成本、也不會被當成 0；請財務依正式合約或已確認的商務條件補充承擔方`);
   if (i.validOrders <= 0) reasons.push('沒有有效訂單');
   const parsed = feasibilityInputSchema.safeParse(i.inputs);
   if (!parsed.success) { reasons.push('商業可行性的條款格式不完整，無法計算'); return fail(); }

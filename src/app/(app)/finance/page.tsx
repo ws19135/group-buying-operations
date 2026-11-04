@@ -12,7 +12,7 @@ import { fmtDate, fmtDateTime, money } from '@/ui/format';
 import { as, type Paged } from '@/ui/types';
 import { COUNTERPARTY, DATA_STATUS, DIRECTION, EXPENSE_CATEGORY, EXPENSE_STATUS, FINANCE_NOTICE, INVOICE_STATUS, MATCH_STATUS, PAY_STATUS, SETTLEMENT_STATUS, toOptions } from './labels';
 import { counterpartyOptions, financeCampaignOptions } from './lookups';
-import { CLAIM_LABEL, NOT_A_PAYMENT_INSTRUCTION, PARTY_LABEL, PAYMENT_STATUS_LABEL, TERMS_SOURCE_LABEL } from '@/server/lib/expense-attribution';
+import { BEARER_STATUS_TEXT, CLAIM_LABEL, COST_SCOPE_LABEL, NOT_A_PAYMENT_INSTRUCTION, PARTY_LABEL, PAYMENT_STATUS_LABEL, TERMS_SOURCE_LABEL } from '@/server/lib/expense-attribution';
 
 const opt = (m: Record<string, string>, keys?: string[]) => Object.entries(m).filter(([k]) => !keys || keys.includes(k)).map(([value, label]) => ({ value, label }));
 const PARTY_OPTS = opt(PARTY_LABEL, ['BRAND', 'COMPANY', 'HOST']);
@@ -22,7 +22,8 @@ const ATTR_FIELDS = [
   { name: 'payerParty', label: '實際付款方（誰實際付錢；可與承擔方不同）', type: 'select' as const, options: PAYER_OPTS, half: true },
   { name: 'termsSourceKind', label: '合約／商務條件來源', type: 'select' as const, options: opt(TERMS_SOURCE_LABEL), half: true }, { name: 'termsRef', label: '合約版本或條款編號（不要寫帳號）', half: true },
   { name: 'paymentStatus', label: '付款狀態', type: 'select' as const, options: opt(PAYMENT_STATUS_LABEL), half: true }, { name: 'paidOn', label: '付款日期', type: 'date' as const, half: true },
-  { name: 'paidAmount', label: '已付金額（部分付款時填）', type: 'number' as const, min: 0, half: true }, { name: 'evidenceUrl', label: '付款憑證或證據連結（https）', type: 'url' as const, half: true },
+  { name: 'paidAmount', label: '已付金額（部分付款時填）', type: 'number' as const, min: 0, half: true }, { name: 'evidenceUrl', label: '付款憑證或證據連結（僅限 https 正式網域；系統只儲存連結，不存檔案）', type: 'url' as const, half: true },
+  { name: 'costScope', label: '費用歸屬範圍（共同費用請標記；可直接歸屬商品者請指定商品）', type: 'select' as const, options: opt(COST_SCOPE_LABEL), half: true },
   { name: 'claimDirection', label: '應收／應付（只是紀錄，非付款指示）', type: 'select' as const, options: opt(CLAIM_LABEL), half: true }, { name: 'claimParty', label: '應收方／應付方（對象）', type: 'select' as const, options: PAYER_OPTS, half: true },
 ];
 
@@ -175,10 +176,15 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
       </>
     );
   } else {
-    const r = as<Paged<ExpRow>>(await listExpenses(actor, qq));
+    const r = as<Paged<ExpRow> & { pendingAttribution?: { bearerPending: number; payerPending: number; either: number; note: string } }>(await listExpenses(actor, qq));
     body = (
       <>
         <Banner kind="nodata" testid="expense-note">費用只做記錄與彙總，不會進入佣金或結算公式。</Banner>
+        {canAttr && r.pendingAttribution ? (
+          <Banner kind="warn" testid="expense-pending-note">
+            待補清單：承擔方待確認 {r.pendingAttribution.bearerPending} 筆、實際付款方待確認 {r.pendingAttribution.payerPending} 筆。承擔方未知的費用<strong>不算公司正式成本</strong>、也不當 0，相關貢獻利潤顯示資料不足；請財務依正式合約或已確認的商務條件補充。新發生的費用請在結算前確認；{r.pendingAttribution.note.split('；').slice(-1)[0]}。
+            {' '}<a href="/finance?tab=expenses&attributionPending=1" data-testid="expense-pending-filter">只看待補清單</a>
+          </Banner>) : null}
         {w ? (
           <Card title="新增費用" testid="expense-create">
             <ApiForm endpoint="/api/expenses" submitLabel="新增費用" idempotent testid="expense-create-form" fields={[
@@ -196,7 +202,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
                   <td className="small">{e.campaignTitle ?? '—'}{canAttr && (e.hostName || e.productName) ? <div className="muted">{[e.hostName, e.productName].filter(Boolean).join('・')}</div> : null}</td>
                   {canAttr ? (
                     <>
-                      <td className="small" data-testid={`expense-parties-${e.id}`}>承擔：{e.bearerParty ? PARTY_LABEL[e.bearerParty] : <span className="unknown">未填</span>}<div>付款：{e.payerParty ? PARTY_LABEL[e.payerParty] : <span className="unknown">未填</span>}</div><div className="muted">{e.termsSourceKind ? `${TERMS_SOURCE_LABEL[e.termsSourceKind]}${e.termsRef ? `・${e.termsRef}` : ''}` : '條件來源未填'}</div></td>
+                      <td className="small" data-testid={`expense-parties-${e.id}`}>承擔：{e.bearerParty ? PARTY_LABEL[e.bearerParty] : <span className="unknown" data-testid={`expense-bearer-pending-${e.id}`}>{BEARER_STATUS_TEXT.PENDING}（不算公司成本）</span>}<div>付款：{e.payerParty ? PARTY_LABEL[e.payerParty] : <span className="unknown">未填</span>}</div><div className="muted">{e.termsSourceKind ? `${TERMS_SOURCE_LABEL[e.termsSourceKind]}${e.termsRef ? `・${e.termsRef}` : ''}` : '條件來源未填'}</div></td>
                       <td className="small">{PAYMENT_STATUS_LABEL[e.paymentStatus ?? 'UNRECORDED']}{e.paidOn ? `・${fmtDate(e.paidOn)}` : ''}{e.paidAmount ? `・已付 ${money(e.paidAmount)}` : ''}{e.evidenceUrl ? <div><a href={e.evidenceUrl} target="_blank" rel="noopener noreferrer">憑證</a></div> : null}</td>
                       <td className="small" data-testid={`expense-claim-${e.id}`}>{CLAIM_LABEL[e.claimDirection ?? 'UNDETERMINED']}{e.claimParty ? `：${PARTY_LABEL[e.claimParty]}` : ''}<div><Badge tone={e.claimStatus === 'CONFIRMED' ? 'ok' : 'warn'}>{e.claimStatus === 'CONFIRMED' ? '財務已確認（仍非付款指示）' : '未確認（非付款指示）'}</Badge></div>{e.claimHint && e.claimHint.kind !== 'NONE' && e.claimDirection === 'UNDETERMINED' ? <div className="muted">提示：{e.claimHint.text}</div> : null}</td>
                     </>) : null}

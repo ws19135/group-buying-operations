@@ -17,15 +17,44 @@ export const TERMS_SOURCES = ['CONTRACT', 'FORMAL_TERMS', 'FEASIBILITY', 'MANUAL
 export const TERMS_SOURCE_LABEL: Record<string, string> = { CONTRACT: '合約', FORMAL_TERMS: '正式商務條件（已確認）', FEASIBILITY: '商業可行性條款', MANUAL_ESTIMATE: '人工估計' };
 export const NOT_A_PAYMENT_INSTRUCTION = '應收／應付只是財務的確認紀錄，不是付款指示：系統不會因此產生應付款、撥款、扣款或發票；實際付款、發票與結算更正都需另案核准。';
 
-/** 付款憑證／證據連結：只接受 http／https，不含帳號密碼 */
+/**
+ * 付款憑證／證據連結（Owner 決策 D-8：目前維持連結方式，不存檔案、不串接外部系統）。
+ * 安全規則：只接受 https；不含帳號密碼；長度上限 500；不含空白或控制字元；不接受 localhost、內網名稱（沒有網域點）或 IP 位址（連結會被財務人員點開，避免指向內網或本機資源）。
+ * 系統**不會**主動存取這個連結（只儲存與顯示）；顯示時一律以 rel="noopener noreferrer" 另開分頁；沒有成本檢視權限者看不到（遮罩）；稽核只記「連結是否變更」，不記連結內容。
+ */
 export function evidenceUrlProblem(url: string | null | undefined): string | null {
   if (url == null || url.trim() === '') return null;
+  const raw = url.trim();
+  if (raw.length > 500) return '付款憑證連結過長（上限 500 字）';
+  // eslint-disable-next-line no-control-regex
+  if (/[\s\u0000-\u001f\u007f]/.test(raw)) return '付款憑證連結不可含空白或控制字元';
   try {
-    const u = new URL(url.trim());
-    if (u.protocol !== 'https:' && u.protocol !== 'http:') return '付款憑證連結只接受 http 或 https';
+    const u = new URL(raw);
+    if (u.protocol !== 'https:') return '付款憑證連結只接受 https（不接受 http、javascript、data、ftp 等）';
     if (u.username || u.password) return '付款憑證連結不可含帳號或密碼';
+    const h = u.hostname.toLowerCase();
+    if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return '付款憑證連結不可指向本機或內網位址';
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(h) || h.includes(':') || h.startsWith('[')) return '付款憑證連結不可使用 IP 位址，請使用正式網域';
+    if (!h.includes('.')) return '付款憑證連結需使用完整網域（不接受內網主機名稱）';
     return null;
   } catch { return '付款憑證連結格式不正確'; }
+}
+
+/** 承擔方狀態（D-4）：未知＝待確認；只有「公司已確認承擔」才是公司正式成本 */
+export type BearerStatus = 'COMPANY' | 'NOT_COMPANY' | 'PENDING';
+export const bearerStatusOf = (bearer: string | null | undefined): BearerStatus => (bearer == null ? 'PENDING' : bearer === 'COMPANY' ? 'COMPANY' : 'NOT_COMPANY');
+export const BEARER_STATUS_TEXT: Record<BearerStatus, string> = { COMPANY: '公司承擔（已確認）', NOT_COMPANY: '品牌或團主承擔', PENDING: '承擔方待確認' };
+
+/** 費用歸屬範圍（D-6）：直接歸屬商品／特定團主／檔期共同費用；NULL＝尚未標記 */
+export const COST_SCOPES = ['DIRECT_PRODUCT', 'HOST_SPECIFIC', 'SHARED'] as const;
+export const COST_SCOPE_LABEL: Record<string, string> = { DIRECT_PRODUCT: '直接歸屬商品', HOST_SPECIFIC: '特定團主費用', SHARED: '檔期共同費用' };
+export function costScopeProblems(i: { costScope?: string | null; productId?: string | null; hostId?: string | null }): string[] {
+  const sc = i.costScope ?? null;
+  if (sc == null) return [];
+  if (sc === 'DIRECT_PRODUCT' && !i.productId) return ['標為「直接歸屬商品」需指定對應商品'];
+  if (sc === 'HOST_SPECIFIC' && (!i.hostId || i.productId)) return ['標為「特定團主費用」需指定對應團主且不指定商品'];
+  if (sc === 'SHARED' && (i.hostId || i.productId)) return ['標為「檔期共同費用」時不可指定對應商品或團主'];
+  return [];
 }
 
 const optParty = z.enum(PARTIES).nullable().optional();
@@ -38,6 +67,7 @@ export const attributionShape = {
   termsSourceKind: z.enum(TERMS_SOURCES).nullable().optional(), termsRef: z.string().trim().max(120).nullable().optional(),
   paymentStatus: z.enum(PAYMENT_STATUSES).optional(), paidOn: day.nullable().optional(), paidAmount: z.number().int().min(0).max(10_000_000_000).nullable().optional(),
   evidenceUrl: z.string().trim().max(500).nullable().optional(),
+  costScope: z.enum(COST_SCOPES).nullable().optional(),
   claimDirection: z.enum(CLAIM_DIRECTIONS).optional(), claimParty: z.enum(PAYER_PARTIES).nullable().optional(), claimNote: z.string().trim().max(300).nullable().optional(),
 };
 
@@ -72,7 +102,7 @@ export function claimHint(bearer: string | null | undefined, payer: string | nul
   return { kind: 'NONE', party: null, text: `由${PARTY_LABEL[bearer]}承擔、${PARTY_LABEL[payer]}先付：與公司無直接往來（公司不是承擔方或付款方）` };
 }
 
-export const ATTRIBUTION_KEYS = ['bearerParty', 'payerParty', 'claimDirection', 'claimParty', 'claimStatus', 'claimConfirmedBy', 'claimConfirmedAt', 'claimNote', 'hostId', 'productId', 'termsSourceKind', 'termsRef', 'paymentStatus', 'paidOn', 'paidAmount', 'evidenceUrl'] as const;
+export const ATTRIBUTION_KEYS = ['bearerStatus', 'costScope', 'bearerParty', 'payerParty', 'claimDirection', 'claimParty', 'claimStatus', 'claimConfirmedBy', 'claimConfirmedAt', 'claimNote', 'hostId', 'productId', 'termsSourceKind', 'termsRef', 'paymentStatus', 'paidOn', 'paidAmount', 'evidenceUrl'] as const;
 
 /** 沒有成本檢視權限者看不到費用歸屬（承擔方、付款方、應收應付、憑證等屬敏感商務資料）；只留編號、類別、金額、日期、檔期、狀態 */
 export function maskExpenseAttribution<T extends Record<string, unknown>>(row: T, canSee: boolean): T {

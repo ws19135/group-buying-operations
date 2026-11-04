@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { pool, query } from '@/server/lib/db';
-import { confirmExpenseClaim, createExpense, listExpenses, updateExpenseAttribution, voidExpense } from '@/server/modules/finance';
+import { confirmExpenseClaim, createExpense, expenseHistory, listExpenses, updateExpenseAttribution, voidExpense } from '@/server/modules/finance';
 import { createFeasibility } from '@/server/modules/feasibility';
 import { getFeeAttributionReport } from '@/server/modules/finance-comparison';
 import { campaignHostCommission } from '@/server/lib/commission-calc';
@@ -63,7 +63,9 @@ describe('K-8a：費用承擔方與實際付款方分別記錄', () => {
   it('驗證：付款狀態與日期／金額一致、憑證連結只收 https 且不含帳密、應收應付要有對象、團主與商品需屬於該檔期、備註不得含電話', async () => {
     await expect(createExpense(w.finance, exp({ paymentStatus: 'PAID' }) as never)).rejects.toThrow(/付款日期/);
     await expect(createExpense(w.finance, exp({ paymentStatus: 'PARTIALLY_PAID', paidOn: dayOffset(-1), paidAmount: 700 }) as never)).rejects.toThrow(/小於費用金額/);
-    await expect(createExpense(w.finance, exp({ evidenceUrl: 'javascript:alert(1)' }) as never)).rejects.toThrow(/http/);
+    await expect(createExpense(w.finance, exp({ evidenceUrl: 'javascript:alert(1)' }) as never)).rejects.toThrow(/https/);
+    await expect(createExpense(w.finance, exp({ evidenceUrl: 'http://docs.example.invalid/x' }) as never)).rejects.toThrow(/只接受 https/);
+    await expect(createExpense(w.finance, exp({ evidenceUrl: 'https://127.0.0.1/x' }) as never)).rejects.toThrow(/IP/);
     await expect(createExpense(w.finance, exp({ evidenceUrl: 'https://u:p@docs.example.invalid/x' }) as never)).rejects.toThrow(/帳號或密碼/);
     await expect(createExpense(w.finance, exp({ claimDirection: 'RECEIVABLE' }) as never)).rejects.toThrow(/指定對象/);
     await expect(createExpense(w.finance, exp({ hostId: hostB }) as never)).rejects.toThrow(/不在此檔期/);
@@ -175,5 +177,65 @@ describe('K-8a：費用歸屬對照報告使用新欄位；既有結算與發票
     expect(ship.reasons.join()).toContain('不是付款指示');
     expect(ship.alignment).toBe('NOT_ALIGNED');                                                                          // 結算仍未處理運費：KPI 與正式結算尚未一致
     expect(await counts()).toEqual(before);
+  });
+});
+
+describe('D-3／D-4／D-6／D-8：待補清單、承擔方待確認、共同費用標記、憑證連結', () => {
+  it('D-3 待補清單：承擔方或實際付款方未確認的費用可篩選列出（唯讀）；列表附待補摘要；不批次回填、不改任何歷史紀錄；小編看不到', async () => {
+    const a = await createExpense(w.finance, exp({ category: 'MARKETING' }) as never);               // 都沒填
+    const b = await createExpense(w.finance, exp({ category: 'SAMPLE', bearerParty: 'COMPANY' }) as never);   // 只缺付款方
+    const c = await createExpense(w.finance, exp({ category: 'OTHER', bearerParty: 'BRAND', payerParty: 'COMPANY' }) as never);
+    const before = await query(`SELECT id, bearer_party, payer_party, updated_at FROM expenses WHERE organization_id=$1 ORDER BY id`, [w.orgId]);
+    const todo = (await listExpenses(w.finance, new URLSearchParams({ campaignId: camp, attributionPending: '1' }))) as { items: { id: string; bearerStatus: string; payerStatus: string }[]; pendingAttribution: { bearerPending: number; payerPending: number; either: number; note: string } };
+    const ids = todo.items.map((x) => x.id);
+    expect(ids).toContain(a.id); expect(ids).toContain(b.id); expect(ids).not.toContain(c.id);
+    expect(todo.items.find((x) => x.id === a.id)).toMatchObject({ bearerStatus: 'PENDING', payerStatus: 'PENDING' });
+    expect(todo.items.find((x) => x.id === b.id)).toMatchObject({ bearerStatus: 'COMPANY', payerStatus: 'PENDING' });
+    expect(todo.pendingAttribution.either).toBeGreaterThanOrEqual(2); expect(todo.pendingAttribution.note).toContain('不批次回填');
+    expect(await query(`SELECT id, bearer_party, payer_party, updated_at FROM expenses WHERE organization_id=$1 ORDER BY id`, [w.orgId])).toEqual(before);   // 列清單沒有改任何資料
+    const edTodo = (await listExpenses(w.manager, new URLSearchParams({ campaignId: camp }))) as { pendingAttribution?: unknown };
+    expect(edTodo.pendingAttribution).toBeDefined();                                      // 營運主管有成本檢視權限，可看
+    const ec = await Client.forActor(w.editor);
+    expect((await ec.call('GET', `/expenses?campaignId=${camp}&attributionPending=1`)).status).toBe(403);
+  });
+  it('D-4 承擔方待確認：列表標示 PENDING；財務補承擔方後變為已確認；修正歷史（前後內容）唯讀可查；沒有成本權限者不可查', async () => {
+    const e = await createExpense(w.finance, exp({ category: 'SHIPPING', amount: 910 }) as never);
+    await updateExpenseAttribution(w.finance, e.id, { bearerParty: 'COMPANY', termsSourceKind: 'FORMAL_TERMS', termsRef: 'FT-D4-1' } as never);
+    await updateExpenseAttribution(w.finance, e.id, { bearerParty: 'BRAND', termsSourceKind: 'CONTRACT', termsRef: 'C-D4-9' } as never);
+    const h = await expenseHistory(w.finance, e.id) as { events: { action: string; beforeData: Record<string, unknown> | null; afterData: Record<string, unknown> | null }[] };
+    expect(h.events.map((x) => x.action)).toEqual(['expense.create', 'expense.attribution.update', 'expense.attribution.update']);
+    expect(h.events[0].afterData).toMatchObject({ bearerStatus: 'PENDING', bearerParty: null });                           // 原始紀錄：承擔方未知
+    expect(h.events[1].beforeData).toMatchObject({ bearerParty: null }); expect(h.events[1].afterData).toMatchObject({ bearerParty: 'COMPANY', bearerStatus: 'COMPANY', termsSourceKind: 'FORMAL_TERMS' });
+    expect(h.events[2].beforeData).toMatchObject({ bearerParty: 'COMPANY', termsRef: 'FT-D4-1' }); expect(h.events[2].afterData).toMatchObject({ bearerParty: 'BRAND', termsRef: 'C-D4-9' });
+    expect((await query(`SELECT amount, category FROM expenses WHERE id=$1`, [e.id]))[0]).toMatchObject({ amount: 910, category: 'SHIPPING' });   // 原始費用沒被覆蓋
+    expect((await (await Client.forActor(w.editor)).call('GET', `/expenses/${e.id}/history`)).status).toBe(403);
+    expect((await (await Client.forActor(other.finance)).call('GET', `/expenses/${e.id}/history`)).status).toBe(404);
+    await expect(expenseHistory(w.manager, e.id)).resolves.toBeTruthy();                // 營運主管可讀（唯讀）
+  });
+  it('D-6 共同費用標記：標為共同費用時不可同時指定商品／團主；直接歸屬需有商品；資料庫也擋；舊資料不需標記', async () => {
+    await expect(createExpense(w.finance, exp({ costScope: 'SHARED', productId: prod }) as never)).rejects.toThrow(/不可指定對應商品或團主/);
+    await expect(createExpense(w.finance, exp({ costScope: 'DIRECT_PRODUCT' }) as never)).rejects.toThrow(/需指定對應商品/);
+    await expect(createExpense(w.finance, exp({ costScope: 'HOST_SPECIFIC' }) as never)).rejects.toThrow(/需指定對應團主/);
+    const ok = await createExpense(w.finance, exp({ costScope: 'SHARED', bearerParty: 'COMPANY' }) as never);
+    const direct = await createExpense(w.finance, exp({ costScope: 'DIRECT_PRODUCT', productId: prod, bearerParty: 'BRAND' }) as never);
+    expect((await query(`SELECT cost_scope FROM expenses WHERE id=$1`, [ok.id]))[0].cost_scope).toBe('SHARED');
+    await expect(query(`UPDATE expenses SET product_id=$2 WHERE id=$1`, [ok.id, prod])).rejects.toThrow();      // 已標共同卻被指定商品：資料庫擋
+    await expect(updateExpenseAttribution(w.finance, direct.id, { costScope: 'SHARED' } as never)).rejects.toThrow(/不可指定對應商品或團主/);
+    expect((await query(`SELECT count(*)::int AS n FROM expenses WHERE organization_id=$1 AND cost_scope IS NULL`, [w.orgId]))[0].n).toBeGreaterThan(0);   // 舊資料沒有被回填
+  });
+  it('D-8 憑證連結：只存連結（不新增檔案儲存）；稽核只記「連結是否變更」不記內容；沒有成本權限者看不到；不主動存取連結', async () => {
+    const url = 'https://docs.example.invalid/receipt/d8-secret-token-123';
+    const e = await createExpense(w.finance, exp({ bearerParty: 'COMPANY', payerParty: 'COMPANY', evidenceUrl: url }) as never);
+    await updateExpenseAttribution(w.finance, e.id, { evidenceUrl: 'https://docs.example.invalid/receipt/d8-v2-token-456' } as never);
+    const audits = JSON.stringify(await query(`SELECT before_data, after_data FROM audit_logs WHERE organization_id=$1 AND entity_id=$2`, [w.orgId, e.id]));
+    expect(audits).not.toContain('d8-secret-token'); expect(audits).not.toContain('d8-v2-token');
+    expect(audits).toContain('evidenceLinkChanged');
+    const mgr = ((await listExpenses(w.manager, new URLSearchParams({ campaignId: camp }))) as { items: Record<string, unknown>[] }).items.find((x) => x.id === e.id)!;
+    expect(mgr.evidenceUrl).toBe('https://docs.example.invalid/receipt/d8-v2-token-456');
+    const masked = ((await listExpenses(w.finance, new URLSearchParams({ campaignId: camp }))) as { items: Record<string, unknown>[] }).items.find((x) => x.id === e.id)!;
+    expect(masked.evidenceUrl).toBeDefined();                                          // 財務有權限
+    const { maskExpenseAttribution } = await import('@/server/lib/expense-attribution');
+    expect(maskExpenseAttribution({ ...masked }, false)).not.toHaveProperty('evidenceUrl');
+    expect(readdirSync('src/server').join()).not.toMatch(/storage|upload/i);            // 沒有新增檔案儲存服務
   });
 });

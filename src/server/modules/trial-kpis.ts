@@ -77,7 +77,7 @@ export async function buildTrialKpis(actor: Actor, t: TrialLite, camp: { open_da
   const db = pool();
   const cfg = await loadV2Config(db, actor.orgId);
   let orders: TrialKpiInput['orders'] = { total: 0, established: 0, valid: 0, refunded: 0, cancelled: 0, gmv: 0, refund: 0 };
-  let complaints: TrialKpiInput['complaints'] = { total: 0, unattributed: 0, sharedCases: 0, hostExclusive: 0, hostShared: 0, hostWeighted: 0, hostRelated: 0, hostValidWeighted: 0, campaignValid: 0 };
+  let complaints: TrialKpiInput['complaints'] = { total: 0, unattributed: 0, sharedCases: 0, sharedUnweighted: 0, hostPendingShared: 0, hostExclusive: 0, hostShared: 0, hostWeighted: 0, hostRelated: 0, hostValidWeighted: 0, campaignValid: 0 };
   let shipments: TrialKpiInput['shipments'] = { nonCancelled: 0, withDates: 0, onTime: 0 };
   let dataAsOf: string | null = null;
   let contribution: ActualProfitResult | null = null;
@@ -90,7 +90,7 @@ export async function buildTrialKpis(actor: Actor, t: TrialLite, camp: { open_da
     const cs = await loadComplaintStats(db, actor.orgId, t.campaign_id);
     const campaignValid = t.host_id ? (await loadActualSales(db, { orgId: actor.orgId, campaignId: t.campaign_id, hostId: null })).valid : a.valid;
     const hx = t.host_id ? cs.byHost[t.host_id] : undefined;
-    complaints = { total: cs.total, unattributed: cs.unattributed, sharedCases: cs.sharedCases, hostExclusive: hx?.exclusive ?? 0, hostShared: hx?.shared ?? 0, hostWeighted: hx?.weighted ?? 0, hostRelated: hx?.relatedCases ?? 0, hostValidWeighted: a.validWeighted, campaignValid };
+    complaints = { total: cs.total, unattributed: cs.unattributed, sharedCases: cs.sharedCases, sharedUnweighted: cs.sharedUnweighted, hostPendingShared: hx?.pendingShared ?? 0, hostExclusive: hx?.exclusive ?? 0, hostShared: hx?.shared ?? 0, hostWeighted: hx?.weighted ?? 0, hostRelated: hx?.relatedCases ?? 0, hostValidWeighted: a.validWeighted, campaignValid };
     const sh = (await db.query<{ n: number; w: number; ok: number }>(
       `SELECT count(*) FILTER (WHERE s.status <> 'CANCELLED')::int AS n,
               count(*) FILTER (WHERE s.status IN ('SHIPPED','DELIVERED') AND s.shipped_date IS NOT NULL AND s.planned_date IS NOT NULL)::int AS w,
