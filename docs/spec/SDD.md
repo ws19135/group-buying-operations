@@ -1548,3 +1548,9 @@ NSV            = GMV − 退款
 - **API**：`GET /api/expenses/:id/history`（唯讀修正歷史）；`GET /api/expenses?attributionPending=1`（待補清單）；`GET /api/campaigns/:id/cost-allocation-analysis` 的 `impact` 新增 `pendingBearer`、`conservative`；案件詳情 `hostAttribution` 新增 `basis`、`reviewReason`。
 - **規則**：客訴可靠比例＝每位團主 `share_percent` > 0 且合計 100±0.01；承擔方未知＝`PENDING`；憑證連結＝https＋網域檢查；`actual-profit` 有待確認費用即資料不足。
 - **不變**：結算、佣金、發票、G1–G5；無觸發器、排程、檔案儲存或外部串接。
+
+### 18B.14 F-01～F-06 設計（migration 025）
+
+- **025**：`expenses_claim_reconfirm_guard()` 觸發器（`BEFORE UPDATE`：已確認的應收應付，金額／檔期／承擔方／付款方／對應團主／商品／方向／對象任一變更即退回未確認）；約束 `expenses_paid_amount_full`（已登錄且已付款時，已付金額等於費用金額或空白；NOT VALID 加入後嘗試驗證）。
+- **API／行為**：`PATCH /api/expenses/:id` 回傳 `reconfirmRequired`；改金額與付款狀態一致性驗證；改檔期時驗證對應團主／商品；`GET /api/finance/overview` 新增 `expensesCompanyConfirmed／expensesPendingBearer／expensesNotCompany`（總額 `expenses` 維持全部已登錄）；KPI 風險提示新增費用台帳口徑說明（有成本檢視權限者）。
+- **升級演練**：`scripts/migration-rehearsal.ts`。

@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-11-04T06:48:44.645Z",
+  "ranAt": "2026-11-04T09:38:58.107Z",
   "base": "http://127.0.0.1:3100",
   "total": 146,
   "passed": 146,
@@ -8,7 +8,7 @@
     {
       "name": "健康檢查含資料庫連線",
       "ok": true,
-      "detail": "{\"ok\":true,\"db\":\"up\",\"latencyMs\":1,\"env\":\"development\",\"time\":\"2026-11-04T06:47:25.498Z\"}"
+      "detail": "{\"ok\":true,\"db\":\"up\",\"latencyMs\":1,\"env\":\"development\",\"time\":\"2026-11-04T09:37:46.363Z\"}"
     },
     {
       "name": "未登入造訪 /dashboard 會被導到登入頁",
@@ -205,7 +205,7 @@
       "detail": "HTTP 200"
     },
     {
-      "name": "以名稱篩出新團主（/hosts?q=%5BE2E%5D%20%E6%96%B0%E5%9C%98%E4%B8%BB%20mw1r8rte）",
+      "name": "以名稱篩出新團主（/hosts?q=%5BE2E%5D%20%E6%96%B0%E5%9C%98%E4%B8%BB%20mw1xbsbm）",
       "ok": true,
       "detail": "HTTP 200"
     },

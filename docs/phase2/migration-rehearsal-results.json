@@ -1,0 +1,108 @@
+{
+  "ranAt": "2026-11-04T09:31:34.868Z",
+  "total": 20,
+  "passed": 20,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "舊版資料庫（001～017）建立成功",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "舊資料灌入完成（組織、使用者、團主、廠商、商品、檔期、訂單與歸因、客訴、費用、佣金規則、試用、觸及與導購）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "正式 migrate 工具升級成功（019～025 依序套用）",
+      "ok": true,
+      "detail": "已套用：019_reach_verifiability.sql, 020_case_host_attribution.sql, 021_reach_verifier_assignment.sql, 022_expense_attribution.sql, 023_commission_recon_items.sql, 024_expense_cost_scope.sql, 025_expense_integrity.sql"
+    },
+    {
+      "name": "重複執行不再套用任何 migration（冪等）；checksum 保護有效",
+      "ok": true,
+      "detail": "已套用：(無新增)"
+    },
+    {
+      "name": "舊資料筆數與每個原有欄位在升級前後完全相同（不丟資料、不改資料）",
+      "ok": true,
+      "detail": "{\"organizations\":1,\"users\":3,\"hosts\":2,\"vendors\":1,\"products\":1,\"campaigns\":1,\"orders\":2,\"attributions\":3,\"service_cases\":2,\"expenses\":2,\"commission_rules\":1,\"product_trials\":1,\"trial_reach_records\":3}"
+    },
+    {
+      "name": "舊的有效導購訪客：去重方式標為「未知」（不推測）、規則版本標為 legacy、未查核、無指派；非導購訪客資料不受影響",
+      "ok": true,
+      "detail": "[\"RCH-R1:null\",\"RCH-R2:UNKNOWN\",\"RCH-R3:UNKNOWN\"]"
+    },
+    {
+      "name": "舊的已刪除紀錄仍是已刪除",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "舊客訴：沒有任何自動歸屬（人工歸屬欄位全空，歸屬於讀取時由訂單歸因推導）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "舊費用：承擔方與付款方為空（待確認，不回填、不推測）、應收應付「未判斷、未確認」、付款「未記錄」、歸屬範圍未標記；作廢狀態保留",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "新增的約束全部存在且已驗證（無 NOT VALID）",
+      "ok": true,
+      "detail": "8 項"
+    },
+    {
+      "name": "保護機制存在：觸及資料守衛、費用重新確認守衛、待確認項目禁止刪除",
+      "ok": true,
+      "detail": "commission_recon_items_nodelete、commission_recon_items_touch、expenses_claim_reconfirm、expenses_nodelete、expenses_touch、trial_reach_records_guard、trial_reach_records_nodelete、trial_reach_records_touch"
+    },
+    {
+      "name": "新資料表 commission_recon_items 已建立且為空（沒有自動建立任何待確認項目）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "升級後：舊的有效導購訪客不可被竄改內容、費用不可實體刪除、已付款金額不一致被擋",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "升級後 KPI 可運作：舊的有效導購訪客（去重方式未知、未查核）→ CVR 資料不足，不是 0、不是被推測",
+      "ok": true,
+      "detail": "「有效導購訪客」缺少來源佐證或可查核的來源識別，不採用"
+    },
+    {
+      "name": "升級後客訴統計：整體 2 件、無訂單的 1 件維持未歸屬（沒有被自動分配）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "升級後財務總覽：舊費用 700 元計入「全部已登錄」，因承擔方空白而歸「待確認」，不算公司成本（作廢的 50 元不計）",
+      "ok": true,
+      "detail": "{\"e\":700,\"p\":700}"
+    },
+    {
+      "name": "升級後費用待補清單列出舊費用（承擔方待確認）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "升級後分潤差異核對可運作（唯讀）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "升級後成本分攤分析可運作（唯讀）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "升級後結算佣金計算仍依既有財務規則（舊規則 8% 未被改動）",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}
