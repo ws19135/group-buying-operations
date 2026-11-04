@@ -6,6 +6,8 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/host-common.sh"
 IMAGE="${1:?用法：./deploy-remote.sh <映像:tag>}"
 export APP_IMAGE="$IMAGE"
+confirm_checklist   # 先詢問；沒確認就停止，不做任何變更
+preflight_env       # 設定檢查（必要欄位、密碼長度、不得含 DEMO 設定）
 echo "== 部署映像 $IMAGE"
 C pull app || fail "拉取映像失敗。私有映像需要先在主機執行一次：docker login ghcr.io（使用只有 read:packages 權限的 token；token 只輸入在主機，不要貼到聊天或 GitHub）"
 C up -d db

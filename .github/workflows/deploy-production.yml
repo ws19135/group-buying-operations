@@ -19,6 +19,16 @@ on:
         type: choice
         options: [staging, production]
         default: staging
+      checklist_confirmed:
+        description: '【production 必填】我確認已依 docs/OWNER_SETUP_CHECKLIST.md 步驟 1～8 設置完成（選 yes）'
+        type: choice
+        options: ['no', 'yes']
+        default: 'no'
+      staging_verified:
+        description: '【production 必填】我確認 staging 已通過 Live UAT 與備份還原演練（選 yes）'
+        type: choice
+        options: ['no', 'yes']
+        default: 'no'
       image_tag:
         description: '回滾用：直接指定已存在的映像 tag（填了就不重新建置）'
         required: false
@@ -39,6 +49,20 @@ jobs:
       REGISTRY: ghcr.io
       IMAGE: ghcr.io/${{ github.repository }}
     steps:
+      - name: 正式建置前詢問 — 是否已依 OWNER_SETUP_CHECKLIST 設置
+        run: |
+          if [ "${{ inputs.target }}" = production ]; then
+            if [ "${{ inputs.checklist_confirmed }}" != yes ] || [ "${{ inputs.staging_verified }}" != yes ]; then
+              {
+                echo "### ⛔ 已停止：正式環境部署前需要先確認"
+                echo "請重新執行 workflow，並在兩個確認欄位選 yes 之前，先確認："
+                echo "1. 已依 \`docs/OWNER_SETUP_CHECKLIST.md\` 步驟 1～8 設置完成（主機、DNS、SSH 金鑰、Environments／Secrets、ghcr 登入、.env.production、初次建置）"
+                echo "2. staging 已通過 Live UAT 與備份還原演練"
+              } | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+          fi
+          echo "target=${{ inputs.target }}：確認欄位檢查通過"
       - uses: actions/checkout@v4
         with: { ref: '${{ inputs.ref }}' }
       - id: meta
@@ -73,7 +97,7 @@ jobs:
           $SSH "$U@$H" "mkdir -p '$P/deploy'"
           scp -i key -o StrictHostKeyChecking=accept-new docker-compose.prod.yml deploy/host-common.sh deploy/deploy-remote.sh deploy/host-backup.sh deploy/host-restore-drill.sh "$U@$H:$P/"
           scp -i key -o StrictHostKeyChecking=accept-new deploy/Caddyfile "$U@$H:$P/deploy/Caddyfile"
-          $SSH "$U@$H" "chmod +x '$P'/*.sh && '$P/deploy-remote.sh' '$IMAGE:${{ steps.meta.outputs.tag }}'" | tee deploy-log.txt
+          $SSH "$U@$H" "chmod +x '$P'/*.sh && CONFIRM_CHECKLIST=yes '$P/deploy-remote.sh' '$IMAGE:${{ steps.meta.outputs.tag }}'" | tee deploy-log.txt
           echo "deployed=true" >> "$GITHUB_OUTPUT"
       - name: Post-deploy readiness check (public HTTPS URL)
         if: steps.ssh.outputs.deployed == 'true'

@@ -5,6 +5,15 @@
 > 範例中的 `<…>` 是要你替換的值；`erp-staging.<公司網域>` 與 `erp.<公司網域>` 是建議的命名。
 > 狀態：以下每一項目前都是 **未完成（需要 Owner）**；完成後 Claude 才能接手部署、UAT 與驗證。
 
+## 正式建置前，系統會先問你「是否已照步驟設置」
+這份清單不只是文件，流程本身會在三個地方擋下來確認（沒回答 `yes` 就停止，且停止之前不會對資料庫做任何寫入）：
+| 在哪裡 | 怎麼問 | 你要做什麼 |
+|---|---|---|
+| GitHub 部署工作流程（Actions → Deploy） | 選 `target=production` 時，必須把 **「checklist_confirmed」** 與 **「staging_verified」** 兩個欄位都選 `yes`，否則工作流程在第一步就停止（staging 不需要） | 確認步驟 1～8 完成、staging 已通過 Live UAT 與備份還原演練後，才選 yes |
+| 主機上的 `deploy-remote.sh` | 在終端機手動執行時會顯示清單並詢問，輸入 `yes` 才繼續；由 GitHub 工作流程呼叫時，只有在上一列的確認欄位通過後才會帶入確認。另外會先檢查 `.env.production`：網域不能是範本值、資料庫密碼 ≥24 字元、不得含 DEMO 設定 | 照提示回答；檢查未通過就依訊息修正 `.env.production` |
+| 初次建置 `prod:bootstrap` | 在終端機執行時會顯示清單並詢問，輸入 `yes` 才繼續；非互動環境必須明確給 `BOOTSTRAP_CONFIRM=yes` | 親自在終端機執行並回答 |
+**Claude 也一樣**：在觸發 production 部署或執行任何正式建置之前，我會先在對話裡詢問你是否已照步驟設置，得到你明確的「是」才會進行；staging 驗收未通過也不會進入 production。
+
 ## 先決定兩件事（決策，不是設定）
 | 決策 | 建議 | 備註 |
 |---|---|---|
@@ -75,6 +84,7 @@
     docker compose --env-file .env.production -f docker-compose.prod.yml run --rm app npm run prod:bootstrap
   ```
   會建立：資料表（27 支 migration）、組織、一位**初次啟用**的系統管理者。不會建立任何 DEMO 資料。
+- 初次建置會顯示清單並詢問「以上都已照步驟設置完成嗎？」，輸入 `yes` 才會繼續。
 - 再執行一次 workflow（`target=staging`）。
 - **驗證**：瀏覽器開 `https://erp-staging.<公司網域>/api/ready` 與 `/api/health`，`health` 的 `commit` 等於部署的 SHA；HTTP 會自動導向 HTTPS。
 
@@ -88,7 +98,7 @@
 - **簽核**：Claude 回報 UAT 結果與演練結果；你確認後才進入步驟 10。
 
 ### 10. 部署 production
-- **在哪裡**：Actions → Deploy → `target=production` → 你在 GitHub 核准（Required reviewers）。
+- **在哪裡**：Actions → Deploy → `target=production`，兩個確認欄位（`checklist_confirmed`、`staging_verified`）選 `yes` → 你在 GitHub 核准（Required reviewers）。沒選 yes 會在第一步停止。
 - 同樣在第一次停下後，於 production 主機執行與步驟 8 相同的 `prod:bootstrap` 指令，再執行一次 workflow。
 - **正式環境不跑寫入型 UAT、不匯入任何資料。** 驗證只有：`/api/ready`、`/api/health`、登入頁與 HTTPS／HSTS、管理者初次登入。
 

@@ -6,7 +6,7 @@
 1. 主機安裝 Docker 與 Compose；建立部署目錄，放入 `docker-compose.prod.yml`、`deploy/Caddyfile`、`.env.production`（權限 600，內容依 `.env.production.example`，由密鑰管理填入）。
 2. **先在預備環境**用同一個映像完成一次完整流程與 Live UAT（`PRODUCTION_UAT.md`）。
 3. 啟動資料庫：`docker compose --env-file .env.production -f docker-compose.prod.yml up -d db`
-4. 初次建置：`docker compose --env-file .env.production -f docker-compose.prod.yml run --rm app npm run prod:bootstrap`
+4. 初次建置（會先顯示清單並詢問「是否已依 OWNER_SETUP_CHECKLIST 設置」，輸入 `yes` 才繼續）：`docker compose --env-file .env.production -f docker-compose.prod.yml run --rm app npm run prod:bootstrap`
    - 只建立 schema、組織、一位初次啟用的系統管理者；拒絕 DEMO 資料、示範旗標、範例信箱、弱密碼；密碼不印出。
 5. 啟動全部：`... up -d`；檢查 `https://<網域>/api/ready`（migration 全部套用）與 `/api/health`（版本、commit）。
 6. 管理者登入 → **被強制變更密碼** → 建立真實使用者（`/users`）；建置完成後把 `ADMIN_INITIAL_PASSWORD` 從 `.env.production` 移除。
@@ -17,7 +17,7 @@
 1. PR 合併後確認 `main` 的 CI 與 Docker image check 綠燈。
 2. GitHub Actions → **Deploy (staging / production)** → `target=staging`（預設）→ 執行。流程：確認該 commit 的 `verify` 全綠 → 建置並推送映像（tag＝commit SHA）→ 把 `docker-compose.prod.yml`、`deploy/Caddyfile`、主機腳本同步到 `DEPLOY_PATH` → 在主機執行 `deploy-remote.sh`：拉映像 → 啟動資料庫 → **確認已初次建置（否則停止）** → **部署前備份（`backups/pre-deploy-*.dump`＋SHA-256＋可讀性驗證）** → `db:migrate`（單一交易，失敗自動回復）→ 啟動 app／proxy → `/api/ready` 就緒檢查 → 外部 HTTPS 就緒與健康檢查 → Deploy Log artifact。
 3. staging 通過 Live UAT（Actions → **Live UAT (staging only)**；只能對全新空的 staging 資料庫跑，之後 staging 資料視為可丟棄：`docker compose … down -v` 後重新 `prod:bootstrap`）。
-4. 同樣流程 `target=production`，由 Owner 在 GitHub 核准；正式環境不跑寫入型 UAT。
+4. 同樣流程 `target=production`：必須先把 `checklist_confirmed`、`staging_verified` 兩個確認欄位選 `yes`（否則第一步就停止），再由 Owner 在 GitHub 核准；正式環境不跑寫入型 UAT。
 5. 驗收：`/api/health` 的 `commit` 等於本次 commit；登入與重要頁面抽查。
 6. 本機替身測試（不是 VPS 測試）：`deploy-remote.sh`／`host-backup.sh`／`host-restore-drill.sh` 已用替身 `docker` 對真實 PostgreSQL 驗證邏輯（空資料庫拒絕部署、備份權限 600、還原演練與損毀備份偵測）；**尚未在真實 VPS 上執行**。
 

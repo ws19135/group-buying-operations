@@ -125,7 +125,7 @@ describe('正式環境建置腳本 prod:bootstrap 的安全保證（在暫存資
   const DB = 'erp_bootstrap_test';
   const base = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? '';
   const urlFor = (name: string) => { const u = new URL(base); u.pathname = `/${name}`; return u.toString(); };
-  const run = (env: Record<string, string>, args: string[] = []) => spawnSync('npx', ['tsx', 'scripts/prod-bootstrap.ts', ...args], { env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', NODE_ENV: 'production', DATABASE_URL: urlFor(DB), ...env } as NodeJS.ProcessEnv, encoding: 'utf8', timeout: 120_000 });
+  const run = (env: Record<string, string>, args: string[] = []) => spawnSync('npx', ['tsx', 'scripts/prod-bootstrap.ts', ...args], { env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', NODE_ENV: 'production', DATABASE_URL: urlFor(DB), BOOTSTRAP_CONFIRM: 'yes', ...env } as NodeJS.ProcessEnv, encoding: 'utf8', timeout: 120_000 });
   const admin = async () => { const c = new PgClient({ connectionString: base }); await c.connect(); return c; };
   const good = { APP_ENV: 'production', ORG_NAME: '[測試] 正式環境演練', ADMIN_EMAIL: 'owner@sdh-company.tw', ADMIN_INITIAL_PASSWORD: 'Init-Strong-Pass-5530' };
 
@@ -162,6 +162,25 @@ describe('正式環境建置腳本 prod:bootstrap 的安全保證（在暫存資
       expect(text(run(good))).toContain('DEMO');
       const chk2 = run({ APP_ENV: 'production' }, ['--check']);
       expect(chk2.status).toBe(1);
+      await conn.end();
+    } finally { await a.query(`DROP DATABASE IF EXISTS ${DB}`); await a.end(); }
+  }, 300_000);
+
+  it('正式建置前必須先確認已依清單設置：沒有確認（或回答不是 yes）就拒絕，而且在詢問之前不對資料庫做任何寫入', async () => {
+    const a = await admin();
+    await a.query(`DROP DATABASE IF EXISTS ${DB}`); await a.query(`CREATE DATABASE ${DB}`);
+    try {
+      const conn = new PgClient({ connectionString: urlFor(DB) }); await conn.connect();
+      for (const confirm of ['', 'no', 'YES', 'true']) {
+        const x = spawnSync('npx', ['tsx', 'scripts/prod-bootstrap.ts'], { env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', NODE_ENV: 'production', DATABASE_URL: urlFor(DB), ...good, BOOTSTRAP_CONFIRM: confirm } as NodeJS.ProcessEnv, encoding: 'utf8', timeout: 120_000 });
+        expect(x.status, `confirm="${confirm}"`).toBe(1);
+        expect(`${x.stdout}${x.stderr}`).toContain('OWNER_SETUP_CHECKLIST');
+      }
+      // 被拒絕的嘗試完全沒有動資料庫：連 schema_migrations 都不存在（migrate 尚未執行）
+      expect((await conn.query(`SELECT to_regclass('public.schema_migrations') AS t`)).rows[0].t).toBeNull();
+      // 唯讀檢查模式不需要確認
+      const chk = run({ APP_ENV: 'production', BOOTSTRAP_CONFIRM: '' }, ['--check']);
+      expect(`${chk.stdout}${chk.stderr}`).not.toContain('OWNER_SETUP_CHECKLIST');
       await conn.end();
     } finally { await a.query(`DROP DATABASE IF EXISTS ${DB}`); await a.end(); }
   }, 300_000);

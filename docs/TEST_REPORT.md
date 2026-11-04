@@ -262,3 +262,13 @@
 | 主機腳本（`deploy/*.sh`），以替身 `docker` 對**真實 PostgreSQL** 執行 | 空資料庫拒絕部署 ✅；初次建置後部署成功（備份→migration→啟動→就緒） ✅；備份檔權限 600＋SHA-256 ✅；還原演練通過並清除暫存資料庫 ✅；備份之後新增的資料仍通過 ✅；損毀備份失敗 ✅；資料表集合不同失敗 ✅；`.env.production` 權限 644 被拒 ✅ |
 | 結構性守衛測試 `tests/deploy-scripts.test.ts` | 11 項通過；**8 種變異全部使測試變紅**（對調備份與 migration 順序、移除未初次建置拒絕、部署腳本自跑 bootstrap、資料庫開放 5432、UAT 指向 production、備份不驗證、放寬權限、部署加 push 觸發）。第一輪 1 種倖存（備份驗證的檢查被註解字樣滿足），收緊後變紅 |
 | 未能執行 | 真實 VPS 上的部署、HTTPS 憑證簽發、`docker login ghcr.io`、staging Live UAT——**沒有主機**；故不得標示 DEPLOYED／LIVE_VERIFIED |
+
+## 17. 正式建置前詢問（2026-11-04，分支 `feat/build-confirmation`）
+
+| 檢查 | 結果（本次實際執行） |
+|---|---|
+| `prod:bootstrap` 確認 | `tests/prod-readiness.test.ts` 9 項通過（新增：BOOTSTRAP_CONFIRM 為空／no／YES／true 都拒絕，且 `schema_migrations` 不存在＝詢問前沒有動資料庫；`--check` 不需確認）。**對舊版（移除確認呼叫）執行新測試 → 變紅**，還原後轉綠 |
+| 互動式（真實 pty） | 答 `yes` → 建置成功；答 `no`、直接 Enter → 停止、`schema_migrations` 不存在 |
+| 主機 `deploy-remote.sh`（替身 docker＋真實 PostgreSQL） | 非互動未確認 → 拒絕（docker 指令 0 個）；`CONFIRM_CHECKLIST=no` → 拒絕；範本網域／短密碼 → 設定檢查擋下；含 DEMO 設定 → 擋下；全部正確＋確認 → 部署成功；pty 答 `no` 停止、答 `yes` 進入部署 |
+| 結構性守衛 `tests/deploy-scripts.test.ts` | 15 項通過；**11 種變異全部變紅**（先 migrate 再詢問、接受任何回答、CI 不帶確認、部署不呼叫確認、設定檢查放在 pull 之後、非互動放行、互動任何答案放行、移除密碼長度檢查、workflow 只要求一個確認欄位、確認步驟移到 checkout 之後、主機端不帶確認） |
+| 未能執行 | GitHub 工作流程的確認欄位實際行為（需在 GitHub 上手動觸發 Deploy；僅以 YAML 解析與結構測試驗證）；真實 VPS |
