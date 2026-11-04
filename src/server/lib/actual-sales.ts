@@ -12,18 +12,20 @@ import { EFFECTIVE_ORDER_STATUSES, SALES_STATUSES } from './kpi';
 export interface ActualSales {
   total: number; established: number; valid: number; refundedOrders: number; cancelled: number;
   gmv: number; refund: number; nsv: number;
+  /** 有效訂單依歸因比例加權後的件數（有團主＝Σ share/100；沒有團主＝有效訂單數）：團主層級加權客訴率的分母 */
+  validWeighted: number;
   /** 有效淨銷售額 ÷ 有效訂單數；沒有有效訂單為 null */
   aov: number | null;
   /** 退款金額 ÷ GMV（金額口徑，沿用商業可行性實際值回寫既有欄位）；GMV 為 0 為 null */
   refundRateByAmountPct: number | null;
 }
 
-export function foldActualSales(r: { total: unknown; established: unknown; valid: unknown; refunded: unknown; cancelled: unknown; gmv: unknown; refund: unknown }): ActualSales {
+export function foldActualSales(r: { total: unknown; established: unknown; valid: unknown; refunded: unknown; cancelled: unknown; gmv: unknown; refund: unknown; valid_weighted?: unknown }): ActualSales {
   const gmv = Math.round(Number(r.gmv)), refund = Math.round(Number(r.refund)), valid = Number(r.valid);
   const nsv = gmv - refund;
   return {
     total: Number(r.total), established: Number(r.established), valid, refundedOrders: Number(r.refunded), cancelled: Number(r.cancelled),
-    gmv, refund, nsv, aov: valid > 0 ? Math.round(nsv / valid) : null,
+    gmv, refund, nsv, validWeighted: r.valid_weighted == null ? valid : Math.round(Number(r.valid_weighted) * 1e6) / 1e6, aov: valid > 0 ? Math.round(nsv / valid) : null,
     refundRateByAmountPct: gmv > 0 ? Math.round((refund / gmv) * 10_000) / 100 : null,
   };
 }
@@ -38,7 +40,8 @@ export async function loadActualSales(db: Queryable, p: { orgId: string; campaig
                 count(DISTINCT o.id) FILTER (WHERE o.status = ANY($3::text[]) AND (o.status IN ('PARTIAL_REFUND','REFUNDED') OR o.refund_amount > 0))::int AS refunded,
                 count(DISTINCT o.id) FILTER (WHERE o.status = 'CANCELLED')::int AS cancelled,
                 coalesce(sum(o.gross_amount * a.share_percent / 100.0) FILTER (WHERE o.status = ANY($3::text[])),0) AS gmv,
-                coalesce(sum(o.refund_amount * a.share_percent / 100.0) FILTER (WHERE o.status = ANY($3::text[])),0) AS refund
+                coalesce(sum(o.refund_amount * a.share_percent / 100.0) FILTER (WHERE o.status = ANY($3::text[])),0) AS refund,
+                coalesce(sum(a.share_percent / 100.0) FILTER (WHERE o.status = ANY($4::text[])),0) AS valid_weighted
          FROM orders o JOIN attributions a ON a.order_id=o.id AND a.host_id=$5 WHERE o.campaign_id=$1 AND o.organization_id=$2`, [p.campaignId, p.orgId, SALES, VALID, p.hostId])
     : await db.query(
         `SELECT count(*)::int AS total,

@@ -86,6 +86,7 @@ export const ids = {
   trial: async (db: Queryable) => `TRL-${pad(await next(db, 'TRL', ''), 6)}`,
   trialCheck: async (db: Queryable) => `TCK-${pad(await next(db, 'TCK', ''), 6)}`,
   feasibility: async (db: Queryable) => `FSB-${pad(await next(db, 'FSB', ''), 6)}`,
+  reconItem: async (db: Queryable) => `RCI-${pad(await next(db, 'RCI', ''), 6)}`,
   reachRecord: async (db: Queryable) => `RCH-${pad(await next(db, 'RCH', ''), 6)}`,
   fitAssessment: async (db: Queryable) => `FIT-${pad(await next(db, 'FIT', ''), 6)}`,
 };

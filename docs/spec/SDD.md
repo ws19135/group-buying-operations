@@ -1531,3 +1531,26 @@ NSV            = GMV − 退款
 - **算例**：§8.2 的日期表是實際執行 `computeSchedule(DEFAULT_STEPS, …)` 的輸出。
 - **未做的核對**：沒有實際對資料庫執行 SQL 驗證每個 CHECK 約束的行為（以 migration 文字與既有測試為準）；沒有重新執行 E2E（引用 `docs/uat/e2e-results.json` 與 `docs/phase2/aftersales-e2e.json` 的紀錄：49／49、52／52）。
 - **圖的語法檢查**：SAD 8 張、SDD 14 張、共 22 張 Mermaid 圖，已用 mermaid 11.4.1 在 headless Chromium（Playwright）逐一 `parse` 並 `render`，全部無錯誤（共 22 張 `failed=0`）。這只證明語法與渲染引擎可處理，不代表在你的閱讀工具上版面一定相同。
+
+### 18B.12 K-4a～K-8a 實作設計（migration 021、022、023）
+
+規格見 `docs/phase2/TRIAL_KPI.md` §8、`COMMISSION_RECONCILIATION.md` §8、`MULTI_PRODUCT_COST_ALLOCATION_PROPOSAL.md` §8、`FEE_ATTRIBUTION_REPORT.md` §6、`KPI_SETTLEMENT_INTEGRATION_PROPOSAL.md`。
+
+- **021**：`trial_reach_records` 新增 `assigned_verifier_id／assigned_by／assigned_at／assignment_note`、`resubmits_id`（補件鏈）；唯一索引限制同一筆原紀錄只能有一筆有效補件；`trial_reach_guard()` 更新。規則版本 `reach-rules/2026-11-05.1`（指紋測試保留舊版）。API：`POST /api/reach-records/:id/assign-verifier`、`GET /api/trials/:id/reach-history`。
+- **022**：`expenses` 新增 `bearer_party`、`payer_party`、`claim_direction／claim_party／claim_status／claim_confirmed_by／claim_confirmed_at／claim_note`、`host_id`、`product_id`、`terms_source_kind／terms_ref`、`payment_status／paid_on／paid_amount`、`evidence_url`（皆選填或有預設，舊資料不變）。API：`PATCH /api/expenses/:id/attribution`、`POST /api/expenses/:id/claim/confirm`。承擔方與付款方分開；`claimHint` 只回傳「可能」的往來款。
+- **023**：`commission_recon_items`（`RCI-` 編號；狀態 `OPEN／ACKNOWLEDGED／SUPERSEDED／RESOLVED`；內容指紋；`forbid_delete`；每組只有一個進行中項目）。API：`GET /api/reconciliation/commission/items`、`POST /api/reconciliation/commission/sync`、`POST /api/reconciliation/commission/items/:id/acknowledge`。
+- **無 migration**：K-5a 加權（`lib/complaint-attribution.ts`）、K-7a～e（`lib/cost-allocation-impact.ts`，`GET /api/campaigns/:id/cost-allocation-analysis` 新增 `impact`）。
+- **不變**：結算、佣金計算、發票、G1–G5、`lib/kpi.ts`。
+
+### 18B.13 D-1～D-9 設計（migration 024）
+
+- **024**：`expenses.cost_scope`（`DIRECT_PRODUCT／HOST_SPECIFIC／SHARED`，選填）＋約束 `expenses_cost_scope_shape`（與 `product_id`／`host_id` 一致）。
+- **API**：`GET /api/expenses/:id/history`（唯讀修正歷史）；`GET /api/expenses?attributionPending=1`（待補清單）；`GET /api/campaigns/:id/cost-allocation-analysis` 的 `impact` 新增 `pendingBearer`、`conservative`；案件詳情 `hostAttribution` 新增 `basis`、`reviewReason`。
+- **規則**：客訴可靠比例＝每位團主 `share_percent` > 0 且合計 100±0.01；承擔方未知＝`PENDING`；憑證連結＝https＋網域檢查；`actual-profit` 有待確認費用即資料不足。
+- **不變**：結算、佣金、發票、G1–G5；無觸發器、排程、檔案儲存或外部串接。
+
+### 18B.14 F-01～F-06 設計（migration 025）
+
+- **025**：`expenses_claim_reconfirm_guard()` 觸發器（`BEFORE UPDATE`：已確認的應收應付，金額／檔期／承擔方／付款方／對應團主／商品／方向／對象任一變更即退回未確認）；約束 `expenses_paid_amount_full`（已登錄且已付款時，已付金額等於費用金額或空白；NOT VALID 加入後嘗試驗證）。
+- **API／行為**：`PATCH /api/expenses/:id` 回傳 `reconfirmRequired`；改金額與付款狀態一致性驗證；改檔期時驗證對應團主／商品；`GET /api/finance/overview` 新增 `expensesCompanyConfirmed／expensesPendingBearer／expensesNotCompany`（總額 `expenses` 維持全部已登錄）；KPI 風險提示新增費用台帳口徑說明（有成本檢視權限者）。
+- **升級演練**：`scripts/migration-rehearsal.ts`。

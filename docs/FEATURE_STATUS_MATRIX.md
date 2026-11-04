@@ -53,3 +53,10 @@
 | 46 | 商業可行性試算：GMV／有效淨銷售額／品牌利潤／公司營業收入分開、缺資料不捏造、每個輸入註明假設來源、版本化、小規模測試團實際回寫 | IMPLEMENTED_NEW | `tests/unit/feasibility-calc.test.ts`（21）、`tests/feasibility.test.ts`（18）；突變驗證 4 種皆轉紅（GMV 當收入、缺退款率當 0、成本外洩／可寫） | 口徑沿用 biz-model 04 的提案，**待 Owner 確認**（D-31）；只支援單一費率＋固定費；成本與利潤沿用 `product.cost.read` |
 | 47 | G1 統一決策摘要（唯讀）：評估、資格審查、試用、可行性、客群適配、風險燈號；`gateImpact=NONE` | IMPLEMENTED_NEW | `tests/unit/decision-risk.test.ts`（6）、`tests/selection-g1.test.ts`（15）；突變驗證 3 種皆轉紅（不分阻礙、洩漏利潤正負、改動 G1 檢查項）；E2E | **不改 G1 檢查項與核准結果**；是否納入阻擋待決（D-26） |
 | 48 | 畫面：`/selection`（總覽與設定）、廠商「合作資格審查」與 `/diligence/[id]`、商品三張卡片、`/trials/[id]`、`/feasibility/[id]`、檔期「選品與試用」分頁與 G1 提示 | IMPLEMENTED_NEW | E2E（`scripts/e2e-smoke.ts` SOP 02／03 區塊） | 團主、廠商沒有入口；營運小編看不到分潤與成本 |
+
+| 49 | K-4／K-4a 有效導購訪客可驗證性與獨立查核：去重方式、佐證、規則版本化；填寫者≠查核者（服務層＋資料庫）；單一主管維持待查核；指派另一位既有有權限帳號（D-1：不建立使用者、不擴張權限）；補件鏈與事件時間軸 | IMPLEMENTED_NEW | `trial-kpi-decisions`、`unit/trial-reach-rules`；E2E；突變驗證 | 需第二位既有具 `product.review` 的帳號，否則 CVR 資料不足 |
+| 50 | K-5／K-5a／D-2 客訴團主歸屬：訂單歸因優先、人工指定記來源、未歸屬保留；共同歸因僅在**可靠比例**下加權，否則待人工確認（不平均分配）；整體每件一次；團主層級客訴率在有待確認件時資料不足 | IMPLEMENTED_NEW | `unit/complaint-attribution`、`complaint-attribution`、`unit/trial-kpi`；突變驗證 | 客訴率只供營運參考，不作懲罰依據 |
+| 51 | K-6／K-6a／D-5／D-7 分潤口徑差異核對、待人工確認項目、KPI 與結算口徑差異提醒、規則版本對照（唯讀＋手動同步） | IMPLEMENTED_NEW | `finance-comparison`、`commission-recon-items`、`unit/kpi-settlement-reminder`；E2E | 不改正式財務規則／結算；無排程；階段 4、5 未啟動 |
+| 52 | K-7／K-7a～e／D-6 多商品成本分類、利潤影響、風險、保守情境（唯讀；不核准任何正式分攤） | IMPLEMENTED_NEW（唯讀） | `unit/cost-allocation-impact`、`cost-allocation-impact` | 多商品每單貢獻利潤維持資料不足；正式方法待 Owner |
+| 53 | K-8／K-8a／D-3／D-4／D-8 費用歸屬欄位：承擔方≠實際付款方、**承擔方未知＝待確認（不算公司成本）**、應收應付（未確認非付款指示）、對應、條款來源、付款狀態、https 憑證連結、修正歷史、待補清單 | IMPLEMENTED_NEW | `expense-attribution`、`unit/expense-attribution`；突變驗證 | 不自動應付款／撥款／扣款／改發票；歷史資料不回填；不存檔案、不串外部系統 |
+| 54 | F-01～F-06 合併前最終審查：財務總覽費用口徑（全部／已確認公司承擔／待確認／品牌或團主）、已確認應收應付變更後重新確認（服務層＋資料庫守衛）、付款與金額日期一致性、改檔期關聯驗證、KPI 與費用台帳口徑說明、migration 018～025 升級演練 | IMPLEMENTED_NEW | `tests/expense-integrity.test.ts`（14）、`scripts/migration-rehearsal.ts`（20/20）；突變驗證 12 種皆紅 | KPI 不納入台帳實際費用（Owner 裁決 O-1）；演練使用虛構資料 |

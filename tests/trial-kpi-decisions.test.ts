@@ -1,11 +1,13 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { query } from '@/server/lib/db';
 import { createTrial } from '@/server/modules/trials';
 import { getTrialKpis, getTrialKpiSummary } from '@/server/modules/trial-kpis';
-import { addReach, listReach, verifyReach, voidReach } from '@/server/modules/trial-reach';
+import { addReach, assignVerifier, listReach, reachHistory, verifierCandidates, verifyReach, voidReach } from '@/server/modules/trial-reach';
 import { createFeasibility, recordActuals } from '@/server/modules/feasibility';
 import { importOrders } from '@/server/modules/orders';
 import { createCommissionRule } from '@/server/modules/commission';
+import { createExpense, updateExpenseAttribution } from '@/server/modules/finance';
 import { campaignHostCommission } from '@/server/lib/commission-calc';
 import { Client } from './api-helper';
 import { addUser, dayOffset, makeWorld, mkCampaign, mkHost, mkProduct, mkVendor, type World } from './helpers';
@@ -155,7 +157,7 @@ describe('K-4：有效導購訪客的可驗證性（佐證、去重方式、第�
     expect((await addReach(w.editor, t, V({ credibility: 'LOW', evidenceRef: null, dedupeMethod: 'UNKNOWN' }) as never)).id).toBeTruthy();
     const ok = await addReach(w.editor, t, V({ dedupeMethod: 'MANUAL_DEDUP', dedupeNote: '[DEMO] 依下單帳號與短連結紀錄比對後去除重複' }) as never);
     const row = (await listReach(w.manager, t)).records.find((x) => x.id === ok.id)!;
-    expect(row).toMatchObject({ evidenceRef: '[DEMO] 短連結報表 R-001', dedupeMethod: 'MANUAL_DEDUP', verificationStatus: 'UNVERIFIED', rulesVersion: 'reach-rules/2026-11-04.1' });
+    expect(row).toMatchObject({ evidenceRef: '[DEMO] 短連結報表 R-001', dedupeMethod: 'MANUAL_DEDUP', verificationStatus: 'UNVERIFIED', rulesVersion: 'reach-rules/2026-11-05.1' });
   });
 
   it('填寫者自選「高」但沒有查核：CVR 維持資料不足（不算已驗證）；第二人查核後才採用', async () => {
@@ -167,7 +169,7 @@ describe('K-4：有效導購訪客的可驗證性（佐證、去重方式、第�
     await verifyReach(w.manager, r.id, { decision: 'VERIFIED', note: '[DEMO] 已對照報表 R-001，去重方式為短連結不重複用戶端' });
     expect(kpi(await getTrialKpis(w.manager, t), 'conversionRate')).toMatchObject({ status: 'OK', value: 2 });
     const row = (await listReach(w.manager, t)).records.find((x) => x.id === r.id)!;
-    expect(row).toMatchObject({ verificationStatus: 'VERIFIED', verifiedBy: w.manager.userId, verifyRulesVersion: 'reach-rules/2026-11-04.1' });
+    expect(row).toMatchObject({ verificationStatus: 'VERIFIED', verifiedBy: w.manager.userId, verifyRulesVersion: 'reach-rules/2026-11-05.1' });
     expect((await query(`SELECT 1 FROM audit_logs WHERE organization_id=$1 AND action='selection.trial.reach.verify' AND entity_id=$2`, [w.orgId, r.id])).length).toBe(1);
   });
 
@@ -214,6 +216,95 @@ describe('K-4：有效導購訪客的可驗證性（佐證、去重方式、第�
     const k = kpi(await getTrialKpis(w.manager, t), 'conversionRate');
     expect(k.status).toBe('INSUFFICIENT');
     expect((await listReach(w.manager, t)).records.find((x) => x.id === 'RCH-LEGACY-1')).toMatchObject({ rulesVersion: 'reach-rules/legacy', verificationStatus: 'UNVERIFIED', dedupeMethod: 'UNKNOWN' });
+  });
+});
+
+describe('K-4a：單一主管時的查核（不建立自行核准捷徑）', () => {
+  it('只有一位有查核權限的人：填寫者無法自行查核；資料維持待查核；CVR 資料不足；沒有候選人時不會自動通過', async () => {
+    const w2 = await makeWorld();
+    const hostX = (await mkHost(w2, '[DEMO] K4a 團主')).id;
+    const vX = (await mkVendor(w2, '[DEMO] K4a 廠商')).id;
+    const pX = await mkProduct(w2, vX, { name: '[DEMO] K4a 商品', skus: [{ skuCode: `KA${++n}`, name: 'a', groupPrice: 800, costPrice: 500 }] });
+    const campX = (await mkCampaign(w2, vX, { products: [{ productId: pX.id, skuId: pX.skuIds[0] }], hosts: [{ hostId: hostX }], sampleReadyDate: dayOffset(-30), openDate: dayOffset(-10), closeDate: dayOffset(10) })).id;
+    await query(`UPDATE campaigns SET status='RUNNING' WHERE id=$1`, [campX]);
+    const t = (await createTrial(w2.manager, pX.id, { level: 'HOST_FIT', trialType: 'MINI_GROUP', hostId: hostX, campaignId: campX })).id;
+    // 只留主管一位具查核權限：管理者與其他人停用
+    await query(`UPDATE users SET status='DISABLED' WHERE organization_id=$1 AND id <> $2 AND role_key IN ('SYSTEM_ADMIN','OPS_MANAGER')`, [w2.orgId, (w2.manager.userId as string)]);
+    const r = await addReach(w2.manager, t, V() as never);
+    await expect(verifyReach(w2.manager, r.id, { decision: 'VERIFIED', note: '[DEMO] 單一主管自己查自己' })).rejects.toThrow(/不能查核自己/)
+    // 服務層要自己擋（403，不是靠資料庫最後一道防線才失敗）
+    await expect(verifyReach(w2.manager, r.id, { decision: 'VERIFIED', note: '[DEMO] 單一主管自己查自己' })).rejects.toMatchObject({ code: 'FORBIDDEN', status: 403 });
+    await expect(query(`UPDATE trial_reach_records SET verification_status='VERIFIED', verified_by=created_by, verified_at=now(), verify_note='x', verify_rules_version='v' WHERE id=$1`, [r.id])).rejects.toThrow(/不能查核自己/);
+    expect(await verifierCandidates(w2.orgId, (w2.manager.userId as string))).toEqual([]);                                         // 沒有第二位有權限的人
+    await expect(assignVerifier(w2.manager, r.id, { userId: (w2.manager.userId as string) })).rejects.toThrow(/不能指派填寫者/);      // 不能指派自己
+    await expect(assignVerifier(w2.manager, r.id, { userId: (w2.editor.userId as string) })).rejects.toThrow(/具有查核權限/);         // 沒有權限的人不能被指派（不會因人力不足降低門檻）
+    const k = (await getTrialKpis(w2.manager, t)).items.find((x) => x.key === 'conversionRate')!;
+    expect(k).toMatchObject({ status: 'INSUFFICIENT', value: null });
+    expect(k.reason).toContain('待查核'); expect(k.reason).toContain('尚未指派查核者');
+    expect((await listReach(w2.manager, t)).records.find((x) => x.id === r.id)).toMatchObject({ verificationStatus: 'UNVERIFIED', verifiedBy: null });
+  });
+
+  it('有權主管指派另一位有權限的人：只有被指派者可以查核；沒有權限者不能指派；可改派；查核後不可再改；查核後 CVR 才採用', async () => {
+    const { t } = await scenario();
+    const r = await addReach(w.editor, t, V({ value: 300 }) as never);
+    await expect(assignVerifier(w.editor, r.id, { userId: (w.admin.userId as string) })).rejects.toThrow(/權限/);                    // 小編不能指派
+    await expect(assignVerifier(w.manager, r.id, { userId: (w.finance.userId as string) })).rejects.toThrow(/具有查核權限/);           // 財務沒有 product.review
+    await expect(assignVerifier(w.manager, r.id, { userId: (w.editor.userId as string) })).rejects.toThrow(/不能指派填寫者/);            // 填寫者本身也不行
+    await assignVerifier(w.manager, r.id, { userId: (w.admin.userId as string), note: '[DEMO] 請管理者獨立查核' });
+    let row = (await listReach(w.manager, t)).records.find((x) => x.id === r.id)!;
+    expect(row).toMatchObject({ assignedVerifierId: (w.admin.userId as string), assignedBy: (w.manager.userId as string), assignmentNote: '[DEMO] 請管理者獨立查核', verificationStatus: 'UNVERIFIED' });
+    const k1 = (await getTrialKpis(w.manager, t)).items.find((x) => x.key === 'conversionRate')!;
+    expect(k1.status).toBe('INSUFFICIENT'); expect(k1.reason).toContain('已指派');          // 已指派但尚未查核：仍是資料不足
+    await expect(verifyReach(w.manager, r.id, { decision: 'VERIFIED', note: '[DEMO] 沒被指派的主管想查核' })).rejects.toThrow(/已指派給另一位查核者/);
+    await expect(query(`UPDATE trial_reach_records SET verification_status='VERIFIED', verified_by=$2, verified_at=now(), verify_note='x', verify_rules_version='v' WHERE id=$1`, [r.id, (w.manager.userId as string)])).rejects.toThrow(/只有被指派者/);
+    await verifyReach(w.admin, r.id, { decision: 'VERIFIED', note: '[DEMO] 管理者已對照報表' });
+    expect(kpi(await getTrialKpis(w.manager, t), 'conversionRate')).toMatchObject({ status: 'OK', value: 2 });
+    await expect(assignVerifier(w.manager, r.id, { userId: (w.admin.userId as string) })).rejects.toThrow(/已經查核過/);
+    row = (await listReach(w.manager, t)).records.find((x) => x.id === r.id)!;
+    expect(row).toMatchObject({ verificationStatus: 'VERIFIED', verifiedBy: (w.admin.userId as string) });
+  });
+
+  it('候選人名單：不含填寫者、只含有查核權限的啟用中人員；改派在查核前可行', async () => {
+    const { t } = await scenario();
+    const r = await addReach(w.manager, t, V() as never);
+    const c = await verifierCandidates(w.orgId, (w.manager.userId as string));
+    expect(c.map((x) => x.id)).toContain((w.admin.userId as string));
+    expect(c.map((x) => x.id)).not.toContain((w.manager.userId as string));
+    expect(c.map((x) => x.id)).not.toContain((w.editor.userId as string));
+    expect(c.map((x) => x.id)).not.toContain((w.finance.userId as string));
+    await assignVerifier(w.admin, r.id, { userId: (w.admin.userId as string), note: '[DEMO] 管理者自己接手查核（填寫者是主管）' });   // 指派者可以就是被指派者，只要不是填寫者
+    await assignVerifier(w.admin, r.id, { userId: (w.admin.userId as string) });
+    expect((await listReach(w.manager, t)).records.find((x) => x.id === r.id)!.assignedVerifierId).toBe((w.admin.userId as string));
+  });
+
+  it('完整紀錄：填寫、指派、查核退回、補件、再查核通過；補件只能針對被退回且同種類的紀錄，且一筆只能補件一次', async () => {
+    const { t } = await scenario();
+    const a = await addReach(w.editor, t, V({ value: 250 }) as never);
+    await assignVerifier(w.manager, a.id, { userId: (w.admin.userId as string) });
+    await expect(addReach(w.editor, t, V({ resubmitsId: a.id }) as never)).rejects.toThrow(/只有「查核退回」/);          // 還沒被退回，不能補件
+    await verifyReach(w.admin, a.id, { decision: 'REJECTED', note: '[DEMO] 報表連結打不開，請補件' });
+    const other = await addReach(w.editor, t, V({ metric: 'POTENTIAL_REACH', sourceKind: 'LINE_GROUP_MEMBERS', dedupeMethod: null, evidenceRef: null }) as never);
+    await expect(addReach(w.editor, t, V({ resubmitsId: other.id }) as never)).rejects.toThrow();                          // 不是退回的紀錄
+    await expect(addReach(w.editor, t, V({ resubmitsId: a.id, metric: 'ACTUAL_REACH', sourceKind: 'PLATFORM_POST_REACH', dedupeMethod: null, evidenceRef: null }) as never)).rejects.toThrow(/同一種資料/);
+    const b = await addReach(w.editor, t, V({ value: 260, resubmitsId: a.id, evidenceRef: '[DEMO] 新的報表連結 R-002' }) as never);   // 補件
+    await expect(addReach(w.editor, t, V({ resubmitsId: a.id }) as never)).rejects.toThrow();                              // 一筆只能補件一次
+    await assignVerifier(w.manager, b.id, { userId: (w.admin.userId as string) });
+    await verifyReach(w.admin, b.id, { decision: 'VERIFIED', note: '[DEMO] 新報表已核對' });
+    const recs = (await listReach(w.manager, t)).records;
+    expect(recs.find((x) => x.id === b.id)).toMatchObject({ resubmitsId: a.id, verificationStatus: 'VERIFIED' });
+    expect(recs.find((x) => x.id === a.id)).toMatchObject({ verificationStatus: 'REJECTED' });                              // 被退回的紀錄保留
+    const h = (await reachHistory(w.manager, t)).filter((e) => e.recordId === a.id || e.recordId === b.id).map((e) => `${e.recordId === a.id ? 'A' : 'B'}:${e.label}`);
+    expect(h).toEqual(['A:填寫', 'A:指派查核者', 'A:查核退回', 'B:補件（重新填寫）', 'B:指派查核者', 'B:查核通過']);
+    expect(kpi(await getTrialKpis(w.manager, t), 'conversionRate')).toMatchObject({ status: 'OK' });                       // 以最新且已查核的補件為準（A 的統計期間與 B 相同；B 較晚填寫）
+  });
+
+  it('團主與其他組織不能指派或查看候選與紀錄', async () => {
+    const { t } = await scenario();
+    const r = await addReach(w.editor, t, V() as never);
+    const hc = await Client.forActor(hostUser);
+    expect((await hc.call('POST', `/reach-records/${r.id}/assign-verifier`, { userId: (w.admin.userId as string) })).status).toBe(403);
+    expect((await hc.call('GET', `/trials/${t}/reach-history`)).status).toBe(403);
+    expect((await (await Client.forActor(other.manager)).call('POST', `/reach-records/${r.id}/assign-verifier`, { userId: (w.admin.userId as string) })).status).toBe(404);
   });
 });
 
@@ -369,5 +460,67 @@ describe('K-1：累積彙整（只整理、不設門檻、不判定）', () => {
     expect(sEd.rows.every((r) => r.items.find((x) => x.key === 'contributionPerOrder')!.status !== 'OK')).toBe(true);
     expect((await hostC.call('GET', '/trial-kpis/summary')).status).toBe(403);
     expect((await getTrialKpiSummary(other.manager)).total).toBe(0);
+  });
+});
+
+describe('D-4：承擔方未知的費用＝待確認；不自動算公司成本、不當 0；貢獻利潤資料不足', () => {
+  it('條款完整且來自合約時貢獻利潤正常；財務記錄一筆承擔方未知的費用 → 貢獻利潤資料不足（說明待確認、不洩漏金額）；財務依合約補充承擔方後恢復；原始費用與修正歷史保留', async () => {
+    const { p, camp, t } = await scenario({ hostBToo: false });
+    await createFeasibility(w.manager, p.id, { campaignId: camp, trialId: t, inputs: TERMS, sources: src('CONTRACT', Object.keys(TERMS)) } as never);
+    expect(kpi(await getTrialKpis(w.manager, t), 'contributionPerOrder')).toMatchObject({ status: 'OK', value: 28 });
+    const e = await createExpense(w.finance, { category: 'SHIPPING', amount: 777, incurredOn: dayOffset(-3), campaignId: camp } as never);   // 沒填承擔方
+    const k = kpi(await getTrialKpis(w.manager, t), 'contributionPerOrder');
+    expect(k).toMatchObject({ status: 'INSUFFICIENT', value: null });                  // 不是 0，也不是自動算公司成本後的數字
+    expect(k.reason).toContain('承擔方尚未確認'); expect(k.reason).toContain('不會被自動算作公司成本'); expect(k.reason).not.toContain('777');
+    // 財務依正式合約補充承擔方（由品牌承擔）→ 不是公司成本 → 恢復；原始紀錄與歷史仍在
+    await updateExpenseAttribution(w.finance, e.id, { bearerParty: 'BRAND', termsSourceKind: 'CONTRACT', termsRef: 'C-D4-1' } as never);
+    expect(kpi(await getTrialKpis(w.manager, t), 'contributionPerOrder')).toMatchObject({ status: 'OK', value: 28 });
+    const row = (await query(`SELECT amount, category, bearer_party, terms_source_kind FROM expenses WHERE id=$1`, [e.id]))[0];
+    expect(row).toMatchObject({ amount: 777, category: 'SHIPPING', bearer_party: 'BRAND', terms_source_kind: 'CONTRACT' });
+    const logs = await query<{ action: string; before_data: Record<string, unknown> | null; after_data: Record<string, unknown> | null }>(`SELECT action, before_data, after_data FROM audit_logs WHERE entity_type='expense' AND entity_id=$1 ORDER BY id`, [e.id]);
+    expect(logs.map((x) => x.action)).toEqual(['expense.create', 'expense.attribution.update']);
+    expect(logs[1].before_data).toMatchObject({ bearerParty: null }); expect(logs[1].after_data).toMatchObject({ bearerParty: 'BRAND' });   // 修正前後都留下
+  });
+  it('承擔方已確認為公司的費用不影響 KPI 的資料狀態（只有「未知」才待確認）；作廢的待確認費用不再擋', async () => {
+    const { p, camp, t } = await scenario({ hostBToo: false });
+    await createFeasibility(w.manager, p.id, { campaignId: camp, trialId: t, inputs: TERMS, sources: src('CONTRACT', Object.keys(TERMS)) } as never);
+    await createExpense(w.finance, { category: 'SHIPPING', amount: 100, incurredOn: dayOffset(-3), campaignId: camp, bearerParty: 'COMPANY' } as never);
+    expect(kpi(await getTrialKpis(w.manager, t), 'contributionPerOrder').status).toBe('OK');
+    const e = await createExpense(w.finance, { category: 'OTHER', amount: 50, incurredOn: dayOffset(-3), campaignId: camp } as never);
+    expect(kpi(await getTrialKpis(w.manager, t), 'contributionPerOrder').status).toBe('INSUFFICIENT');
+    await query(`UPDATE expenses SET status='VOID', void_reason='[DEMO] 作廢測試' WHERE id=$1`, [e.id]);
+    expect(kpi(await getTrialKpis(w.manager, t), 'contributionPerOrder').status).toBe('OK');
+  });
+});
+
+describe('D-1：只使用既有授權的有效帳號擔任第二位查核人；不建立使用者、不擴張權限', () => {
+  it('指派前後使用者數量與角色完全不變；候選人只含既有、啟用中、具查核權限、非填寫者的內部人員；停用／無權限／其他組織／不存在的帳號不能被指派', async () => {
+    const { t } = await scenario({ hostBToo: false });
+    const r = await addReach(w.editor, t, V() as never);                              // 填寫者：小編
+    const usersBefore = await query(`SELECT id, role_key, status FROM users WHERE organization_id=$1 ORDER BY id`, [w.orgId]);
+    const rolesBefore = await query(`SELECT * FROM roles ORDER BY key`);
+    const cands = await verifierCandidates(w.orgId, w.editor.userId as string);
+    expect(cands.length).toBeGreaterThanOrEqual(1);
+    expect(cands.map((c) => c.id)).not.toContain(w.editor.userId);
+    expect(cands.map((c) => c.id)).not.toContain((hostUser.userId as string));
+    const disabled = await addUser(w.orgId, 'OPS_MANAGER'); await query(`UPDATE users SET status='DISABLED' WHERE id=$1`, [disabled.userId]);
+    expect((await verifierCandidates(w.orgId, w.editor.userId as string)).map((c) => c.id)).not.toContain(disabled.userId);
+    await expect(assignVerifier(w.manager, r.id, { userId: disabled.userId as string })).rejects.toThrow();
+    await expect(assignVerifier(w.manager, r.id, { userId: hostUser.userId as string })).rejects.toThrow();            // 團主帳號沒有查核權限
+    await expect(assignVerifier(w.manager, r.id, { userId: (other.manager.userId as string) })).rejects.toThrow();      // 其他組織
+    await expect(assignVerifier(w.manager, r.id, { userId: 'USR-NOT-EXIST' })).rejects.toThrow();
+    await assignVerifier(w.manager, r.id, { userId: (w.admin.userId as string), note: '[DEMO] 指派既有管理者查核' });
+    const usersAfter = await query(`SELECT id, role_key, status FROM users WHERE organization_id=$1 AND id <> $2 ORDER BY id`, [w.orgId, disabled.userId]);
+    expect(usersAfter).toEqual(usersBefore.filter((u) => u.id !== disabled.userId));          // 沒有新增使用者、沒有變更任何人的角色或狀態（排除本測試自己停用的那位）
+    expect(await query(`SELECT * FROM roles ORDER BY key`)).toEqual(rolesBefore);               // 角色與權限定義沒有被改
+    // 程式碼：查核人員指派沒有任何建立使用者或改角色的路徑
+    const src = readFileSync('src/server/modules/trial-reach.ts', 'utf8');
+    expect(src).not.toMatch(/INSERT INTO users|UPDATE users SET/);
+  });
+  it('未完成第二人查核前，CVR 維持資料不足（填寫者不能查核自己）', async () => {
+    const { t } = await scenario();
+    await addReach(w.manager, t, V() as never);                                              // 主管自己填
+    const k = kpi(await getTrialKpis(w.manager, t), 'conversionRate');
+    expect(k.status).toBe('INSUFFICIENT'); expect(k.reason).toContain('獨立查核');
   });
 });

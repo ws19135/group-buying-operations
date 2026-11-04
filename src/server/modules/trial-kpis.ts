@@ -11,6 +11,7 @@ import { pickLatest, visitorsUsable } from '../lib/trial-reach';
 import { loadV2Config } from './selection-v2';
 import { activeReach } from './trial-reach';
 import { actualContribution } from './actual-contribution';
+import { settlementDifference } from '../lib/kpi-settlement-reminder';
 import { loadComplaintStats } from './complaint-attribution';
 import { activeRulesForHost, pickCommissionRule } from '../lib/commission-calc';
 import { todayTaipei } from '../lib/ids';
@@ -33,7 +34,7 @@ async function loadCampaignForKpi(actor: Actor, campaignId: string) {
   return r[0];
 }
 
-async function contributionFor(db: Queryable, orgId: string, t: TrialLite, actual: { valid: number; gmv: number; refund: number; refunded: number }): Promise<{ result: ActualProfitResult; estimate: number | null; consistency: string | null }> {
+async function contributionFor(db: Queryable, orgId: string, t: TrialLite, actual: { valid: number; gmv: number; refund: number; refunded: number }): Promise<{ result: ActualProfitResult; estimate: number | null; consistency: string | null; settlementReminder: string | null; ledgerNote: string | null }> {
   // 條款來自「這個商品、這個檔期」最新的商業可行性（有團主專屬的優先；團主不同的不採用）
   const fz = (await db.query<{ inputs: Record<string, unknown>; sources: Record<string, { kind?: string }> }>(
     `SELECT inputs, sources FROM feasibility_scenarios WHERE organization_id=$1 AND product_id=$2 AND campaign_id=$3 AND (host_id IS NULL OR host_id=$4)
@@ -53,7 +54,29 @@ async function contributionFor(db: Queryable, orgId: string, t: TrialLite, actua
   const est = (await db.query<{ results: Record<string, number | null>; inputs: Record<string, number | null> }>(
     `SELECT results, inputs FROM feasibility_scenarios WHERE organization_id=$1 AND product_id=$2 AND (trial_id=$3 OR campaign_id=$4) ORDER BY (trial_id=$3) DESC, created_at DESC, id DESC LIMIT 1`, [orgId, t.product_id, t.id, t.campaign_id])).rows[0];
   const estimate = est && est.results.companyContribution != null && est.inputs.expectedOrders ? Math.round(Number(est.results.companyContribution) / Number(est.inputs.expectedOrders)) : null;
-  return { result, estimate, consistency };
+  // K-6a：KPI 與正式結算的團主分潤不一致時，顯示清楚的口徑差異提醒（只提醒；不覆蓋任何一方）
+  let settlementReminder: string | null = null;
+  if (t.host_id && fz) {
+    const si = (await db.query<{ id: string; status: string; net_sales: string | null; commission_auto: string | null; commission_override: string | null; rate_percent: string | null; rule_version: number | null }>(
+      `SELECT si.id, s.status, si.net_sales, si.commission_auto, si.commission_override, si.rate_percent, si.rule_version FROM settlement_items si JOIN settlements s ON s.id=si.settlement_id
+       WHERE si.organization_id=$1 AND si.campaign_id=$2 AND si.host_id=$3 AND s.status IN ('DRAFT','CONFIRMED') ORDER BY s.created_at DESC LIMIT 1`, [orgId, t.campaign_id, t.host_id])).rows[0];
+    if (si) {
+      const adj = Number((await db.query<{ n: string | null }>(`SELECT sum(amount) AS n FROM settlement_adjustments WHERE item_id=$1`, [si.id])).rows[0].n ?? 0);
+      const inp = fz.inputs as { hostCommissionPct?: number; commissionBasis?: string };
+      const d = settlementDifference(
+        { hostCommissionPct: typeof inp.hostCommissionPct === 'number' ? inp.hostCommissionPct : null, basis: inp.commissionBasis ?? null, nsv: actual.gmv - actual.refund, gmv: actual.gmv, paidBy: null },
+        { status: si.status, ratePercent: si.rate_percent == null ? null : Number(si.rate_percent), ruleVersion: si.rule_version, netSales: si.net_sales == null ? null : Number(si.net_sales), commissionAuto: si.commission_auto == null ? null : Number(si.commission_auto), commissionOverride: si.commission_override == null ? null : Number(si.commission_override), adjustmentsTotal: adj });
+      settlementReminder = d.text;
+    }
+  }
+  // F-04：費用台帳（財務已登錄、已確認由公司承擔）與 KPI 的口徑差異提醒。KPI 貢獻利潤只取自已確認的合約條款推算，**不加總台帳**（避免重複計算）；
+  // 但台帳的實際費用也**沒有**進入 KPI，這裡明講並列出筆數與金額，供有成本檢視權限者判斷；不改任何數字。
+  const led = (await db.query<{ n: number; total: string | null }>(
+    `SELECT count(*)::int AS n, sum(amount) AS total FROM expenses WHERE organization_id=$1 AND campaign_id=$2 AND status='RECORDED' AND bearer_party='COMPANY' AND ($3::text IS NULL OR host_id IS NULL OR host_id=$3)`, [orgId, t.campaign_id, t.host_id])).rows[0];
+  const ledgerNote = led.n > 0
+    ? `費用台帳已登錄 ${led.n} 筆「已確認由公司承擔」的費用（合計 ${Number(led.total ?? 0)} 元），未納入此 KPI：KPI 貢獻利潤依已確認的合約條款推算，台帳另行記錄實際費用，兩者分開、不是重複計算；兩者的差異請見財務口徑核對的費用歸屬對照`
+    : null;
+  return { result, estimate, consistency, settlementReminder, ledgerNote };
 }
 
 /** 計算一個試用的 KPI（呼叫端需已確認權限與範圍）；回傳未遮罩與遮罩前的完整結果 */
@@ -61,19 +84,21 @@ export async function buildTrialKpis(actor: Actor, t: TrialLite, camp: { open_da
   const db = pool();
   const cfg = await loadV2Config(db, actor.orgId);
   let orders: TrialKpiInput['orders'] = { total: 0, established: 0, valid: 0, refunded: 0, cancelled: 0, gmv: 0, refund: 0 };
-  let complaints: TrialKpiInput['complaints'] = { total: 0, unattributed: 0, sharedCases: 0, hostExclusive: 0, hostShared: 0, campaignValid: 0 };
+  let complaints: TrialKpiInput['complaints'] = { total: 0, unattributed: 0, sharedCases: 0, sharedUnweighted: 0, hostPendingShared: 0, hostExclusive: 0, hostShared: 0, hostWeighted: 0, hostRelated: 0, hostValidWeighted: 0, campaignValid: 0 };
   let shipments: TrialKpiInput['shipments'] = { nonCancelled: 0, withDates: 0, onTime: 0 };
   let dataAsOf: string | null = null;
   let contribution: ActualProfitResult | null = null;
   let estimate: number | null = null;
   let consistency: string | null = null;
+  let settlementReminder: string | null = null;
+  let ledgerNote: string | null = null;
   if (t.campaign_id) {
     const a = await loadActualSales(db, { orgId: actor.orgId, campaignId: t.campaign_id, hostId: t.host_id });
     orders = { total: a.total, established: a.established, valid: a.valid, refunded: a.refundedOrders, cancelled: a.cancelled, gmv: a.gmv, refund: a.refund };
     const cs = await loadComplaintStats(db, actor.orgId, t.campaign_id);
     const campaignValid = t.host_id ? (await loadActualSales(db, { orgId: actor.orgId, campaignId: t.campaign_id, hostId: null })).valid : a.valid;
     const hx = t.host_id ? cs.byHost[t.host_id] : undefined;
-    complaints = { total: cs.total, unattributed: cs.unattributed, sharedCases: cs.sharedCases, hostExclusive: hx?.exclusive ?? 0, hostShared: hx?.shared ?? 0, campaignValid };
+    complaints = { total: cs.total, unattributed: cs.unattributed, sharedCases: cs.sharedCases, sharedUnweighted: cs.sharedUnweighted, hostPendingShared: hx?.pendingShared ?? 0, hostExclusive: hx?.exclusive ?? 0, hostShared: hx?.shared ?? 0, hostWeighted: hx?.weighted ?? 0, hostRelated: hx?.relatedCases ?? 0, hostValidWeighted: a.validWeighted, campaignValid };
     const sh = (await db.query<{ n: number; w: number; ok: number }>(
       `SELECT count(*) FILTER (WHERE s.status <> 'CANCELLED')::int AS n,
               count(*) FILTER (WHERE s.status IN ('SHIPPED','DELIVERED') AND s.shipped_date IS NOT NULL AND s.planned_date IS NOT NULL)::int AS w,
@@ -83,7 +108,7 @@ export async function buildTrialKpis(actor: Actor, t: TrialLite, camp: { open_da
     const ia = (await db.query<{ d: string | null }>(`SELECT max(b.data_as_of) AS d FROM import_batches b WHERE b.organization_id=$1 AND b.id IN (SELECT import_batch_id FROM orders WHERE campaign_id=$2)`, [actor.orgId, t.campaign_id])).rows[0];
     dataAsOf = ia?.d ? String(ia.d) : null;
     const c = await contributionFor(db, actor.orgId, t, { valid: a.valid, gmv: a.gmv, refund: a.refund, refunded: a.refundedOrders });
-    contribution = c.result; estimate = c.estimate; consistency = c.consistency;
+    contribution = c.result; estimate = c.estimate; consistency = c.consistency; settlementReminder = c.settlementReminder; ledgerNote = c.ledgerNote;
   }
   const chk = (await db.query<{ tested: number; failed: number }>(`SELECT count(*) FILTER (WHERE result <> 'NOT_TESTED')::int AS tested, count(*) FILTER (WHERE result = 'FAIL')::int AS failed FROM trial_checks WHERE trial_id=$1`, [t.id])).rows[0];
   const records = await activeReach(actor.orgId, t.id);
@@ -96,6 +121,8 @@ export async function buildTrialKpis(actor: Actor, t: TrialLite, camp: { open_da
   const canCost = can(actor, 'product.cost.read');
   const result = maskTrialKpis(computeTrialKpis(input), canCost);
   if (consistency && canCost) result.notices.push(consistency);   // 含費率，只給有成本檢視權限者
+  if (settlementReminder && canCost) result.notices.push(settlementReminder);
+  if (ledgerNote && canCost) result.notices.push(ledgerNote);
   return { result, dataAsOf };
 }
 

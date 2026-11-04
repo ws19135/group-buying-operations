@@ -7,7 +7,8 @@ import { campaignScope } from '../lib/scope';
 import { SALES_STATUSES } from '../lib/kpi';
 import { loadActualSales } from '../lib/actual-sales';
 import { calcFeasibility, feasibilityInputSchema, type FeasibilityInputs } from '../lib/feasibility-calc';
-import { buildFeeReport, type FeeReport } from '../lib/fee-attribution';
+import { buildFeeReport, type ExpenseLite, type FeeReport } from '../lib/fee-attribution';
+import { analyzeCostImpact, type CostImpactReport, type ExpenseForAllocation } from '../lib/cost-allocation-impact';
 import { compareAllocations, type AllocationComparison, type ProductBasis, type SharedCost } from '../lib/cost-allocation-proposal';
 
 /**
@@ -35,10 +36,13 @@ export async function getFeeAttributionReport(actor: Actor, opts: { campaignId?:
     `SELECT c.id, c.title FROM campaigns c WHERE c.organization_id=$1 AND c.status <> 'CANCELLED' AND (${sc.sql}) ${opts.campaignId ? `AND c.id=$${sc.params.length + 2}` : ''} ORDER BY c.open_date DESC NULLS LAST, c.id DESC LIMIT 30`,
     [actor.orgId, ...sc.params, ...(opts.campaignId ? [opts.campaignId] : [])]);
   for (const c of camps) {
-    const prods = await query<{ product_id: string; name: string }>(`SELECT cp.product_id, p.name FROM campaign_products cp JOIN products p ON p.id=cp.product_id WHERE cp.campaign_id=$1 AND cp.deleted_at IS NULL ORDER BY p.name`, [c.id]);
+    const prods = await query<{ product_id: string; name: string }>(`SELECT DISTINCT cp.product_id, p.name FROM campaign_products cp JOIN products p ON p.id=cp.product_id WHERE cp.campaign_id=$1 AND cp.deleted_at IS NULL ORDER BY p.name`, [c.id]);
     if (!prods.length) continue;
     const multi = prods.length > 1;
     const expenses = await expensesByCategory(db, actor.orgId, c.id);
+    const expenseRecords = (await db.query<{ id: string; category: string; amount: string; bearer_party: string | null; payer_party: string | null; claim_direction: string; claim_party: string | null; claim_status: string; payment_status: string; product_id: string | null; host_id: string | null }>(
+      `SELECT id, category, amount, bearer_party, payer_party, claim_direction, claim_party, claim_status, payment_status, product_id, host_id FROM expenses WHERE organization_id=$1 AND campaign_id=$2 AND status='RECORDED'`, [actor.orgId, c.id])).rows
+      .map((x): ExpenseLite => ({ id: x.id, category: x.category, amount: Number(x.amount), bearerParty: x.bearer_party, payerParty: x.payer_party, claimDirection: x.claim_direction, claimParty: x.claim_party, claimStatus: x.claim_status, paymentStatus: x.payment_status, productId: x.product_id, hostId: x.host_id }));
     const st = (await db.query<{ id: string; status: string }>(`SELECT id, status FROM settlements WHERE organization_id=$1 AND campaign_id=$2 AND status IN ('DRAFT','CONFIRMED') ORDER BY created_at DESC LIMIT 1`, [actor.orgId, c.id])).rows[0];
     const items = st ? Number((await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM settlement_items WHERE settlement_id=$1`, [st.id])).rows[0].n) : 0;
     const adj = st ? Number((await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM settlement_adjustments WHERE settlement_id=$1`, [st.id])).rows[0].n) : 0;
@@ -55,7 +59,7 @@ export async function getFeeAttributionReport(actor: Actor, opts: { campaignId?:
       base.reports.push(buildFeeReport({
         campaignId: c.id, campaignTitle: c.title, productId: p.product_id, productName: p.name,
         scenario: fz ? { id: fz.id, versionNo: Number(fz.version_no), inputs: fz.inputs as Partial<FeasibilityInputs>, sources: fz.sources ?? {} } : null,
-        calc, multiProduct: multi, expenses, settlement: { exists: !!st, status: st?.status ?? null, adjustmentCount: adj, hasHostCommissionItems: items > 0 }, refunds: { total: Number(ref.total ?? 0), count: Number(ref.n) },
+        calc, multiProduct: multi, expenses, expenseRecords, settlement: { exists: !!st, status: st?.status ?? null, adjustmentCount: adj, hasHostCommissionItems: items > 0 }, refunds: { total: Number(ref.total ?? 0), count: Number(ref.n) },
       }));
     }
   }
@@ -68,6 +72,8 @@ export interface InventoryItem { key: string; label: string; status: 'AVAILABLE'
 export interface AllocationAnalysis {
   campaignId: string; campaignTitle: string; multiProduct: boolean; effective: false;
   products: ProductBasis[]; inventory: InventoryItem[]; assumptions: string[]; costs: SharedCost[]; comparison: AllocationComparison | null;
+  /** K-7a～e：費用分類、各方法對公司與商品利潤的影響、風險（唯讀） */
+  impact: CostImpactReport | null;
   kpiImpact: string; note: string;
 }
 
@@ -75,9 +81,9 @@ export async function getCostAllocationAnalysis(actor: Actor, campaignId: string
   requireFinanceCost(actor);
   const db = pool();
   const sc = campaignScope(actor, 2, 'c');
-  const camp = sc.sql === 'FALSE' ? undefined : (await query<{ id: string; title: string }>(`SELECT c.id, c.title FROM campaigns c WHERE c.id=$1 AND (${sc.sql}) AND c.organization_id=$${sc.params.length + 2}`, [campaignId, ...sc.params, actor.orgId]))[0];
+  const camp = sc.sql === 'FALSE' ? undefined : (await query<{ id: string; title: string; open_date: string | null; close_date: string | null }>(`SELECT c.id, c.title, c.open_date, c.close_date FROM campaigns c WHERE c.id=$1 AND (${sc.sql}) AND c.organization_id=$${sc.params.length + 2}`, [campaignId, ...sc.params, actor.orgId]))[0];
   if (!camp) throw notFound('檔期');
-  const prods = await query<{ product_id: string; name: string }>(`SELECT cp.product_id, p.name FROM campaign_products cp JOIN products p ON p.id=cp.product_id WHERE cp.campaign_id=$1 AND cp.deleted_at IS NULL ORDER BY p.name`, [campaignId]);
+  const prods = await query<{ product_id: string; name: string }>(`SELECT DISTINCT cp.product_id, p.name FROM campaign_products cp JOIN products p ON p.id=cp.product_id WHERE cp.campaign_id=$1 AND cp.deleted_at IS NULL ORDER BY p.name`, [campaignId]);
   const multi = prods.length > 1;
   const SALES = [...SALES_STATUSES];
   // 以訂單明細（SKU → 商品）彙整：明細金額、數量、行數、SKU 成本是否齊全
@@ -98,31 +104,44 @@ export async function getCostAllocationAnalysis(actor: Actor, campaignId: string
     if (l.cost_price == null) b.cost = null; else if (b.cost != null) b.cost += Number(l.cost_price) * l.quantity;
   }
   const products: ProductBasis[] = prods.map((p) => { const b = basis.get(p.product_id)!; return { productId: p.product_id, name: p.name, nsv: b.lines ? Math.round(b.nsv) : null, quantity: b.lines ? b.qty : null, orderLines: b.lines || null, productCost: b.lines ? b.cost : null }; });
-  const expenses = await expensesByCategory(db, actor.orgId, campaignId);
+  const expRows = (await db.query<{ id: string; category: string; amount: string; incurred_on: string | null; bearer_party: string | null; terms_source_kind: string | null; cost_scope: string | null; product_id: string | null; host_id: string | null }>(
+    `SELECT id, category, amount, incurred_on, bearer_party, terms_source_kind, cost_scope, product_id, host_id FROM expenses WHERE organization_id=$1 AND campaign_id=$2 AND status='RECORDED' ORDER BY incurred_on, id`, [actor.orgId, campaignId])).rows;
+  const expenseList: ExpenseForAllocation[] = expRows.map((x) => ({ id: x.id, category: x.category, amount: Number(x.amount), incurredOn: x.incurred_on, bearerParty: x.bearer_party, bearerBasisKind: x.terms_source_kind, costScope: x.cost_scope, productId: x.product_id, hostId: x.host_id }));
   const scenarios = await Promise.all(prods.map(async (p) => (await db.query<{ inputs: Record<string, unknown> }>(`SELECT inputs FROM feasibility_scenarios WHERE organization_id=$1 AND product_id=$2 AND campaign_id=$3 ORDER BY (host_id IS NULL) DESC, created_at DESC, id DESC LIMIT 1`, [actor.orgId, p.product_id, campaignId])).rows[0]?.inputs ?? null));
   const platformRates = scenarios.map((s) => (typeof s?.platformFeePct === 'number' ? s.platformFeePct : null));
   const sameRate = platformRates.length > 0 && platformRates.every((r) => r != null && r === platformRates[0]);
   const CAT_LABEL: Record<string, string> = { SHIPPING: '運費', PLATFORM_FEE: '平台費', MARKETING: '行銷費用', SAMPLE: '樣品費用', OTHER: '其他費用' };
-  const costs: SharedCost[] = Object.entries(expenses).map(([cat, e]) => ({
-    key: cat, label: `${CAT_LABEL[cat] ?? cat}（財務已記錄 ${e.count} 筆）`, amount: e.total,
-    ...(cat === 'PLATFORM_FEE' && sameRate ? { direct: { kind: 'RATE_ON_NSV' as const, ratePct: platformRates[0] as number } } : {}),
-  }));
+  // 只有「檔期共同費用」（沒有對應商品或團主）且**已確認由公司承擔**才進入分攤池；已指定商品／團主的費用不再分攤（避免重複）。
+  // D-4：承擔方未知的費用不算公司正式成本（待確認），另外放進「保守情境」的池，不混入已確認口徑
+  const poolOf = (include: (e: ExpenseForAllocation) => boolean): SharedCost[] => {
+    const acc: Record<string, { total: number; count: number }> = {};
+    for (const e of expenseList.filter((x) => !x.productId && !x.hostId && include(x))) { const x = (acc[e.category] ??= { total: 0, count: 0 }); x.total += e.amount; x.count++; }
+    return Object.entries(acc).map(([cat, e]) => ({
+      key: cat, label: `${CAT_LABEL[cat] ?? cat}（財務已記錄 ${e.count} 筆共同費用）`, amount: e.total,
+      ...(cat === 'PLATFORM_FEE' && sameRate ? { direct: { kind: 'RATE_ON_NSV' as const, ratePct: platformRates[0] as number } } : {}),
+    }));
+  };
+  const costs = poolOf((e) => e.bearerParty === 'COMPANY');
+  const conservativeCosts = poolOf((e) => e.bearerParty === 'COMPANY' || e.bearerParty == null);
+  const expenses = await expensesByCategory(db, actor.orgId, campaignId);
   const withScenario = scenarios.filter(Boolean).length;
   const costKnown = products.filter((p) => p.productCost != null).length;
   const inventory: InventoryItem[] = [
     { key: 'orderItems', label: '訂單明細與 SKU 對應', status: lines.length === 0 ? 'MISSING' : unmapped ? 'PARTIAL' : 'AVAILABLE', detail: lines.length === 0 ? '沒有計入銷售的訂單明細' : `${lines.length} 行明細${unmapped ? `，其中 ${unmapped} 行沒有對應到此檔期的商品（SKU 未對應）` : '，皆可對應到商品'}` },
     { key: 'productCost', label: '商品成本（SKU 成本）', status: costKnown === products.length ? 'AVAILABLE' : costKnown ? 'PARTIAL' : 'MISSING', detail: `${costKnown}／${products.length} 個商品的 SKU 成本齊全；缺成本的商品，成本維持未知（不當 0）` },
     { key: 'refundLine', label: '退款（逐明細）', status: 'MISSING', detail: '退款只記在整筆訂單，沒有逐明細的退款；商品層級的有效淨銷售額需依明細金額占比拆分（提案中的假設）' },
-    { key: 'expenses', label: '財務已記錄的支出', status: Object.keys(expenses).length ? 'PARTIAL' : 'MISSING', detail: Object.keys(expenses).length ? `已記錄 ${Object.values(expenses).reduce((a, e) => a + e.count, 0)} 筆；但支出只有檔期與類別，沒有商品、負擔方、實際付款方` : '沒有財務支出紀錄；共同費用金額未知，不分攤' },
+    { key: 'expenses', label: '財務已記錄的支出', status: Object.keys(expenses).length ? 'PARTIAL' : 'MISSING', detail: Object.keys(expenses).length ? `已記錄 ${Object.values(expenses).reduce((a, e) => a + e.count, 0)} 筆；其中 ${expenseList.filter((e) => e.bearerParty == null).length} 筆承擔方待確認（不算公司正式成本）、${expenseList.filter((e) => !e.productId && !e.hostId && e.costScope == null).length} 筆未標記歸屬範圍` : '沒有財務支出紀錄；共同費用金額未知，不分攤' },
     { key: 'scenarioTerms', label: '各商品的合作條款（商業可行性）', status: withScenario === products.length ? 'AVAILABLE' : withScenario ? 'PARTIAL' : 'MISSING', detail: `${withScenario}／${products.length} 個商品有此檔期的可行性條款；每個商品各一份，沒有檔期層級的共同費用欄位（固定費用、整筆運費的歸屬不明）` },
     { key: 'serviceFeeCommission', label: '公司服務費與團主分潤', status: withScenario ? 'PARTIAL' : 'MISSING', detail: '以有效淨銷售額乘費率的項目可直接歸屬到商品；固定服務費無法直接歸屬' },
     { key: 'fixedCost', label: '固定成本', status: 'MISSING', detail: '固定費用在每份可行性條款各填一次，沒有「共同費用」層級；需 Owner 決定放在哪個層級' },
     { key: 'returnCost', label: '退款及退貨處理成本', status: 'MISSING', detail: '沒有逐明細的退款，也沒有逐商品的退貨處理紀錄；只能依退款訂單數估算（需明確標示為估算）' },
   ];
-  const assumptions = ['商品層級的有效淨銷售額：訂單層級的退款依明細金額占比拆分（沒有逐明細退款資料）', '共同費用金額取自財務「已記錄的支出」（只有檔期與類別）；沒有紀錄的類別視為未知，不分攤', '平台費只有在所有商品的條款費率一致時，才視為可直接歸屬；否則依分攤方法處理'];
+  const assumptions = ['商品層級的有效淨銷售額：訂單層級的退款依明細金額占比拆分（沒有逐明細退款資料）', '共同費用金額取自財務「已記錄的支出」（只有檔期與類別）；沒有紀錄的類別視為未知，不分攤', '平台費只有在所有商品的條款費率一致時，才視為可直接歸屬；否則依分攤方法處理', '費用分類依財務填的「對應商品」「對應團主」，不推測；承擔方未知的費用是「待確認」：不算公司正式成本、不當 0，相關利潤為資料不足；另列「保守情境估計」（假設全由公司承擔）僅供參考，不得用於正式 KPI 或結算'];
   const comparison = multi ? compareAllocations(products, costs) : null;
+  const conservativeComparison = multi ? compareAllocations(products, conservativeCosts) : null;
+  const impact = multi ? analyzeCostImpact({ products, expenses: expenseList, period: { openDate: camp.open_date, closeDate: camp.close_date }, comparison, conservativeComparison, rateDirectCategories: sameRate ? ['PLATFORM_FEE'] : [] }) : null;
   return {
-    campaignId, campaignTitle: camp.title, multiProduct: multi, effective: false, products, inventory, assumptions, costs, comparison,
+    campaignId, campaignTitle: camp.title, multiProduct: multi, effective: false, products, inventory, assumptions, costs, comparison, impact,
     kpiImpact: multi ? '多商品檔期的每單貢獻利潤仍是「資料不足」：在 Owner 核准分攤規則之前，KPI、實際值回寫與結算都不使用這裡的任何結果' : '這不是多商品檔期，每單貢獻利潤依既有規則計算；不需要分攤',
     note: '提案，未生效：只供 Owner 比較不同分攤方法；不寫入任何資料、不新增任何生效的分攤規則、不修改結算；未知金額的費用不分攤、不當 0。',
   };

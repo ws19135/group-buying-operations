@@ -84,11 +84,16 @@
 | GET | `/api/trials/:id/kpis` | 是 |
 | GET | `/api/trial-kpis/summary` | 是 |
 | GET | `/api/reconciliation/commission` | 是 |
+| GET | `/api/reconciliation/commission/items` | 是 |
+| POST | `/api/reconciliation/commission/sync` | 是 |
+| POST | `/api/reconciliation/commission/items/:id/acknowledge` | 是 |
 | GET | `/api/reconciliation/fees` | 是 |
 | GET | `/api/campaigns/:id/cost-allocation-analysis` | 是 |
 | GET | `/api/trials/:id/reach` | 是 |
 | POST | `/api/trials/:id/reach` | 是 |
 | POST | `/api/reach-records/:id/void` | 是 |
+| GET | `/api/trials/:id/reach-history` | 是 |
+| POST | `/api/reach-records/:id/assign-verifier` | 是 |
 | POST | `/api/reach-records/:id/verify` | 是 |
 | PATCH | `/api/trials/:id` | 是 |
 | POST | `/api/trials/:id/conclude` | 是 |
@@ -179,6 +184,9 @@
 | GET | `/api/expenses` | 是 |
 | POST | `/api/expenses` | 是 |
 | PATCH | `/api/expenses/:id` | 是 |
+| GET | `/api/expenses/:id/history` | 是 |
+| PATCH | `/api/expenses/:id/attribution` | 是 |
+| POST | `/api/expenses/:id/claim/confirm` | 是 |
 | POST | `/api/expenses/:id/void` | 是 |
 | GET | `/api/dashboard/admin` | 是 |
 | GET | `/api/dashboard/host` | 是 |

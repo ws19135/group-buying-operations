@@ -30,6 +30,7 @@ import * as trialKpis from '../modules/trial-kpis';
 import * as trialReach from '../modules/trial-reach';
 import * as commissionRecon from '../modules/commission-reconciliation';
 import * as financeCompare from '../modules/finance-comparison';
+import * as reconItems from '../modules/commission-recon-items';
 import * as evidence from '../modules/evidence';
 import * as diligence from '../modules/diligence';
 import * as trials from '../modules/trials';
@@ -164,11 +165,16 @@ export const routes: RouteDef[] = [
   R('GET', '/trials/:id/kpis', async (c) => trialKpis.getTrialKpis(c.actor, c.params.id)),
   R('GET', '/trial-kpis/summary', async (c) => trialKpis.getTrialKpiSummary(c.actor)),
   R('GET', '/reconciliation/commission', async (c) => commissionRecon.getCommissionReconciliation(c.actor, { campaignId: c.query.get('campaignId') ?? undefined })),
+  R('GET', '/reconciliation/commission/items', async (c) => reconItems.listCommissionReconItems(c.actor, { status: c.query.get('status') ?? undefined })),
+  R('POST', '/reconciliation/commission/sync', async (c) => reconItems.syncCommissionReconItems(c.actor)),
+  R('POST', '/reconciliation/commission/items/:id/acknowledge', async (c) => reconItems.acknowledgeReconItem(c.actor, c.params.id, c.body)),
   R('GET', '/reconciliation/fees', async (c) => financeCompare.getFeeAttributionReport(c.actor, { campaignId: c.query.get('campaignId') ?? undefined })),
   R('GET', '/campaigns/:id/cost-allocation-analysis', async (c) => financeCompare.getCostAllocationAnalysis(c.actor, c.params.id)),
   R('GET', '/trials/:id/reach', async (c) => trialReach.listReach(c.actor, c.params.id)),
   R('POST', '/trials/:id/reach', async (c) => created(await trialReach.addReach(c.actor, c.params.id, c.body as never))),
   R('POST', '/reach-records/:id/void', async (c) => trialReach.voidReach(c.actor, c.params.id, c.body as never)),
+  R('GET', '/trials/:id/reach-history', async (c) => trialReach.reachHistory(c.actor, c.params.id)),
+  R('POST', '/reach-records/:id/assign-verifier', async (c) => trialReach.assignVerifier(c.actor, c.params.id, c.body as never)),
   R('POST', '/reach-records/:id/verify', async (c) => trialReach.verifyReach(c.actor, c.params.id, c.body as never)),
   R('PATCH', '/trials/:id', async (c) => trials.updateTrial(c.actor, c.params.id, c.body as never)),
   R('POST', '/trials/:id/conclude', async (c) => trials.concludeTrial(c.actor, c.params.id, c.body as never)),
@@ -296,6 +302,9 @@ export const routes: RouteDef[] = [
   R('GET', '/expenses', async (c) => finance.listExpenses(c.actor, c.query)),
   R('POST', '/expenses', async (c) => created(await finance.createExpense(c.actor, c.body as never, c.idemKey))),
   R('PATCH', '/expenses/:id', async (c) => finance.updateExpense(c.actor, c.params.id, c.body)),
+  R('GET', '/expenses/:id/history', async (c) => finance.expenseHistory(c.actor, c.params.id)),
+  R('PATCH', '/expenses/:id/attribution', async (c) => finance.updateExpenseAttribution(c.actor, c.params.id, c.body)),
+  R('POST', '/expenses/:id/claim/confirm', async (c) => finance.confirmExpenseClaim(c.actor, c.params.id, c.body)),
   R('POST', '/expenses/:id/void', async (c) => finance.voidExpense(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
 
   // ---------- Dashboard ----------

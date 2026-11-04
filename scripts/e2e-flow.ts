@@ -290,6 +290,8 @@ async function main() {
     const trialUrl = page.url();
     const own = await page.locator('[data-testid^="reach-verify-status-"]').first().innerText();
     record('K-4 有效導購訪客：填寫後是「未查核（填寫者自述）」，填寫者自己沒有查核按鈕，並提示需另一位有權限的人查核；畫面顯示佐證、去重方式與規則版本', /未查核/.test(own) && (await page.locator('[data-testid^="btn-reach-verify-"]').count()) === 0 && /需由另一位有權限的人查核/.test(await page.getByTestId('trial-reach').innerText()) && /佐證：\[E2E\] 短連結報表 R-001/.test(await page.getByTestId('trial-reach').innerText()) && /reach-rules\//.test(await page.getByTestId('reach-rules').innerText()));
+    const assignTxt = await page.locator('[data-testid^="reach-assign-RCH-"]').first().innerText();
+    record('K-4a 只有單一主管時維持待查核：畫面顯示「尚未指派查核者（待查核）」，不會自動通過；填寫者可請有權限者指派另一位查核者，但沒有自行核准的捷徑', /尚未指派查核者（待查核）/.test(assignTxt) && (await page.locator('button[data-testid^="btn-reach-verify-"]').count()) === 0, assignTxt.slice(0, 40));
     const ctx2 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page2 = await ctx2.newPage();
     await login(page2, 'demo-admin@example.invalid');
@@ -379,6 +381,26 @@ async function main() {
     const reconNote = await page.getByTestId('recon-note').innerText();
     record('K-6 分潤口徑差異核對（畫面）：列出檔期×團主×商品的比較與待人工覆核清單；明講不自動覆蓋任何一方、不改結算；缺合約條件標示資料不足', /待人工覆核/.test(recon) && /不會自動以任何一方覆蓋另一方/.test(reconNote) && (await page.getByTestId('recon-review').innerText()).includes(`[E2E] 文具團 ${tag}`) && /資料不足|沒有填團主分潤比例/.test(await page.getByTestId('recon-table').innerText()));
     await shot(page, '15-commission-reconciliation');
+    // K-6a：營運主管只能看待人工確認項目、不能同步（需要財務寫入權限）；財務按「同步」後建立項目（只新增項目與稽核，不改任何財務資料）
+    const mgrNote = await page.getByTestId('recon-items-note').innerText();
+    record('K-6a 營運主管（只有讀取權限）看得到待人工確認項目與說明，但沒有「同步」按鈕', /不會覆蓋合約、可行性或財務規則/.test(mgrNote) && (await page.getByTestId('btn-recon-sync').count()) === 0);
+    const ctxF = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const pageF = await ctxF.newPage();
+    await login(pageF, 'demo-finance@example.invalid');
+    await pageF.goto(`${BASE}/finance/reconciliation`, { waitUntil: 'networkidle' });
+    const itemsBefore = await pageF.locator('[data-testid^="recon-item-"]').count();
+    await submitAndWait(pageF, () => pageF.getByTestId('btn-recon-sync').click(), /\/api\/reconciliation\/commission\/sync$/);
+    await pageF.reload({ waitUntil: 'networkidle' });
+    const itemsAfter = await pageF.locator('[data-testid^="recon-item-"]').count();
+    const itemsNote = await pageF.getByTestId('recon-items-note').innerText();
+    record('K-6a 待人工確認項目（財務畫面）：同步後建立項目並顯示差異原因；明講不覆蓋合約／可行性／財務規則、不改已確認結算與實際付款', itemsAfter >= 1 && itemsAfter >= itemsBefore && /不會覆蓋合約、可行性或財務規則/.test(itemsNote) && /財務應依既有規則版本與核准流程處理/.test(itemsNote), `前 ${itemsBefore}／後 ${itemsAfter}`);
+    await shot(pageF, '17-recon-items');
+    // D-3／D-4：財務費用頁顯示「待補清單」，說明承擔方未知不算公司正式成本、不當 0
+    await pageF.goto(`${BASE}/finance?tab=expenses`, { waitUntil: 'networkidle' });
+    const pendTxt = await pageF.getByTestId('expense-pending-note').innerText();
+    record('D-3／D-4 費用頁待補清單：承擔方／付款方待確認的筆數；明講承擔方未知的費用不算公司正式成本、也不當 0；有「只看待補清單」連結', /待補清單/.test(pendTxt) && /不算公司正式成本/.test(pendTxt) && /不當 0/.test(pendTxt) && (await pageF.getByTestId('expense-pending-filter').count()) === 1, pendTxt.slice(0, 40));
+    await shot(pageF, '18-expense-pending');
+    await ctxF.close();
     await page.goto(`${BASE}/finance/reconciliation?tab=fees`, { waitUntil: 'networkidle' });
     const feeText = await page.getByTestId('fee-summary').innerText();
     record('K-8 費用歸屬對照（畫面）：列出 KPI 與正式結算尚未一致的費用項目、可能的應收／應付與需確認事項；唯讀', /尚未一致的費用項目/.test(feeText) && (await page.locator('[data-testid^="fee-row-shipping"]').count()) >= 1 && /可能|無法判斷/.test(await page.locator('[data-testid^="fee-row-shipping"]').first().innerText()) && /不入帳|不改任何資料/.test(await page.getByTestId('fee-note').innerText()));

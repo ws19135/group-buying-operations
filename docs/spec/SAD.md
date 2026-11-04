@@ -17,9 +17,9 @@
 | 項目 | 現況（✅ 已核對） |
 |---|---|
 | 技術棧 | Next.js 15.5（App Router）、React 19、TypeScript 5.9、PostgreSQL 16、`pg` 8（無 ORM）、zod 3.25、vitest 3、Playwright 1.63（`package.json`） |
-| 規模 | 67 張資料表（20 支 migration，含 013 客群分析與適配的 5 張、014 選品與試用的 7 張；015 只更新模板說明文字；016 選品 V2＋調查版本：新增 1 張補件要求表；017 試用新增團主再次合作意願兩個欄位，不新增資料表；018 新增觸及與導購資料 1 張表 `trial_reach_records`；019 有效導購訪客的佐證、去重方式與查核欄位；020 客服案件的人工團主歸屬欄位，皆只新增欄位）、201 個 API 端點（`routes.ts` 的 `R(`／`P(` 計數，含 SOP 01 的 22 條、SOP 02／03 的 33 條）、6 個角色、52 項權限（含 SOP 01 的 6 項、SOP 02／03 的 3 項）、14 種檔期狀態、8 個自動化工作 |
+| 規模 | 68 張資料表（25 支 migration（021～025：指派查核、費用歸屬、待人工確認項目、費用歸屬範圍標記、費用資料完整性），含 013 客群分析與適配的 5 張、014 選品與試用的 7 張；015 只更新模板說明文字；016 選品 V2＋調查版本：新增 1 張補件要求表；017 試用新增團主再次合作意願兩個欄位，不新增資料表；018 新增觸及與導購資料 1 張表 `trial_reach_records`；019 有效導購訪客的佐證、去重方式與查核欄位；020 客服案件的人工團主歸屬欄位，皆只新增欄位）、209 個 API 端點（`routes.ts` 的 `R(`／`P(` 計數，含 SOP 01 的 22 條、SOP 02／03 的 33 條）、6 個角色、52 項權限（含 SOP 01 的 6 項、SOP 02／03 的 3 項）、14 種檔期狀態、8 個自動化工作 |
 | 使用者介面 | 繁體中文、桌面為主；`src/app` 共 45 個頁面檔（`page.tsx`，含登入頁與首頁導向；SOP 01 新增 `/fit`、`/segments`、`/segments/[id]`，團主、商品、檔期頁另加面板；SOP 02／03 新增 `/selection`、`/diligence/[id]`、`/trials/[id]`、`/feasibility/[id]`，廠商、商品、檔期頁另加面板） |
-| 測試 | 48 個測試檔、809 項（含 SOP 01 新增的 3 檔 82 項、SOP 02／03 新增的 10 檔 187 項），使用真實 PostgreSQL；另有 Playwright E2E（`scripts/e2e-smoke.ts`，SOP 02／03 另加「選品與試用」區塊；`scripts/e2e-aftersales.ts`） |
+| 測試 | 55 個測試檔、912 項（含 SOP 01 新增的 3 檔 82 項、SOP 02／03 新增的 10 檔 187 項），使用真實 PostgreSQL；另有 Playwright E2E（`scripts/e2e-smoke.ts`，SOP 02／03 另加「選品與試用」區塊；`scripts/e2e-aftersales.ts`） |
 
 ---
 
@@ -760,3 +760,22 @@ flowchart LR
 - 本次（SOP 02／03）更新後的數字（65 表、185 端點、52 權限、592 測試：`routes.ts` 的 `R(`／`P(` 行數 185、`migrations/014` 7 張新表、`permissions.ts` 52 項、新增測試檔以 `it(` 計數 187）以相同方法計算；上一次（SOP 01）的數字（58 表、152 端點、49 權限、405 測試）以相同方法計算：`routes.ts` 的 `R(`／`P(` 行數為 152、`migrations/013` 為 5 張新表、`permissions.ts` 為 49 項、全套 vitest 為 20 檔 405 項；原基準的數字（53 表、130 端點、43 權限、245 測試）皆以指令重新計算：`CREATE TABLE` 計數、`routes.ts` 的 `R(`／`P(` 計數（與 `API_ENDPOINTS.md` 一致）、`permissions.ts` 匯入計算、`vitest` 各檔 `it(` 計數。
 - 模組相依圖由 `grep "from './"` 產生，非憑印象繪製。
 - 本文件原有 8 張 Mermaid 圖已用 mermaid 11.4.1 在 headless Chromium 逐一 `parse` 與 `render`，無錯誤（細節見 SDD §22）；SOP 01 新增的 §4.4 流程圖與 §4.2／§7.2 圖的增補，以及 SOP 02／03 新增的 §4.5 流程圖與 §4.2／§7.2 圖的增補，**尚未**用 mermaid 重新 render，只以語法目視核對。
+
+### K-4a～K-8a 架構補充（2026-11-05）
+
+| 模組 | 說明 |
+|---|---|
+| `trial-reach`（擴充） | 指派查核者、補件鏈、事件時間軸（migration 021）；資料庫觸發器 `trial_reach_guard()` 同步擋填寫者自查 |
+| `complaint-attribution`（擴充） | 加權歸屬（`weights`、`weighted`、`relatedCases`），恆等式 Σ加權＋未歸屬＝總數 |
+| `finance`（擴充 `expenses`） | 費用歸屬欄位（migration 022）、`updateExpenseAttribution`、`confirmExpenseClaim`；遮罩 `maskExpenseAttribution`；不寫入 `payments`、結算、發票 |
+| `commission-recon-items`（新） | 待人工確認項目（migration 023）；`lib/kpi-settlement-reminder.ts` 為 KPI 口徑差異提醒純函式；只寫自己的資料表與稽核 |
+| `finance-comparison`（擴充） | `lib/cost-allocation-impact.ts`：費用分類、利潤影響、風險（唯讀） |
+
+不變：`lib/commission-calc`、`lib/kpi.ts`、`modules/settlements.ts`、`modules/commission.ts`、發票、G1–G5。
+
+### D-1～D-9 架構補充（2026-11-05）
+
+- `lib/complaint-attribution`：`reliableWeights`（可靠比例判定）、`ORDER_SHARED_UNWEIGHTED`、`basis`／`reviewReason`；統計新增 `sharedUnweighted`、`pendingShared`。
+- `lib/cost-allocation-impact`：`BearerStatus`（COMPANY／NOT_COMPANY／PENDING）、已確認口徑與保守情境分開計算；`modules/actual-contribution` 新增承擔方待確認檢查（`lib/actual-profit` 的 `pendingBearerExpenses`）。
+- `modules/finance`：待補清單、`expenseHistory`；`lib/expense-attribution`：憑證連結規則、`costScope`。
+- 不變：結算、佣金計算、發票、G1–G5、財務總覽。無新增排程、觸發器、外部整合或檔案儲存。

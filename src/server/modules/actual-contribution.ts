@@ -10,11 +10,13 @@ export async function actualContribution(db: Queryable, p: {
   scenario: { inputs: Record<string, unknown>; sources: Record<string, { kind?: string }> } | null;
   actual: { valid: number; gmv: number; refund: number; refunded: number };
 }): Promise<ActualProfitResult> {
-  const prods = Number((await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM campaign_products WHERE campaign_id=$1 AND deleted_at IS NULL`, [p.campaignId])).rows[0].n);
+  const prods = Number((await db.query<{ n: number }>(`SELECT count(DISTINCT product_id)::int AS n FROM campaign_products WHERE campaign_id=$1 AND deleted_at IS NULL`, [p.campaignId])).rows[0].n);
   const others = p.hostId ? Number((await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM campaign_hosts WHERE campaign_id=$1 AND host_id<>$2 AND deleted_at IS NULL AND status <> 'DECLINED'`, [p.campaignId, p.hostId])).rows[0].n) : 0;
+  // D-4：承擔方未確認的費用（此檔期；團主層級只算沒有指定團主或指定此團主的）
+  const pendingBearer = Number((await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM expenses WHERE campaign_id=$1 AND status='RECORDED' AND bearer_party IS NULL AND ($2::text IS NULL OR host_id IS NULL OR host_id=$2)`, [p.campaignId, p.hostId])).rows[0].n);
   return computeActualContribution({
     inputs: p.scenario?.inputs ?? {}, sources: p.scenario?.sources ?? {},
     actual: { orders: p.actual.valid, gmv: p.actual.gmv, refund: p.actual.refund, refundedOrders: p.actual.refunded },
-    validOrders: p.actual.valid, hostScopedWithOtherHosts: others > 0, multiProduct: prods > 1,
+    validOrders: p.actual.valid, hostScopedWithOtherHosts: others > 0, multiProduct: prods > 1, pendingBearerExpenses: pendingBearer,
   });
 }
