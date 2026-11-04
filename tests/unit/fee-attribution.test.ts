@@ -25,7 +25,7 @@ describe('K-8 費用歸屬對照報告（唯讀；KPI 試算與正式結算分�
     expect(ship.formal).toMatchObject({ recordedExpense: 700, expenseCount: 2, handledBySettlement: false });
     expect(ship.alignment).toBe('NOT_ALIGNED');
     expect(ship.reasons.join()).toContain('正式結算沒有處理這項費用');
-    expect(ship.reasons.join()).toContain('沒有「負擔方」與「實際付款方」');
+    expect(ship.reasons.join()).toContain('沒有記錄「承擔方」或「實際付款方」');
   });
 
   it('團主佣金：正式結算有處理（金額、費率、規則版本）；付款方設定為品牌時提示結算沒有記錄付款方', () => {
@@ -80,3 +80,33 @@ describe('K-8 費用歸屬對照報告（唯讀；KPI 試算與正式結算分�
     expect(row(r, 'shipping').reasons.join()).toContain('多個商品');
   });
 });
+
+describe('K-8a 費用紀錄有承擔方與實際付款方之後的對照', () => {
+  const rec = (o: Partial<import('@/server/lib/fee-attribution').ExpenseLite> = {}) => ({ id: 'EXP-1', category: 'SHIPPING', amount: 700, bearerParty: 'BRAND', payerParty: 'COMPANY', claimDirection: 'UNDETERMINED', claimParty: null, claimStatus: 'UNCONFIRMED', paymentStatus: 'PAID', productId: null, hostId: null, ...o });
+  it('承擔方（品牌）≠ 實際付款方（公司）：可能對品牌有應收；紀錄完整時可逐筆核對；未確認的應收應付明講不是付款指示', () => {
+    const r = buildFeeReport(input({ expenseRecords: [rec()] }));
+    const ship = row(r, 'shipping');
+    expect(ship.formal.records).toMatchObject({ total: 1, withBearerAndPayer: 1, payerDiffersFromBearer: 1, possibleReceivable: 1, possiblePayable: 0, claimsUnconfirmed: 0 });
+    expect(ship.reasons.join()).toContain('皆已記錄承擔方與實際付款方');
+    expect(ship.reasons.join()).toContain('可能形成應收或應付');
+    expect(ship.reasons.join()).toContain('不是付款指示');
+    expect(ship.obligation.kind).toBe('RECEIVABLE');
+    expect(ship.obligation.explanation).toContain('尚未確認');
+  });
+  it('承擔方（公司）≠ 實際付款方（團主）：可能對團主有應付；方向混雜時無法判斷；承擔方與試算條款不同時列出', () => {
+    const pay = buildFeeReport(input({ expenseRecords: [rec({ bearerParty: 'COMPANY', payerParty: 'HOST' })], scenario: { id: 'FSB-1', versionNo: 3, inputs: { ...TERMS, shippingBorneBy: 'COMPANY' }, sources: sources('CONTRACT') } }));
+    expect(row(pay, 'shipping').obligation.kind).toBe('PAYABLE');
+    const mixed = buildFeeReport(input({ expenseRecords: [rec(), rec({ id: 'EXP-2', bearerParty: 'COMPANY', payerParty: 'BRAND' })] }));
+    expect(row(mixed, 'shipping').obligation.kind).toBe('UNKNOWN');
+    const diff = buildFeeReport(input({ expenseRecords: [rec({ bearerParty: 'COMPANY', payerParty: 'COMPANY' })] }));   // 條款說品牌負擔，紀錄說公司承擔
+    expect(row(diff, 'shipping').reasons.join()).toContain('承擔方與試算條款的負擔方不同');
+  });
+  it('只計入對應類別、且沒有指定其他商品的支出；缺承擔方或付款方的紀錄不會被當成「沒有往來款」', () => {
+    const r = buildFeeReport(input({ expenseRecords: [rec({ category: 'PLATFORM_FEE' }), rec({ id: 'EXP-3', productId: 'PRD-OTHER' }), rec({ id: 'EXP-4', payerParty: null })] }));
+    const ship = row(r, 'shipping');
+    expect(ship.formal.records).toMatchObject({ total: 1, withBearerAndPayer: 0, payerDiffersFromBearer: 0 });
+    expect(ship.reasons.join()).toContain('沒有記錄「承擔方」或「實際付款方」');
+    expect(ship.obligation.kind).not.toBe('NONE');
+  });
+});
+

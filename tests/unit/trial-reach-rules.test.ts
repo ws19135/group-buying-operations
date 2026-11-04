@@ -10,7 +10,7 @@ const camp = { from: '2026-11-01', to: '2026-11-10' };
 
 describe('K-4 規則版本化：規則內容與版本字串必須同步', () => {
   // 修改 REACH_RULES 的任何內容：請同時更新 REACH_RULES_VERSION 與下面這張表（新增一列，不要改舊列）
-  const PINNED: Record<string, string> = { 'reach-rules/2026-11-04.1': 'd101ec013b3cbc4e' };
+  const PINNED: Record<string, string> = { 'reach-rules/2026-11-04.1': 'd101ec013b3cbc4e', 'reach-rules/2026-11-05.1': 'edc20ba42d99a20d' };
   it('目前版本的指紋已登記；規則被悄悄改動（沒升版）會讓這個測試失敗', () => {
     expect(REACH_RULES.version).toBe(REACH_RULES_VERSION);
     expect(PINNED[REACH_RULES_VERSION]).toBeDefined();

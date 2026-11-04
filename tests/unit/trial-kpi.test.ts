@@ -17,7 +17,7 @@ const noProfit: ActualProfitResult = { status: 'INSUFFICIENT', total: null, perO
 const base = (): TrialKpiInput => ({
   period: { from: '2026-11-01', to: '2026-11-10' }, dataAsOf: '2026-11-10 09:00',
   orders: { total: 12, established: 10, valid: 8, refunded: 2, cancelled: 2, gmv: 8000, refund: 400 },
-  reach: noReach(), contribution: noProfit, complaints: { total: 1, unattributed: 0, sharedCases: 0, hostExclusive: 0, hostShared: 0, campaignValid: 8 }, hostScoped: false, checks: { tested: 10, failed: 2 }, shipments: { nonCancelled: 8, withDates: 8, onTime: 6 }, hostIntent: 'WILLING', estimatedContributionPerOrder: 123, lowSampleBelow: 30,
+  reach: noReach(), contribution: noProfit, complaints: { total: 1, unattributed: 0, sharedCases: 0, hostExclusive: 0, hostShared: 0, hostWeighted: 0, hostRelated: 0, hostValidWeighted: 0, campaignValid: 8 }, hostScoped: false, checks: { tested: 10, failed: 2 }, shipments: { nonCancelled: 8, withDates: 8, onTime: 6 }, hostIntent: 'WILLING', estimatedContributionPerOrder: 123, lowSampleBelow: 30,
 });
 const get = (r: ReturnType<typeof computeTrialKpis>, key: string) => r.items.find((x) => x.key === key)!;
 
@@ -160,18 +160,28 @@ describe('小規模測試團 KPI：資料不足，不捏造', () => {
   });
 });
 
-describe('K-5：客訴率分開呈現（檔期整體 vs 團主層級），未歸屬保留', () => {
+describe('K-5／K-5a：客訴率分開呈現（檔期整體 vs 團主層級加權），未歸屬保留', () => {
   const hostCase = (over: Partial<TrialKpiInput['complaints']> = {}): TrialKpiInput => {
     const i = base();
     i.hostScoped = true;
-    i.complaints = { total: 5, unattributed: 2, sharedCases: 1, hostExclusive: 1, hostShared: 1, campaignValid: 20, ...over };   // 檔期 20 張有效訂單；此團主 8 張
+    // 檔期 20 張有效訂單；此團主歸因的有效訂單（加權）8 張；5 件案件：單一歸屬 1、共同歸因 1（此團主分到 0.6 件）、未歸屬 2、其他團主 1
+    i.complaints = { total: 5, unattributed: 2, sharedCases: 1, hostExclusive: 1, hostShared: 1, hostWeighted: 1.6, hostRelated: 2, hostValidWeighted: 8, campaignValid: 20, ...over };
     return i;
   };
-  it('檔期整體＝全部案件 ÷ 檔期有效訂單；團主層級＝（單一歸屬＋共同歸因）÷ 此團主有效訂單；兩個分母不同、不混用', () => {
+  it('檔期整體＝全部案件（每件一次）÷ 檔期有效訂單；團主層級＝加權客訴數 ÷ 此團主有效訂單（加權）；兩個分母不同、不混用', () => {
     const k = get(computeTrialKpis(hostCase()), 'complaintDefect');
     expect(k.parts!.find((p) => p.key === 'complaintPer100')!.value).toBe(25);          // 5 ÷ 20
-    expect(k.parts!.find((p) => p.key === 'hostComplaintPer100')!.value).toBe(25);      // (1+1) ÷ 8
+    expect(k.parts!.find((p) => p.key === 'hostComplaintPer100')!.value).toBe(20);      // 1.6 ÷ 8
+    expect(k.parts!.find((p) => p.key === 'hostComplaintPer100')!.label).toContain('加權');
     expect(k.parts!.find((p) => p.key === 'hostComplaintPer100')!.reason).toContain('2 件未歸屬');
+  });
+  it('清楚標示分攤口徑與分母：共同歸因依訂單歸因比例分攤、每件合計 1、完整關聯不可加總、兩個分母各是多少', () => {
+    const f = get(computeTrialKpis(hostCase()), 'complaintDefect');
+    const facts = f.facts!.join('\n');
+    expect(facts).toContain('加權客訴數 1.6 件（共同歸因依訂單歸因比例分攤，每件合計 1 件）');
+    expect(facts).toContain('涉及此團主的案件共 2 件（完整關聯，不可加總）');
+    expect(facts).toContain('團主層級分母：此團主歸因的有效訂單（依歸因比例加權）8 張；檔期整體分母：檔期有效訂單 20 張');
+    expect(f.formula).toContain('各團主加權客訴數合計＋未歸屬＝公司整體件數');
   });
   it('未歸屬的案件不計入任何團主；說明裡明講「保留未歸屬，不分配」；共同歸因整體只算一次', () => {
     const k = get(computeTrialKpis(hostCase()), 'complaintDefect');
@@ -187,7 +197,7 @@ describe('K-5：客訴率分開呈現（檔期整體 vs 團主層級），未歸
     expect(k.parts!.some((p) => p.key === 'hostComplaintPer100')).toBe(false);
   });
   it('這位團主沒有有效訂單：團主層級客訴率是資料不足（不是 0）', () => {
-    const i = hostCase(); i.orders = { ...i.orders, valid: 0 };
+    const i = hostCase({ hostValidWeighted: 0 });
     expect(get(computeTrialKpis(i), 'complaintDefect').parts!.find((p) => p.key === 'hostComplaintPer100')!.value).toBeNull();
   });
   it('公式明講客訴率不作為團主懲罰、停權或自動處置的依據；結果裡沒有任何處置欄位', () => {
@@ -199,7 +209,7 @@ describe('K-5：客訴率分開呈現（檔期整體 vs 團主層級），未歸
     const i = base(); i.hostScoped = true;
     i.orders = { total: 0, established: 0, valid: 0, refunded: 0, cancelled: 0, gmv: 0, refund: 0 };
     i.checks = { tested: 0, failed: 0 };
-    i.complaints = { total: 2, unattributed: 1, sharedCases: 0, hostExclusive: 1, hostShared: 0, campaignValid: 0 };
+    i.complaints = { total: 2, unattributed: 1, sharedCases: 0, hostExclusive: 1, hostShared: 0, hostWeighted: 1, hostRelated: 1, hostValidWeighted: 0, campaignValid: 0 };
     const k = get(computeTrialKpis(i), 'complaintDefect');
     expect(k).toMatchObject({ status: 'INSUFFICIENT', value: null });
     expect(k.facts!.join()).toContain('客訴（客服案件）2 件'); expect(k.facts!.join()).toContain('未歸屬 1 件');

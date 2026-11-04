@@ -58,3 +58,26 @@
 - 報告呼叫前後 15 張相關資料表的筆數不變（測試驗證）。
 - 測試案例：運費 60 × 6 張有效訂單＝360（KPI 側），財務已記錄 700 元運費 → 「KPI 與正式結算尚未一致」、可能對品牌有應收；退款申請不被當成退款處理成本；多商品檔期金額不估算。
 - 結算演算法與 G1–G5 沒有任何改動。
+
+## 6. K-8a 決策落地（2026-11-05）：補齊費用歸屬欄位（migration 022）
+
+Owner 決策：進入「補齊欄位」。先盤點結構，再做最小擴充；**承擔方與實際付款方必須分開**。允許欄位、表單、查詢、權限、唯讀報表與測試；**不授權**自動產生正式應付款、自動撥款、自動扣款、修改發票、修改既有佣金結算公式、回填正式歷史交易。
+
+**盤點結論**：`expenses` 只有類別、金額、日期、檔期、狀態，缺承擔方、付款方、往來方、對應商品／團主、條款來源、付款狀態與憑證；`commission_rules`、`payments`、結算不動。
+
+**最小擴充（只擴充 `expenses`，選填，舊資料不變）**
+
+| 欄位 | 意思 |
+|---|---|
+| `bearer_party` | **承擔方**（品牌／公司／團主）：這筆費用最終該由誰負擔 |
+| `payer_party` | **實際付款方**（品牌／公司／團主／其他）：現金實際由誰付出——與承擔方是兩回事 |
+| `claim_direction`／`claim_party`／`claim_status` | 應收／應付／不產生往來款／尚未判斷；往來方；`UNCONFIRMED`→`CONFIRMED`（確認人、時間、說明）。**未確認不是付款指示** |
+| `host_id`／`product_id` | 對應團主／商品（必須在該檔期內） |
+| `terms_source_kind`／`terms_ref` | 條款來源（合約／正式商務條件／可行性／人工估計）與版本或編號 |
+| `payment_status`／`paid_on`／`paid_amount`／`evidence_url` | 付款狀態、日期、金額、憑證連結（只存連結；只接受 http/https、不得含帳號密碼） |
+| 既有 `created_by`／`updated_by` ＋稽核 | 建立者、修改者與稽核紀錄（變更前後的歸屬欄位） |
+
+**API**：`POST /api/expenses`（新欄位選填）、`PATCH /api/expenses/:id/attribution`（調整；已確認的應收／應付內容被改→退回未確認並要求重新確認）、`POST /api/expenses/:id/claim/confirm`。權限：`finance.write`；沒有 `product.cost.read` 者讀取時**遮罩**所有歸屬欄位。
+**報告**：`fee-attribution` 改用實際記錄的承擔方／付款方／往來款判斷，缺漏顯示「尚未記錄」而非推測。
+**保證（測試）**：承擔方≠付款方分開保存；未確認的應收／應付不寫入 `payments`、不產生發票或扣款（程式碼掃描＋資料筆數比對）；無權限角色看不到也改不了；其他組織 404；新增欄位不改結算佣金（`campaignHostCommission` 前後相同）。驗證：`tests/expense-attribution.test.ts`、`tests/unit/expense-attribution.test.ts`、`tests/unit/fee-attribution.test.ts`。
+**K-8 第 6 點（整合結算）**：Owner 確認為「提出未來如何整合正式結算的方案」，見 `KPI_SETTLEMENT_INTEGRATION_PROPOSAL.md`（路線圖、資料需求、風險、驗收計畫）；本階段不實作。

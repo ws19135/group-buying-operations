@@ -21,7 +21,7 @@ interface D {
   description?: string | null; buyerRef?: string | null; orderId?: string | null; assigneeUserId?: string | null; assigneeName?: string | null; internalNote?: string | null;
   events: Ev[]; refunds?: RefundV[];
   order?: { id: string; sourceSystem: string; sourceOrderId: string; status: string; grossAmount: number; refundAmount: number } | null;
-  hostAttribution?: { kind: string; label: string; hosts: { id: string; name: string }[]; manualAllowed: boolean; note: string | null; options: { value: string; label: string }[] };
+  hostAttribution?: { kind: string; label: string; hosts: { id: string; name: string; weight?: number }[]; manualAllowed: boolean; note: string | null; options: { value: string; label: string }[] };
 }
 
 const TRANSITION_LABEL: Record<string, string> = { IN_PROGRESS: '開始處理', WAITING_VENDOR: '等待廠商回覆', CLOSED: '結案' };
@@ -74,7 +74,8 @@ export default withActor(async (actor, props: { params: Params }) => {
           )}
           {internal && c.hostAttribution ? (
             <div data-testid="case-host-attribution" style={{ marginTop: 8 }}>
-              <strong>團主歸屬：</strong>{c.hostAttribution.label}{c.hostAttribution.hosts.length ? `：${c.hostAttribution.hosts.map((h) => h.name).join('、')}` : '（保留未歸屬，不任意分配）'}
+              <strong>團主歸屬：</strong>{c.hostAttribution.label}{c.hostAttribution.hosts.length ? `：${c.hostAttribution.hosts.map((h) => (c.hostAttribution!.kind === 'ORDER_SHARED' ? `${h.name}（分得 ${Math.round((h.weight ?? 0) * 100)}%）` : h.name)).join('、')}` : '（保留未歸屬，不任意分配）'}
+              {c.hostAttribution.kind === 'ORDER_SHARED' ? <div className="small muted">多位團主共同歸因：團主層級客訴率依訂單歸因比例分攤這一件（合計 1 件）；公司整體客訴數仍只算 1 件。完整關聯團主清單如上。</div> : null}
               {c.hostAttribution.note ? <div className="small muted">人工指定說明：{c.hostAttribution.note}</div> : null}
               <div className="small muted">優先由關聯訂單的歸因取得團主；無法辨識就保持未歸屬。客訴率只供營運觀察，不作為團主懲罰、停權或自動處置的依據。</div>
               {write && c.hostAttribution.manualAllowed && c.status !== 'CANCELLED' ? (

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Tx } from '../lib/db';
 import { pool, query, withTx } from '../lib/db';
 import type { Actor } from '../lib/permissions';
-import { requirePerm } from '../lib/permissions';
+import { can, requirePerm } from '../lib/permissions';
 import { forbidden, notFound, precondition, validation } from '../lib/errors';
 import { audit } from '../lib/audit';
 import { ids } from '../lib/ids';
@@ -14,6 +14,8 @@ import { applyClears, likePattern, listPaged, pageParams, patchEntity } from '..
 import { campaignHostCommission } from '../lib/commission-calc';
 import { SALES_STATUSES } from '../lib/kpi';
 import { SETTLEMENT_NOTICE } from './settlements';
+import { assertNoPii } from './selection';
+import { attributionShape, claimHint, claimProblems, evidenceUrlProblem, maskExpenseAttribution, paymentProblems } from '../lib/expense-attribution';
 
 /**
  * 財務紀錄（Phase 2）：入帳／付款確認、發票、費用。
@@ -280,7 +282,40 @@ export async function listInvoices(actor: Actor, q: URLSearchParams) {
 export const EXPENSE_CATEGORIES = ['SHIPPING', 'MARKETING', 'SAMPLE', 'PLATFORM_FEE', 'OTHER'] as const;
 export const expenseSchema = z.object({
   category: z.enum(EXPENSE_CATEGORIES), amount: money, incurredOn: date, campaignId: text(40), note: text(500),
+  // K-8a 費用歸屬（全部選填）：承擔方、實際付款方、對應團主／商品、合約與商務條件來源、付款狀態與憑證、應收／應付（預設未判斷、未確認）
+  ...attributionShape,
 });
+
+const ATTR_FIELDS = ['bearerParty', 'payerParty', 'hostId', 'productId', 'termsSourceKind', 'termsRef', 'paymentStatus', 'paidOn', 'paidAmount', 'evidenceUrl', 'claimDirection', 'claimParty', 'claimNote'] as const;
+const hasAttribution = (p: Record<string, unknown>) => ATTR_FIELDS.some((k) => p[k] !== undefined && p[k] !== null);
+
+/** 歸屬欄位的共同驗證：權限、個資、憑證連結、付款與應收應付一致性、對應團主與商品需屬於該檔期 */
+async function validateAttribution(db: Db, actor: Actor, p: Record<string, unknown>, ctx: { amount: number; campaignId: string | null; merged?: Record<string, unknown> }) {
+  const full = ctx.merged ?? p;   // 付款與應收應付的一致性要用「更新後的完整狀態」檢查（建立時就是輸入本身）
+  if (hasAttribution(p) && !can(actor, 'product.cost.read')) throw forbidden('費用歸屬（承擔方、付款方、應收應付、憑證）屬敏感商務資料，需有成本檢視權限才能填寫');
+  assertNoPii({ 條款編號: p.termsRef as string | undefined, 應收應付備註: p.claimNote as string | undefined });
+  const bad = evidenceUrlProblem(p.evidenceUrl as string | undefined);
+  if (bad) throw validation(bad);
+  const pay = paymentProblems({ paymentStatus: full.paymentStatus as string | undefined, paidOn: full.paidOn as string | null | undefined, paidAmount: full.paidAmount == null ? null : Number(full.paidAmount), amount: ctx.amount });
+  const cl = claimProblems({ claimDirection: full.claimDirection as string | undefined, claimParty: full.claimParty as string | null | undefined });
+  if (pay.length || cl.length) throw validation([...pay, ...cl].join('；'));
+  if (p.hostId) {
+    const h = await db.query(`SELECT 1 FROM hosts WHERE id=$1 AND organization_id=$2 AND deleted_at IS NULL`, [p.hostId, actor.orgId]);
+    if (!h.rowCount) throw notFound('團主');
+    if (ctx.campaignId) {
+      const ch = await db.query(`SELECT 1 FROM campaign_hosts WHERE campaign_id=$1 AND host_id=$2 AND deleted_at IS NULL AND status <> 'DECLINED'`, [ctx.campaignId, p.hostId]);
+      if (!ch.rowCount) throw validation('這位團主不在此檔期內（或已婉拒）');
+    }
+  }
+  if (p.productId) {
+    const pr = await db.query(`SELECT 1 FROM products WHERE id=$1 AND organization_id=$2 AND deleted_at IS NULL`, [p.productId, actor.orgId]);
+    if (!pr.rowCount) throw notFound('商品');
+    if (ctx.campaignId) {
+      const cp = await db.query(`SELECT 1 FROM campaign_products WHERE campaign_id=$1 AND product_id=$2 AND deleted_at IS NULL`, [ctx.campaignId, p.productId]);
+      if (!cp.rowCount) throw validation('這個商品不在此檔期內');
+    }
+  }
+}
 
 export async function createExpense(actor: Actor, raw: z.input<typeof expenseSchema>, idemKey?: string | null) {
   requirePerm(actor, 'finance.write');
@@ -288,13 +323,80 @@ export async function createExpense(actor: Actor, raw: z.input<typeof expenseSch
   return withTx(async (tx) => {
     const { result, replayed } = await idempotent(tx, actor, 'expense.create', idemKey, async () => {
       if (p.campaignId) await campaignOk(tx, actor, p.campaignId);
+      await validateAttribution(tx, actor, p as Record<string, unknown>, { amount: p.amount, campaignId: p.campaignId ?? null });
       const id = await ids.expense(tx);
-      await tx.query(`INSERT INTO expenses (id, organization_id, campaign_id, category, amount, incurred_on, note, created_by, updated_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8)`,
-        [id, actor.orgId, p.campaignId ?? null, p.category, p.amount, p.incurredOn, p.note ?? null, actor.userId]);
-      await audit(tx, actor, { action: 'expense.create', entityType: 'expense', entityId: id, campaignId: p.campaignId ?? null, after: { category: p.category, amount: p.amount, incurredOn: p.incurredOn } });
+      await tx.query(
+        `INSERT INTO expenses (id, organization_id, campaign_id, category, amount, incurred_on, note, created_by, updated_by,
+           bearer_party, payer_party, host_id, product_id, terms_source_kind, terms_ref, payment_status, paid_on, paid_amount, evidence_url, claim_direction, claim_party, claim_note)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+        [id, actor.orgId, p.campaignId ?? null, p.category, p.amount, p.incurredOn, p.note ?? null, actor.userId,
+          p.bearerParty ?? null, p.payerParty ?? null, p.hostId ?? null, p.productId ?? null, p.termsSourceKind ?? null, p.termsRef ?? null, p.paymentStatus ?? 'UNRECORDED', p.paidOn ?? null, p.paidAmount ?? null,
+          p.evidenceUrl || null, p.claimDirection ?? 'UNDETERMINED', p.claimParty ?? null, p.claimNote ?? null]);
+      await audit(tx, actor, { action: 'expense.create', entityType: 'expense', entityId: id, campaignId: p.campaignId ?? null,
+        after: { category: p.category, amount: p.amount, incurredOn: p.incurredOn, attributed: hasAttribution(p as Record<string, unknown>), bearerParty: p.bearerParty ?? null, payerParty: p.payerParty ?? null, paymentStatus: p.paymentStatus ?? 'UNRECORDED' } });
       return { id };
     }, p);
     return { ...result, replayed };
+  });
+}
+
+// ---- K-8a：事後補齊或調整費用歸屬（只動歸屬欄位；金額、類別、日期仍走既有的更新）----
+export const expenseAttributionPatchSchema = z.object(attributionShape).strict();
+export async function updateExpenseAttribution(actor: Actor, id: string, raw: unknown) {
+  requirePerm(actor, 'finance.write');
+  if (!can(actor, 'product.cost.read')) throw forbidden('費用歸屬屬敏感商務資料，需有成本檢視權限才能修改');
+  const parsed = expenseAttributionPatchSchema.parse(raw);
+  const body = raw as Record<string, unknown>;
+  // 明確傳 null 才是清除；沒傳＝不變
+  const p: Record<string, unknown> = {};
+  for (const k of ATTR_FIELDS) if (k in body) p[k] = (parsed as Record<string, unknown>)[k] ?? null;
+  return withTx(async (tx) => {
+    const cur = await tx.query(`SELECT * FROM expenses WHERE id=$1 AND organization_id=$2 FOR UPDATE`, [id, actor.orgId]);
+    const e = cur.rows[0] as Record<string, unknown> | undefined;
+    if (!e) throw notFound('費用紀錄');
+    if (e.status !== 'RECORDED') throw precondition('已作廢的費用紀錄不可修改');
+    if (e.campaign_id) await campaignOk(tx, actor, e.campaign_id as string);
+    const col: Record<string, string> = { bearerParty: 'bearer_party', payerParty: 'payer_party', hostId: 'host_id', productId: 'product_id', termsSourceKind: 'terms_source_kind', termsRef: 'terms_ref', paymentStatus: 'payment_status', paidOn: 'paid_on', paidAmount: 'paid_amount', evidenceUrl: 'evidence_url', claimDirection: 'claim_direction', claimParty: 'claim_party', claimNote: 'claim_note' };
+    const next: Record<string, unknown> = {};
+    for (const k of ATTR_FIELDS) next[k] = k in p ? p[k] : e[col[k]] instanceof Date ? (e[col[k]] as Date).toISOString().slice(0, 10) : e[col[k]] ?? null;
+    if (next.paymentStatus == null) next.paymentStatus = 'UNRECORDED';
+    if (next.claimDirection == null) next.claimDirection = 'UNDETERMINED';
+    if (next.paidAmount != null) next.paidAmount = Number(next.paidAmount);
+    await validateAttribution(tx, actor, p, { amount: Number(e.amount), campaignId: (e.campaign_id as string | null) ?? null, merged: next });
+    const sets: string[] = []; const vals: unknown[] = [id];
+    for (const k of Object.keys(p)) { vals.push(k === 'evidenceUrl' ? (p[k] || null) : p[k]); sets.push(`${col[k]}=$${vals.length}`); }
+    // 已確認的應收應付，只要方向或對象被改動就退回「未確認」，必須重新確認（不能靜默變更）
+    const claimChanged = ('claimDirection' in p && p.claimDirection !== e.claim_direction) || ('claimParty' in p && p.claimParty !== e.claim_party);
+    if (e.claim_status === 'CONFIRMED' && claimChanged) sets.push(`claim_status='UNCONFIRMED'`, `claim_confirmed_by=NULL`, `claim_confirmed_at=NULL`);
+    if (!sets.length) return { id, changed: false };
+    vals.push(actor.userId); sets.push(`updated_by=$${vals.length}`);
+    await tx.query(`UPDATE expenses SET ${sets.join(', ')} WHERE id=$1`, vals);
+    await audit(tx, actor, { action: 'expense.attribution.update', entityType: 'expense', entityId: id, campaignId: (e.campaign_id as string | null) ?? null,
+      before: { bearerParty: e.bearer_party ?? null, payerParty: e.payer_party ?? null, paymentStatus: e.payment_status, claimDirection: e.claim_direction, claimStatus: e.claim_status },
+      after: { bearerParty: next.bearerParty, payerParty: next.payerParty, paymentStatus: next.paymentStatus, claimDirection: next.claimDirection, reconfirmRequired: e.claim_status === 'CONFIRMED' && claimChanged } });
+    return { id, changed: true };
+  });
+}
+
+export const claimConfirmSchema = z.object({ note: z.string().trim().max(300).optional() }).strict();
+/** 財務確認應收／應付：只是確認「紀錄」，**不產生付款、撥款、扣款、發票或任何付款指示** */
+export async function confirmExpenseClaim(actor: Actor, id: string, raw: unknown) {
+  requirePerm(actor, 'finance.write');
+  if (!can(actor, 'product.cost.read')) throw forbidden('費用歸屬屬敏感商務資料，需有成本檢視權限才能確認');
+  const input = claimConfirmSchema.parse(raw ?? {});
+  assertNoPii({ 確認說明: input.note });
+  return withTx(async (tx) => {
+    const cur = await tx.query(`SELECT * FROM expenses WHERE id=$1 AND organization_id=$2 FOR UPDATE`, [id, actor.orgId]);
+    const e = cur.rows[0] as Record<string, unknown> | undefined;
+    if (!e) throw notFound('費用紀錄');
+    if (e.status !== 'RECORDED') throw precondition('已作廢的費用紀錄不可確認');
+    if (e.campaign_id) await campaignOk(tx, actor, e.campaign_id as string);
+    if (e.claim_status === 'CONFIRMED') throw precondition('已經確認過；要更正請先調整應收／應付內容（會退回未確認）再重新確認');
+    if (e.claim_direction !== 'RECEIVABLE' && e.claim_direction !== 'PAYABLE') throw validation('請先在費用歸屬指定「公司應收」或「公司應付」與對象，才能確認');
+    if (!e.claim_party) throw validation('請先指定應收方／應付方');
+    await tx.query(`UPDATE expenses SET claim_status='CONFIRMED', claim_confirmed_by=$2, claim_confirmed_at=now(), claim_note=COALESCE($3, claim_note), updated_by=$2 WHERE id=$1`, [id, actor.userId, input.note ?? null]);
+    await audit(tx, actor, { action: 'expense.claim.confirm', entityType: 'expense', entityId: id, campaignId: (e.campaign_id as string | null) ?? null, before: { claimStatus: 'UNCONFIRMED' }, after: { claimStatus: 'CONFIRMED', claimDirection: e.claim_direction, claimParty: e.claim_party, paymentInstruction: false } });
+    return { id, claimStatus: 'CONFIRMED' as const, paymentInstruction: false as const };
   });
 }
 
@@ -336,8 +438,12 @@ export async function listExpenses(actor: Actor, q: URLSearchParams) {
   const where = ['e.organization_id=$1'];
   const add = (col: string, v: string | null) => { if (v) { params.push(v); where.push(`${col}=$${params.length}`); } };
   add('e.campaign_id', q.get('campaignId')); add('e.category', q.get('category')); add('e.status', q.get('status') ?? 'RECORDED');
-  const base = `SELECT e.*, c.title AS campaign_title FROM expenses e LEFT JOIN campaigns c ON c.id=e.campaign_id WHERE ${where.join(' AND ')}`;
-  return camelize(await listPaged(base, params, 'e.incurred_on DESC, e.id DESC', pageParams(q)));
+  const base = `SELECT e.*, c.title AS campaign_title, h.display_name AS host_name, p.name AS product_name FROM expenses e LEFT JOIN campaigns c ON c.id=e.campaign_id LEFT JOIN hosts h ON h.id=e.host_id LEFT JOIN products p ON p.id=e.product_id WHERE ${where.join(' AND ')}`;
+  const res = camelize<{ items: Record<string, unknown>[] } & Record<string, unknown>>(await listPaged(base, params, 'e.incurred_on DESC, e.id DESC', pageParams(q)));
+  const canAttr = can(actor, 'product.cost.read');
+  // 沒有成本檢視權限者看不到歸屬欄位；有權限者另附「系統提示」（只是可能的往來款，未確認、非付款指示）
+  res.items = res.items.map((x) => maskExpenseAttribution({ ...x, ...(canAttr ? { claimHint: claimHint(x.bearerParty as string | null, x.payerParty as string | null) } : {}) }, canAttr));
+  return res;
 }
 
 // ===================== 財務總覽 =====================

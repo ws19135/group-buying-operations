@@ -1,4 +1,5 @@
 import type { FeasibilityInputs, FeasibilityResults } from './feasibility-calc';
+import { claimHint, NOT_A_PAYMENT_INSTRUCTION } from './expense-attribution';
 
 /**
  * 費用歸屬對照報告（Owner 決策 K-8；純函式，唯讀）。
@@ -22,6 +23,9 @@ export const OBLIGATION_LABEL: Record<Obligation, string> = { RECEIVABLE: '公�
 /** 財務已記錄的支出類別（expenses.category）與各項費用的對應；沒有對應類別的項目（退款處理、固定費用…）只能放在「其他」，無法逐項核對 */
 export const EXPENSE_CATEGORY_FOR: Partial<Record<FeeItemKey, string[]>> = { shipping: ['SHIPPING'], platformFee: ['PLATFORM_FEE'], otherVariable: ['OTHER', 'SAMPLE', 'MARKETING'], fixed: ['OTHER', 'MARKETING'] };
 
+/** 財務支出（含 K-8a 歸屬欄位）：只取報告需要的欄位 */
+export interface ExpenseLite { id: string; category: string; amount: number; bearerParty: string | null; payerParty: string | null; claimDirection: string; claimParty: string | null; claimStatus: string; paymentStatus: string; productId: string | null; hostId: string | null }
+
 export interface FeeInput {
   campaignId: string; campaignTitle: string; productId: string; productName: string;
   scenario: { id: string; versionNo: number; inputs: Partial<FeasibilityInputs>; sources: Record<string, { kind?: string } | undefined> } | null;
@@ -30,6 +34,8 @@ export interface FeeInput {
   /** 檔期有多個商品：訂單無法歸屬到單一商品，費用金額不估算（K-7） */
   multiProduct: boolean;
   expenses: Record<string, { total: number; count: number }>;
+  /** 逐筆支出（K-8a 之後有承擔方、實際付款方、應收應付與確認狀態）；沒提供時只用類別彙總 */
+  expenseRecords?: ExpenseLite[];
   settlement: { exists: boolean; status: string | null; adjustmentCount: number; hasHostCommissionItems: boolean };
   /** 退款申請（客服案件的退款）：只是退給買家的款項，不是「退款處理成本」 */
   refunds: { total: number; count: number };
@@ -39,7 +45,9 @@ export interface FeeRow {
   item: FeeItemKey; label: string;
   /** 試算（KPI）採用的負擔方與條款來源 */
   kpi: { bearer: Party | null; bearerLabel: string; amount: number | null; sourceKind: string | null; confirmed: boolean; termsVersion: string | null; note: string };
-  formal: { recordedExpense: number | null; expenseCount: number; handledBySettlement: boolean; note: string };
+  formal: { recordedExpense: number | null; expenseCount: number; handledBySettlement: boolean; note: string;
+    /** K-8a：支出紀錄的歸屬狀況（承擔方、實際付款方、應收應付確認） */
+    records: { total: number; withBearerAndPayer: number; payerDiffersFromBearer: number; bearerDiffersFromTerms: number; possibleReceivable: number; possiblePayable: number; claimsUnconfirmed: number; claimsConfirmed: number } };
   alignment: Alignment;
   /** 差異原因（KPI 與正式結算為什麼不一致） */
   reasons: string[];
@@ -78,6 +86,13 @@ function obligationFor(item: FeeItemKey, bearer: Party | null, mode: string | nu
     : { kind: 'UNKNOWN', explanation: `負擔方是${who}；財務沒有對應的支出紀錄，無法判斷是否由公司墊付`, toConfirm: ['實際付款方', '是否有公司墊付'] };
 }
 
+/** 財務紀錄已有承擔方與實際付款方時，以紀錄補強往來款判斷（仍然只是「可能」；未確認的應收應付不是付款指示） */
+function withRecords(base: FeeRow['obligation'], r: FeeRow['formal']['records']): FeeRow['obligation'] {
+  if (r.payerDiffersFromBearer === 0) return base;
+  const kind: Obligation = r.possibleReceivable > 0 && r.possiblePayable === 0 ? 'RECEIVABLE' : r.possiblePayable > 0 && r.possibleReceivable === 0 ? 'PAYABLE' : r.possibleReceivable + r.possiblePayable === 0 ? base.kind : 'UNKNOWN';
+  return { kind, explanation: `財務紀錄有 ${r.payerDiffersFromBearer} 筆「實際付款方不同於承擔方」（公司可能應收 ${r.possibleReceivable} 筆、可能應付 ${r.possiblePayable} 筆；其中 ${r.claimsUnconfirmed} 筆應收應付尚未確認、${r.claimsConfirmed} 筆已確認）。${base.explanation}`, toConfirm: [...new Set([...base.toConfirm, '未確認的應收應付由財務確認；確認後仍不產生付款'])] };
+}
+
 export function buildFeeReport(i: FeeInput): FeeReport {
   const inputs = (i.scenario?.inputs ?? {}) as Partial<FeasibilityInputs>;
   const ver = i.scenario ? `可行性 v${i.scenario.versionNo}（${i.scenario.id}）` : null;
@@ -92,6 +107,18 @@ export function buildFeeReport(i: FeeInput): FeeReport {
     const cats = EXPENSE_CATEGORY_FOR[item];
     const rec = cats ? cats.reduce((a, c) => ({ total: a.total + (i.expenses[c]?.total ?? 0), count: a.count + (i.expenses[c]?.count ?? 0) }), { total: 0, count: 0 }) : null;
     const handled = item === 'hostCommission' && i.settlement.hasHostCommissionItems;
+    const lite = (i.expenseRecords ?? []).filter((x) => cats?.includes(x.category) && (!x.productId || x.productId === i.productId));
+    const recs = { total: lite.length, withBearerAndPayer: 0, payerDiffersFromBearer: 0, bearerDiffersFromTerms: 0, possibleReceivable: 0, possiblePayable: 0, claimsUnconfirmed: 0, claimsConfirmed: 0 };
+    for (const x of lite) {
+      if (x.bearerParty && x.payerParty) recs.withBearerAndPayer++;
+      if (x.bearerParty && bearer && x.bearerParty !== bearer) recs.bearerDiffersFromTerms++;
+      if (x.bearerParty && x.payerParty && x.bearerParty !== x.payerParty) {
+        recs.payerDiffersFromBearer++;
+        const h = claimHint(x.bearerParty, x.payerParty);
+        if (h.kind === 'RECEIVABLE') recs.possibleReceivable++; else if (h.kind === 'PAYABLE') recs.possiblePayable++;
+      }
+      if (x.claimDirection === 'RECEIVABLE' || x.claimDirection === 'PAYABLE') { if (x.claimStatus === 'CONFIRMED') recs.claimsConfirmed++; else recs.claimsUnconfirmed++; }
+    }
     const reasons: string[] = [];
     let alignment: Alignment;
     if (!i.scenario) { alignment = 'INSUFFICIENT'; reasons.push('這個商品在此檔期沒有商業可行性條款，無法對照'); }
@@ -103,7 +130,13 @@ export function buildFeeReport(i: FeeInput): FeeReport {
     } else {
       alignment = 'NOT_ALIGNED';
       reasons.push(item === 'companyServiceFee' ? '正式結算沒有計算公司服務費；KPI 以試算條款的比例與基礎計算' : '正式結算沒有處理這項費用；KPI 依試算條款的負擔方計算');
-      if (cats) reasons.push(rec && rec.count > 0 ? `財務有 ${rec.count} 筆相關支出（共 ${rec.total} 元），但支出紀錄沒有「負擔方」與「實際付款方」，無法與試算逐項核對` : '財務沒有對應類別的支出紀錄');
+      if (cats) {
+        if (!rec || rec.count === 0) reasons.push('財務沒有對應類別的支出紀錄');
+        else if (recs.total > 0 && recs.withBearerAndPayer === recs.total) reasons.push(`財務有 ${rec.count} 筆相關支出（共 ${rec.total} 元），皆已記錄承擔方與實際付款方，可與試算逐筆核對`);
+        else reasons.push(`財務有 ${rec.count} 筆相關支出（共 ${rec.total} 元），其中 ${rec.count - recs.withBearerAndPayer} 筆沒有記錄「承擔方」或「實際付款方」，無法與試算逐筆核對`);
+        if (recs.bearerDiffersFromTerms > 0) reasons.push(`有 ${recs.bearerDiffersFromTerms} 筆支出紀錄的承擔方與試算條款的負擔方不同`);
+        if (recs.payerDiffersFromBearer > 0) reasons.push(`有 ${recs.payerDiffersFromBearer} 筆支出的實際付款方不同於承擔方（可能形成應收或應付；其中 ${recs.claimsUnconfirmed} 筆應收應付尚未確認；${NOT_A_PAYMENT_INSTRUCTION}）`);
+      }
       else reasons.push('財務支出類別沒有對應這項費用，無法逐項核對');
       if (item === 'returnCost') reasons.push(`財務有退款申請 ${i.refunds.count} 筆（共 ${i.refunds.total} 元）：那是退給買家的款項，不是「退款／退貨處理成本」`);
     }
@@ -113,9 +146,9 @@ export function buildFeeReport(i: FeeInput): FeeReport {
     return {
       item, label: FEE_ITEM_LABEL[item],
       kpi: { bearer, bearerLabel, amount, sourceKind: srcKind, confirmed, termsVersion: ver, note: amount == null ? (i.multiProduct ? '多商品檔期，不估算' : '資料不足或尚未算出') : '依實際訂單與試算條款計算（KPI／實際值回寫同一定義）' },
-      formal: { recordedExpense: rec ? rec.total : null, expenseCount: rec?.count ?? 0, handledBySettlement: handled, note: handled ? '正式結算已處理' : '正式結算未處理這項費用' },
+      formal: { recordedExpense: rec ? rec.total : null, expenseCount: rec?.count ?? 0, handledBySettlement: handled, note: handled ? '正式結算已處理' : '正式結算未處理這項費用', records: recs },
       alignment, reasons,
-      obligation: obligationFor(item, bearer, inputs.cashFlowMode ?? null, rec ? rec.total : null),
+      obligation: withRecords(obligationFor(item, bearer, inputs.cashFlowMode ?? null, rec ? rec.total : null), recs),
     };
   });
   const mode = inputs.cashFlowMode ?? null;

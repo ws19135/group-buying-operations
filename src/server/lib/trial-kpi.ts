@@ -35,10 +35,12 @@ export interface TrialKpiInput {
   /** 實際貢獻利潤（lib/actual-profit）；沒有檔期為 null */
   contribution: ActualProfitResult | null;
   /**
-   * 客服案件（排除已取消）：total＝檔期整體件數（每件只算一次）；hostExclusive／hostShared＝歸屬此團主（單一歸屬或人工）／與其他團主共同歸因的件數（只有指定團主的試用才有）；
-   * unattributed＝無法歸屬任何團主的件數（保留未歸屬，不分配）；campaignValid＝檔期整體的有效訂單數（整體客訴率的分母）。Owner 決策 K-5。
+   * 客服案件（排除已取消）：total＝檔期整體件數（同一案件只算一次）；hostExclusive／hostShared＝歸屬此團主（單一歸屬或人工）／與其他團主共同歸因的件數；
+   * hostWeighted＝此團主的**加權客訴數**（共同歸因依訂單歸因比例分攤，每件合計 1；各團主加權合計＋未歸屬＝total）；hostRelated＝涉及此團主的完整案件數（含共同歸因，不可加總）；
+   * hostValidWeighted＝此團主歸因的有效訂單（依歸因比例加權）＝團主層級客訴率的分母；unattributed＝無法歸屬任何團主的件數（保留未歸屬，不分配）；
+   * campaignValid＝檔期整體的有效訂單數（整體客訴率的分母）。Owner 決策 K-5、K-5a。
    */
-  complaints: { total: number; unattributed: number; sharedCases: number; hostExclusive: number; hostShared: number; campaignValid: number };
+  complaints: { total: number; unattributed: number; sharedCases: number; hostExclusive: number; hostShared: number; hostWeighted: number; hostRelated: number; hostValidWeighted: number; campaignValid: number };
   /** 試用檢核項：已測項目數與其中未通過數 */
   checks: { tested: number; failed: number };
   shipments: { nonCancelled: number; withDates: number; onTime: number };
@@ -133,15 +135,15 @@ export function computeTrialKpis(i: TrialKpiInput): TrialKpiResult {
           { key: 'cancelRate', label: '取消比例', value: cancelBase > 0 ? pct(o.cancelled, cancelBase) : null, unit: '%', reason: cancelBase > 0 ? null : '尚無訂單', sampleSize: cancelBase }] });
 
   // 6 客訴與缺陷率（K-5：檔期整體與團主層級分開；客訴率只供觀察，不作為團主懲罰、停權或自動處置的依據）
-  const k6 = { key: 'complaintDefect', no: 6, label: '客訴與缺陷率', unit: '', formula: '檔期整體客訴率＝客服案件數（每件只算一次）÷ 檔期有效訂單數 × 100（每百單）；團主層級客訴率＝歸屬此團主的案件（訂單歸因為單一團主、或人工指定）＋與其他團主共同歸因的案件 ÷ 此團主歸因的有效訂單數 × 100；缺陷率＝試用檢核項中未通過的項目 ÷ 已測項目 × 100。無法辨識團主的客訴保留「未歸屬」，不任意分配。客訴率只供營運觀察，不作為團主懲罰、停權或任何自動處置的依據', source: 'service_cases（團主歸屬：優先由訂單歸因推導，無法推導者可人工指定並記錄來源）、attributions、trial_checks', periodNote: '客訴：本檔期；缺陷：本次試用' };
+  const k6 = { key: 'complaintDefect', no: 6, label: '客訴與缺陷率', unit: '', formula: '檔期整體客訴率＝客服案件數（每件只算一次）÷ 檔期有效訂單數 × 100（每百單）；團主層級（加權）客訴率＝此團主的加權客訴數 ÷ 此團主歸因的有效訂單（依歸因比例加權）× 100（加權客訴數：單一歸屬或人工指定算 1 件；多位團主共同歸因的案件，依訂單歸因比例分攤，每件合計 1 件，所以各團主加權客訴數合計＋未歸屬＝公司整體件數）；缺陷率＝試用檢核項中未通過的項目 ÷ 已測項目 × 100。無法辨識團主的客訴保留「未歸屬」，不任意分配。客訴率只供營運觀察，不作為團主懲罰、停權或任何自動處置的依據', source: 'service_cases（團主歸屬：優先由訂單歸因推導，無法推導者可人工指定並記錄來源）、attributions、trial_checks', periodNote: '客訴：本檔期；缺陷：本次試用' };
   const cm = i.complaints;
   const complaint = cm.campaignValid > 0 ? r2((cm.total / cm.campaignValid) * 100) : null;
-  const hostLevel = i.hostScoped ? (o.valid > 0 ? r2(((cm.hostExclusive + cm.hostShared) / o.valid) * 100) : null) : null;
+  const hostLevel = i.hostScoped ? (cm.hostValidWeighted > 0 ? r2((cm.hostWeighted / cm.hostValidWeighted) * 100) : null) : null;
   const defect = i.checks.tested > 0 ? pct(i.checks.failed, i.checks.tested) : null;
-  const complaintFacts = [`客訴（客服案件）${cm.total} 件（檔期整體，每件只算一次）`, ...(i.hostScoped ? [`歸屬此團主 ${cm.hostExclusive} 件、與其他團主共同歸因 ${cm.hostShared} 件`] : []), `未歸屬 ${cm.unattributed} 件（保留未歸屬，不分配給任何團主）${cm.sharedCases ? `；多位團主共同歸因 ${cm.sharedCases} 件（整體只算一次）` : ''}`];
+  const complaintFacts = [`客訴（客服案件）${cm.total} 件（檔期整體，每件只算一次）`, ...(i.hostScoped ? [`歸屬此團主 ${cm.hostExclusive} 件、與其他團主共同歸因 ${cm.hostShared} 件；加權客訴數 ${r2(cm.hostWeighted)} 件（共同歸因依訂單歸因比例分攤，每件合計 1 件）；涉及此團主的案件共 ${cm.hostRelated} 件（完整關聯，不可加總）`, `團主層級分母：此團主歸因的有效訂單（依歸因比例加權）${r2(cm.hostValidWeighted)} 張；檔期整體分母：檔期有效訂單 ${cm.campaignValid} 張`] : []), `未歸屬 ${cm.unattributed} 件（保留未歸屬，不分配給任何團主）${cm.sharedCases ? `；多位團主共同歸因 ${cm.sharedCases} 件（整體只算一次）` : ''}`];
   const k6parts = [
     { key: 'complaintPer100', label: '客訴率（檔期整體，每百單）', value: complaint, unit: '件／百單', reason: complaint == null ? '檔期沒有有效訂單' : null, sampleSize: cm.campaignValid },
-    ...(i.hostScoped ? [{ key: 'hostComplaintPer100', label: '客訴率（此團主層級，每百單）', value: hostLevel, unit: '件／百單', reason: hostLevel == null ? '這位團主沒有歸因的有效訂單' : cm.unattributed > 0 ? `另有 ${cm.unattributed} 件未歸屬，未計入此團主` : null, sampleSize: o.valid }] : []),
+    ...(i.hostScoped ? [{ key: 'hostComplaintPer100', label: '客訴率（此團主層級，加權；每百單）', value: hostLevel, unit: '件／百單', reason: hostLevel == null ? '這位團主沒有歸因的有效訂單' : cm.unattributed > 0 ? `另有 ${cm.unattributed} 件未歸屬，未計入此團主` : null, sampleSize: o.valid }] : []),
     { key: 'defectRate', label: '缺陷率（試用檢核項）', value: defect, unit: '%', reason: defect == null ? '尚無已測的檢核項' : null, sampleSize: i.checks.tested }];
   // 即使比率因沒有有效訂單而資料不足，案件件數與歸屬狀況仍照實列出（不隱藏事實）
   items.push(complaint == null && defect == null && hostLevel == null

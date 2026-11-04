@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto';
  * 規則版本（Owner 決策 K-4）：有效導購訪客「可不可以當 CVR 分母」的規則是有版本的；每筆記錄保留填寫當時的版本，查核時另記查核當下的版本。
  * 修改 REACH_RULES 的任何內容，必須同時更新版本字串與 tests/unit/trial-reach-rules.test.ts 的指紋，否則測試會失敗（避免悄悄改規則）。
  */
-export const REACH_RULES_VERSION = 'reach-rules/2026-11-04.1';
+export const REACH_RULES_VERSION = 'reach-rules/2026-11-05.1';
 export const DEDUPE_METHODS = ['PLATFORM_UNIQUE_USERS', 'SHORT_LINK_UNIQUE_CLIENTS', 'MANUAL_DEDUP', 'NOT_DEDUPED', 'UNKNOWN'] as const;
 export type DedupeMethod = (typeof DEDUPE_METHODS)[number];
 export const DEDUPE_LABEL: Record<DedupeMethod, string> = {
@@ -28,6 +28,10 @@ export const REACH_RULES = {
     selfReportNeverProvesUnique: true,                                       // 團主自行回報不能證明不重複
     verificationRequired: true,                                              // 需第二位有 product.review 權限的人查核；填寫者自選高／中不算已驗證
     verifierMustDiffer: true,
+    // K-4a：人力不足時不建立自行核准的例外捷徑——保持待查核；有權主管可指派另一位具 product.review 權限的人查核，指派後只有被指派者可查核；被退回的資料以「補件」重新填寫並保留紀錄鏈
+    noSelfApprovalException: true,
+    verifierAssignment: { assignerPermission: 'product.review', assigneePermission: 'product.review', assigneeMustDifferFromFiller: true, onlyAssigneeMayVerify: true },
+    resubmission: { onlyAfterRejection: true, onePerRejectedRecord: true },
     periodMustOverlapCampaign: true,
     forbiddenSources: ['LINE_GROUP_MEMBERS', 'PLATFORM_POST_REACH'],         // 群組成員數與貼文觸及不能當有效導購訪客
   },
@@ -67,6 +71,8 @@ export interface ReachRecord {
   deleted: boolean; deletedAt: string | null; deleteReason: string | null;
   evidenceRef: string | null; dedupeMethod: DedupeMethod | null; dedupeNote: string | null; rulesVersion: string;
   verificationStatus: VerificationStatus; verifiedBy: string | null; verifiedByName: string | null; verifiedAt: string | null; verifyNote: string | null; verifyRulesVersion: string | null;
+  /** K-4a：指派的查核者、補件鏈 */
+  assignedVerifierId?: string | null; assignedVerifierName?: string | null; assignedBy?: string | null; assignedAt?: string | null; assignmentNote?: string | null; resubmitsId?: string | null;
 }
 
 export function sourceProblem(metric: ReachMetric, kind: ReachSourceKind): string | null {
@@ -112,6 +118,6 @@ export function visitorsUsable(rec: ReachRecord | null, campaign: { from: string
   if ((REACH_RULES.visitors.evidenceRequiredFor as readonly string[]).includes(rec.credibility) && (rec.evidenceRef ?? '').trim().length < 4) return { usable: false, reason: '「有效導購訪客」缺少來源佐證或可查核的來源識別，不採用' };
   if (!dedupeProvesUnique(rec.dedupeMethod, rec.dedupeNote)) return { usable: false, reason: `來源不能證明訪客不重複（去重方式：${rec.dedupeMethod ? DEDUPE_LABEL[rec.dedupeMethod] : '未記錄'}），CVR 資料不足` };
   if (rec.verificationStatus === 'REJECTED') return { usable: false, reason: '「有效導購訪客」查核退回，不採用' };
-  if (rec.verificationStatus !== 'VERIFIED') return { usable: false, reason: '「有效導購訪客」尚未經第二位有權限的人查核（填寫者自選的可信度不算已驗證），CVR 資料不足' };
+  if (rec.verificationStatus !== 'VERIFIED') return { usable: false, reason: `「有效導購訪客」尚未經第二位有權限的人獨立查核（填寫者自選的可信度不算已驗證；${rec.assignedVerifierId ? `已指派 ${rec.assignedVerifierName ?? rec.assignedVerifierId} 查核，待查核` : '尚未指派查核者，待查核'}），CVR 資料不足` };
   return { usable: true, reason: null };
 }

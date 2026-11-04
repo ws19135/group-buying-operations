@@ -152,3 +152,25 @@ Owner 決策：增加團主歸屬能力，但第一階段**不強制**每件客�
 | K-6a～d | 差異出現時以誰為準、財務規則是否新增欄位、已確認結算更正流程、是否留存差異覆核紀錄 | 見 `COMMISSION_RECONCILIATION.md` §7 |
 | K-7a～e | 是否啟用多商品成本分攤、共同費用層級、每項費用各自方法、財務支出欄位、退款是否逐明細 | 見 `MULTI_PRODUCT_COST_ALLOCATION_PROPOSAL.md` §6 |
 | K-8a～d | 是否進入「補齊欄位」階段、是否把費用納入結算、實際付款方由誰記錄、外部會計／發票整合 | 見 `KPI_SETTLEMENT_INTEGRATION_PROPOSAL.md` §5 |
+
+## 8. K-4a／K-5a 決策落地（2026-11-05，分支 `feat/k4a-k8a-fee-attribution`，基於 PR #21）
+
+### 8.1 K-4a：查核者必須是另一個人；單一主管時維持待查核（migration 021，規則版本 `reach-rules/2026-11-05.1`）
+
+| 規則 | 實作 | 驗證 |
+|---|---|---|
+| 填寫者不能查核自己填的資料，**沒有自行核准的例外** | 服務層 `verifyReach` 擋填寫者；資料庫 `trial_reach_guard()` 同樣擋 | `tests/trial-kpi-decisions.test.ts`（K-4a） |
+| 只有一位有權限的主管（就是填寫者）時，紀錄**維持「待查核」**，不會自動通過 | 沒有第二位有效查核者時 CVR 維持「資料不足」，原因明講「尚未經第二位有權限的人獨立查核」（並顯示是否已指派查核者） | 同上 |
+| 有權限者可**指派另一位**適當權限的人查核 | `POST /api/reach-records/:id/assign-verifier`（`product.review`）；候選人＝同組織、啟用中、具查核權限、非填寫者；不能指派填寫者；被指派後只有被指派者可查核 | 同上 |
+| 完整紀錄：填寫、指派、查核、退回、補件 | `trial_reach_records` 新增指派欄位與 `resubmits_id`（補件鏈）；`GET /api/trials/:id/reach-history` 以事件時間軸回傳；補件是新紀錄，舊紀錄保留 | 同上 |
+| 規則變更必升版 | `REACH_RULES.version` 已升為 `reach-rules/2026-11-05.1`；指紋測試 `PINNED` 同時保留舊版指紋 | `tests/unit/trial-reach-rules.test.ts` |
+
+### 8.2 K-5a：共同歸因客訴的加權計數
+
+- **公司整體**：每件客訴只算一次（`total`）。
+- **團主層級**：「加權客訴件數」＝每件客訴依有效歸因比例分給相關團主（優先採訂單歸因的比例；比例缺漏或合計不為 1 時正規化，合計 ≤ 0 時平均分配）。
+- **恆等式**：Σ(各團主加權) ＋ 未歸屬 ＝ 公司總數（測試以 `1e-9` 容許誤差守住）；**不得**把各團主的「完整相關件數」（`relatedCases`）加總當作公司總數。
+- 完整相關團主清單仍保留（`relatedCases`、`hostIds`）；無法歸屬的維持「未歸屬」，不強制分配。
+- 畫面與 KPI 標明**分攤依據**（訂單歸因比例）與**分母**（檔期整體＝有效訂單；團主層級＝該團主歸因的有效訂單）。
+- 不自動停權、處分或扣款（`complaintRate` 僅供營運參考，沿用 K-5 保證）。
+- 驗證：`tests/unit/complaint-attribution.test.ts`、`tests/complaint-attribution.test.ts`、`tests/unit/trial-kpi.test.ts`。

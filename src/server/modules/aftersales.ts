@@ -210,7 +210,7 @@ export async function getCase(actor: Actor, id: string) {
   const hostNames = attr.hostIds.length ? await query<{ id: string; display_name: string }>(`SELECT id, display_name FROM hosts WHERE id = ANY($1::text[]) AND organization_id=$2`, [attr.hostIds, actor.orgId]) : [];
   const campaignHosts = await query<{ id: string; display_name: string }>(
     `SELECT h.id, h.display_name FROM campaign_hosts ch JOIN hosts h ON h.id=ch.host_id WHERE ch.campaign_id=$1 AND ch.organization_id=$2 AND ch.deleted_at IS NULL AND ch.status <> 'DECLINED' ORDER BY h.display_name`, [row['campaign_id'], actor.orgId]);
-  const hostAttribution = { kind: attr.kind, label: ATTRIBUTION_LABEL[attr.kind], hosts: hostNames.map((h) => ({ id: h.id, name: h.display_name })), manualAllowed: attr.kind === 'UNATTRIBUTED' || attr.kind === 'MANUAL',
+  const hostAttribution = { kind: attr.kind, label: ATTRIBUTION_LABEL[attr.kind], hosts: hostNames.map((h) => ({ id: h.id, name: h.display_name, weight: attr.weights[h.id] ?? 0 })), manualAllowed: attr.kind === 'UNATTRIBUTED' || attr.kind === 'MANUAL',
     note: (row['host_attribution_note'] as string | null) ?? null, attributedAt: row['host_attributed_at'] ?? null, options: campaignHosts.map((h) => ({ value: h.id, label: h.display_name })) };
   return { ...c, assigneeName: assignee, events, refunds, order, hostAttribution };
 }
