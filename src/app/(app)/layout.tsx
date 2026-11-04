@@ -27,6 +27,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     { href: '/products', label: '商品', testid: 'nav-products', group: '主檔', show: has('product.read') },
     { href: '/segments', label: '客群', testid: 'nav-segments', group: '主檔', show: has('segment.read') },
     { href: '/finance', label: '財務結算', testid: 'nav-finance', group: '財務', show: has('finance.read') },
+    { href: '/finance/reconciliation', label: '財務口徑核對', testid: 'nav-finance-recon', group: '財務', show: has('finance.read') && has('product.cost.read') },
     { href: '/finance/mine', label: '我的結算', testid: 'nav-finance-mine', group: '財務', show: actor.role === 'HOST' && has('commission.read') },
     { href: '/orders', label: '訂單明細', testid: 'nav-orders', group: '資料與監控', show: has('order.read') },
     { href: '/imports', label: '訂單匯入', testid: 'nav-imports', group: '資料與監控', show: has('order.read') },

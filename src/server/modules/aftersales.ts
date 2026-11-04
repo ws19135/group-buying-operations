@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { Tx } from '../lib/db';
-import { query, withTx } from '../lib/db';
+import { pool, query, withTx } from '../lib/db';
 import type { Actor } from '../lib/permissions';
 import { INTERNAL_ROLES, isInternal, requirePerm } from '../lib/permissions';
 import { AppError, forbidden, notFound, precondition, validation } from '../lib/errors';
@@ -13,6 +13,8 @@ import { applyClears, likePattern, listPaged, pageParams, patchEntity } from '..
 import { campaignScope } from '../lib/scope';
 import { idempotent } from '../lib/idempotency';
 import { queueNotification } from './notifications';
+import { loadCaseAttributions } from './complaint-attribution';
+import { ATTRIBUTION_LABEL } from '../lib/complaint-attribution';
 
 export const CASE_TYPES = ['REFUND', 'COMPLAINT', 'EXCHANGE', 'OTHER'] as const;
 export const CASE_STATUSES = ['OPEN', 'IN_PROGRESS', 'WAITING_VENDOR', 'RESOLVED', 'CLOSED', 'CANCELLED'] as const;
@@ -204,7 +206,43 @@ export async function getCase(actor: Actor, id: string) {
     ? camelize((await query(`SELECT id, source_system, source_order_id, status, gross_amount, refund_amount, ordered_at FROM orders WHERE id=$1`, [row['order_id']]))[0] ?? null)
     : null;
   const assignee = row['assignee_user_id'] ? (await query<{ name: string }>('SELECT name FROM users WHERE id=$1', [row['assignee_user_id']]))[0]?.name ?? null : null;
-  return { ...c, assigneeName: assignee, events, refunds, order };
+  const attr = (await loadCaseAttributions(pool(), actor.orgId, [{ id, order_id: (row['order_id'] as string | null) ?? null, attributed_host_id: (row['attributed_host_id'] as string | null) ?? null }]))[0];
+  const hostNames = attr.hostIds.length ? await query<{ id: string; display_name: string }>(`SELECT id, display_name FROM hosts WHERE id = ANY($1::text[]) AND organization_id=$2`, [attr.hostIds, actor.orgId]) : [];
+  const campaignHosts = await query<{ id: string; display_name: string }>(
+    `SELECT h.id, h.display_name FROM campaign_hosts ch JOIN hosts h ON h.id=ch.host_id WHERE ch.campaign_id=$1 AND ch.organization_id=$2 AND ch.deleted_at IS NULL AND ch.status <> 'DECLINED' ORDER BY h.display_name`, [row['campaign_id'], actor.orgId]);
+  const hostAttribution = { kind: attr.kind, label: ATTRIBUTION_LABEL[attr.kind], hosts: hostNames.map((h) => ({ id: h.id, name: h.display_name })), manualAllowed: attr.kind === 'UNATTRIBUTED' || attr.kind === 'MANUAL',
+    note: (row['host_attribution_note'] as string | null) ?? null, attributedAt: row['host_attributed_at'] ?? null, options: campaignHosts.map((h) => ({ value: h.id, label: h.display_name })) };
+  return { ...c, assigneeName: assignee, events, refunds, order, hostAttribution };
+}
+
+/**
+ * 人工指定客訴的團主（K-5）：只有「無法由訂單歸因取得團主」的案件才允許（有訂單歸因就以訂單歸因為準）；必須說明原因；
+ * 團主需在該檔期內（未婉拒）；hostId 為 null＝清除人工指定、回到「未歸屬」。不強制每件客訴都指定團主；不會自動分配。
+ */
+export const caseHostSchema = z.object({ hostId: z.string().max(40).nullable().optional(), note: z.string().trim().max(300).optional() }).strict();
+export async function setCaseHostAttribution(actor: Actor, id: string, raw: z.input<typeof caseHostSchema>) {
+  requirePerm(actor, 'aftersales.write');
+  const parsed = caseHostSchema.parse(raw);
+  const input = { hostId: parsed.hostId || null, note: parsed.note };
+  assertNoPii({ 歸屬說明: input.note });
+  return withTx(async (tx) => {
+    const cur = await loadCaseScoped(tx, actor, id, true);
+    if (cur['status'] === 'CANCELLED') throw precondition('已取消的案件不能調整團主歸屬');
+    const derived = (await loadCaseAttributions(tx, actor.orgId, [{ id, order_id: (cur['order_id'] as string | null) ?? null, attributed_host_id: null }]))[0];
+    if (derived.kind === 'ORDER_SINGLE' || derived.kind === 'ORDER_SHARED') throw precondition('這件客訴可由關聯訂單的歸因取得團主，以訂單歸因為準，不需要也不能人工指定');
+    if (input.hostId) {
+      if (!input.note || input.note.length < 2) throw validation('人工指定團主需說明原因（例如：買家來自某團主的群組）');
+      const h = await tx.query(`SELECT 1 FROM campaign_hosts WHERE campaign_id=$1 AND host_id=$2 AND organization_id=$3 AND deleted_at IS NULL AND status <> 'DECLINED'`, [cur['campaign_id'], input.hostId, actor.orgId]);
+      if (!h.rowCount) throw validation('這位團主不在此檔期內（或已婉拒）');
+      await tx.query(`UPDATE service_cases SET attributed_host_id=$2, host_attribution_source='MANUAL', host_attribution_note=$3, host_attributed_by=$4, host_attributed_at=now(), updated_by=$4 WHERE id=$1`, [id, input.hostId, input.note, actor.userId]);
+    } else {
+      await tx.query(`UPDATE service_cases SET attributed_host_id=NULL, host_attribution_source=NULL, host_attribution_note=NULL, host_attributed_by=NULL, host_attributed_at=NULL, updated_by=$2 WHERE id=$1`, [id, actor.userId]);
+    }
+    await logEvent(tx, actor, id, 'UPDATE', { note: input.hostId ? '人工指定團主歸屬' : '清除人工指定的團主歸屬' });
+    await audit(tx, actor, { action: 'aftersales.case.host_attribution', entityType: 'service_case', entityId: id, campaignId: cur['campaign_id'] as string,
+      before: { attributedHostId: cur['attributed_host_id'] ?? null }, after: { attributedHostId: input.hostId, source: input.hostId ? 'MANUAL' : null } });
+    return { id, attributedHostId: input.hostId };
+  });
 }
 
 export async function updateCase(actor: Actor, id: string, raw: z.input<typeof caseUpdateSchema>) {

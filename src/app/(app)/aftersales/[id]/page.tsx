@@ -21,6 +21,7 @@ interface D {
   description?: string | null; buyerRef?: string | null; orderId?: string | null; assigneeUserId?: string | null; assigneeName?: string | null; internalNote?: string | null;
   events: Ev[]; refunds?: RefundV[];
   order?: { id: string; sourceSystem: string; sourceOrderId: string; status: string; grossAmount: number; refundAmount: number } | null;
+  hostAttribution?: { kind: string; label: string; hosts: { id: string; name: string }[]; manualAllowed: boolean; note: string | null; options: { value: string; label: string }[] };
 }
 
 const TRANSITION_LABEL: Record<string, string> = { IN_PROGRESS: '開始處理', WAITING_VENDOR: '等待廠商回覆', CLOSED: '結案' };
@@ -71,6 +72,19 @@ export default withActor(async (actor, props: { params: Params }) => {
               ['處理結果', c.resolution ?? '—'], ['建立時間', fmtDateTime(c.createdAt)], ['解決時間', c.resolvedAt ? fmtDateTime(c.resolvedAt) : '—'],
             ]} />
           )}
+          {internal && c.hostAttribution ? (
+            <div data-testid="case-host-attribution" style={{ marginTop: 8 }}>
+              <strong>團主歸屬：</strong>{c.hostAttribution.label}{c.hostAttribution.hosts.length ? `：${c.hostAttribution.hosts.map((h) => h.name).join('、')}` : '（保留未歸屬，不任意分配）'}
+              {c.hostAttribution.note ? <div className="small muted">人工指定說明：{c.hostAttribution.note}</div> : null}
+              <div className="small muted">優先由關聯訂單的歸因取得團主；無法辨識就保持未歸屬。客訴率只供營運觀察，不作為團主懲罰、停權或自動處置的依據。</div>
+              {write && c.hostAttribution.manualAllowed && c.status !== 'CANCELLED' ? (
+                <Modal label={c.hostAttribution.kind === 'MANUAL' ? '調整團主歸屬' : '人工指定團主'} title="人工指定這件客訴的團主" size="btn sm" testid="btn-case-host">
+                  <p className="small muted">只有無法由訂單歸因取得團主的案件才能人工指定；請寫明依據（不要寫電話或 Email）。選「未歸屬」＝清除人工指定。</p>
+                  <ApiForm endpoint={`/api/aftersales/cases/${c.id}/host-attribution`} submitLabel="儲存" testid="case-host-form" successMessage="已更新團主歸屬" fields={[
+                    { name: 'hostId', label: '團主', type: 'select', defaultValue: c.hostAttribution.hosts[0]?.id ?? '', options: [{ value: '', label: '未歸屬（清除）' }, ...c.hostAttribution.options] },
+                    { name: 'note', label: '歸屬依據（指定團主時必填）', type: 'textarea' }]} />
+                </Modal>) : null}
+            </div>) : null}
           {internal && c.order ? <p className="small muted" data-testid="case-order">關聯訂單：{c.order.id}（{c.order.sourceSystem} {c.order.sourceOrderId}）・金額 {money(c.order.grossAmount)}・已退 {money(c.order.refundAmount)}・{c.order.status}</p> : null}
         </Card>
         <Card title="處理紀錄" testid="case-events" actions={write && !['CLOSED', 'CANCELLED'].includes(c.status) ? <Modal label="＋ 新增備註" title="新增備註" size="btn sm" testid="btn-add-note">

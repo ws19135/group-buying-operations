@@ -17,9 +17,9 @@
 | 項目 | 現況（✅ 已核對） |
 |---|---|
 | 技術棧 | Next.js 15.5（App Router）、React 19、TypeScript 5.9、PostgreSQL 16、`pg` 8（無 ORM）、zod 3.25、vitest 3、Playwright 1.63（`package.json`） |
-| 規模 | 67 張資料表（18 支 migration，含 013 客群分析與適配的 5 張、014 選品與試用的 7 張；015 只更新模板說明文字；016 選品 V2＋調查版本：新增 1 張補件要求表；017 試用新增團主再次合作意願兩個欄位，不新增資料表；018 新增觸及與導購資料 1 張表 `trial_reach_records`）、196 個 API 端點（`routes.ts` 的 `R(`／`P(` 計數，含 SOP 01 的 22 條、SOP 02／03 的 33 條）、6 個角色、52 項權限（含 SOP 01 的 6 項、SOP 02／03 的 3 項）、14 種檔期狀態、8 個自動化工作 |
+| 規模 | 67 張資料表（20 支 migration，含 013 客群分析與適配的 5 張、014 選品與試用的 7 張；015 只更新模板說明文字；016 選品 V2＋調查版本：新增 1 張補件要求表；017 試用新增團主再次合作意願兩個欄位，不新增資料表；018 新增觸及與導購資料 1 張表 `trial_reach_records`；019 有效導購訪客的佐證、去重方式與查核欄位；020 客服案件的人工團主歸屬欄位，皆只新增欄位）、201 個 API 端點（`routes.ts` 的 `R(`／`P(` 計數，含 SOP 01 的 22 條、SOP 02／03 的 33 條）、6 個角色、52 項權限（含 SOP 01 的 6 項、SOP 02／03 的 3 項）、14 種檔期狀態、8 個自動化工作 |
 | 使用者介面 | 繁體中文、桌面為主；`src/app` 共 45 個頁面檔（`page.tsx`，含登入頁與首頁導向；SOP 01 新增 `/fit`、`/segments`、`/segments/[id]`，團主、商品、檔期頁另加面板；SOP 02／03 新增 `/selection`、`/diligence/[id]`、`/trials/[id]`、`/feasibility/[id]`，廠商、商品、檔期頁另加面板） |
-| 測試 | 41 個測試檔、740 項（含 SOP 01 新增的 3 檔 82 項、SOP 02／03 新增的 10 檔 187 項），使用真實 PostgreSQL；另有 Playwright E2E（`scripts/e2e-smoke.ts`，SOP 02／03 另加「選品與試用」區塊；`scripts/e2e-aftersales.ts`） |
+| 測試 | 48 個測試檔、809 項（含 SOP 01 新增的 3 檔 82 項、SOP 02／03 新增的 10 檔 187 項），使用真實 PostgreSQL；另有 Playwright E2E（`scripts/e2e-smoke.ts`，SOP 02／03 另加「選品與試用」區塊；`scripts/e2e-aftersales.ts`） |
 
 ---
 
@@ -162,6 +162,9 @@ flowchart TB
 | `trial-kpis`（SOP 03） | 小規模測試團 8 項成效 KPI 的資料彙整與 K-1 累積彙整（訂單用共用的 `lib/actual-sales`、貢獻利潤用共用的 `lib/actual-profit`；公式在純函式 `lib/trial-kpi.ts`）；沒有可靠來源一律「資料不足」，不套用任何門檻；每單貢獻利潤受 `product.cost.read` 遮罩 |
 | `trial-reach`（SOP 03） | 觸及與導購資料（潛在觸及、實際觸及、有效導購訪客，人工填寫；來源、期間、填寫人、日期、可信度；建立後不可改，只能軟刪除）；規則在 `lib/trial-reach.ts` |
 | `actual-contribution`（SOP 03） | 實際公司貢獻利潤的資料彙整（檔期商品數、其他團主數），KPI 與可行性「實際值回寫」共用；只讀 |
+| `complaint-attribution`（K-5） | 客服案件的團主歸屬彙整（優先訂單歸因；規則在 `lib/complaint-attribution.ts`）；`aftersales` 提供人工指定（僅無法推導者） |
+| `commission-reconciliation`（K-6，唯讀） | 合約／可行性／財務結算的分潤口徑差異核對；規則在 `lib/commission-reconciliation.ts`；不寫入、不改結算 |
+| `finance-comparison`（K-7／K-8，唯讀） | 費用歸屬對照報告（`lib/fee-attribution.ts`）與多商品成本分攤提案分析（`lib/cost-allocation-proposal.ts`，提案、未生效） |
 | `selection-v2`（SOP 02 V2） | 子條件評分的資料層：設定（`selection.scoring.v2`）、自動取值（適配、SKU、可行性、廠商調查、試用、歷史訂單）、草稿更新、送出快照、補件要求；不相依 selection／diligence（避免循環）；計分在 `lib/selection-v2-score.ts`，目錄在 `lib/selection-v2-catalog.ts`（純函式） |
 | `selection`（SOP 02） | 商品通用選品評估（六項 1–5 分、獨立合規查核、版本、覆核）、選品設定（`system_settings['selection.scoring']`）、`/selection` 總覽；共用的檔期範圍檢查、個資檢查與資料庫錯誤對應 | product_evaluations；**只讀** products、product_fit_assessments（唯讀引用 SOP 01 統計）、campaigns、evidence_items、product_trials、vendor_dd_records | `aftersales`（只借用 `containsPii`）、lib/selection-score、lib/dd-catalog（`evidenceState`） |
 | `evidence`（SOP 02／03） | 證據連結（只存連結與中繼資料）、父層鎖定檢查、敏感證據遮罩 | evidence_items；**只讀** product_assets、vendor_dd_*、product_evaluations、product_trials、trial_checks、feasibility_scenarios | `selection`、lib/dd-catalog |

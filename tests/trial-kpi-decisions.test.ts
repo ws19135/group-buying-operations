@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { query } from '@/server/lib/db';
 import { createTrial } from '@/server/modules/trials';
 import { getTrialKpis, getTrialKpiSummary } from '@/server/modules/trial-kpis';
-import { addReach, listReach, voidReach } from '@/server/modules/trial-reach';
+import { addReach, listReach, verifyReach, voidReach } from '@/server/modules/trial-reach';
 import { createFeasibility, recordActuals } from '@/server/modules/feasibility';
 import { importOrders } from '@/server/modules/orders';
 import { createCommissionRule } from '@/server/modules/commission';
@@ -19,7 +19,13 @@ let hostC: Client, edC: Client;
 let n = 0;
 const kpi = (r: Awaited<ReturnType<typeof getTrialKpis>>, key: string) => r.items.find((x) => x.key === key)!;
 const NOW = () => dayOffset(0);
-const V = (over: Record<string, unknown> = {}) => ({ metric: 'QUALIFIED_VISITORS', value: 300, sourceKind: 'SHORT_LINK_UNIQUE_VISITORS', sourceText: '[DEMO] 導購短連結後台', periodStart: dayOffset(-10), periodEnd: dayOffset(10), credibility: 'HIGH', ...over });
+const V = (over: Record<string, unknown> = {}) => ({ metric: 'QUALIFIED_VISITORS', value: 300, sourceKind: 'SHORT_LINK_UNIQUE_VISITORS', sourceText: '[DEMO] 導購短連結後台', periodStart: dayOffset(-10), periodEnd: dayOffset(10), credibility: 'HIGH', evidenceRef: '[DEMO] 短連結報表 R-001', dedupeMethod: 'SHORT_LINK_UNIQUE_CLIENTS', ...over });
+/** 營運人員填寫後，由另一位有權限的主管查核（K-4：填寫者自選可信度不算已驗證） */
+const addVerified = async (t: string, over: Record<string, unknown> = {}) => {
+  const r = await addReach(w.editor, t, V(over) as never);
+  await verifyReach(w.manager, r.id, { decision: 'VERIFIED', note: '[DEMO] 已對照後台報表與去重方式' });
+  return r;
+};
 
 // 合作條款（虛構）：公司服務費 10%（有效淨銷售額）、團主分潤 5% 由公司付、運費與平台費由品牌負擔、退款退貨處理每筆 20 元由公司負擔
 const TERMS = {
@@ -58,8 +64,8 @@ async function scenario(opts: { orders?: boolean; hostBToo?: boolean } = {}) {
 describe('K-2：觸及與導購資料（人工填寫、三種分開）', () => {
   it('營運人員可填；每筆記錄來源、期間、填寫人、填寫日期、可信度；三種資料各自獨立', async () => {
     const { t } = await scenario();
-    const a = await addReach(w.editor, t, V({ metric: 'POTENTIAL_REACH', value: 120, sourceKind: 'LINE_GROUP_MEMBERS', sourceText: '[DEMO] LINE 群組成員數（團主截圖）', credibility: 'MEDIUM' }) as never);
-    await addReach(w.editor, t, V({ metric: 'ACTUAL_REACH', value: 80, sourceKind: 'PLATFORM_POST_REACH', sourceText: '[DEMO] 社群貼文後台' }) as never);
+    const a = await addReach(w.editor, t, V({ metric: 'POTENTIAL_REACH', value: 120, sourceKind: 'LINE_GROUP_MEMBERS', sourceText: '[DEMO] LINE 群組成員數（團主截圖）', credibility: 'MEDIUM', dedupeMethod: null, evidenceRef: null }) as never);
+    await addReach(w.editor, t, V({ metric: 'ACTUAL_REACH', value: 80, sourceKind: 'PLATFORM_POST_REACH', sourceText: '[DEMO] 社群貼文後台', dedupeMethod: null, evidenceRef: null }) as never);
     await addReach(w.editor, t, V() as never);
     const list = (await listReach(w.manager, t)).records;
     expect(list.map((r) => r.metric).sort()).toEqual(['ACTUAL_REACH', 'POTENTIAL_REACH', 'QUALIFIED_VISITORS']);
@@ -107,7 +113,7 @@ describe('K-2：觸及與導購資料（人工填寫、三種分開）', () => {
   it('CVR＝有效成交訂單 ÷ 有效導購訪客：沒有導購訪客就資料不足；只有群組人數時另列「群組成員訂單比」，不算 CVR、不當實際觸及', async () => {
     const { t } = await scenario();
     expect(kpi(await getTrialKpis(w.manager, t), 'conversionRate')).toMatchObject({ status: 'INSUFFICIENT', value: null });
-    await addReach(w.editor, t, V({ metric: 'POTENTIAL_REACH', value: 120, sourceKind: 'LINE_GROUP_MEMBERS', sourceText: '[DEMO] 群組成員數' }) as never);
+    await addReach(w.editor, t, V({ metric: 'POTENTIAL_REACH', value: 120, sourceKind: 'LINE_GROUP_MEMBERS', sourceText: '[DEMO] 群組成員數', dedupeMethod: null, evidenceRef: null }) as never);
     const g = kpi(await getTrialKpis(w.manager, t), 'conversionRate');
     expect(g).toMatchObject({ status: 'INSUFFICIENT', value: null });
     const part = g.parts!.find((x) => x.key === 'groupMemberOrderRatio')!;
@@ -115,9 +121,9 @@ describe('K-2：觸及與導購資料（人工填寫、三種分開）', () => {
     expect(part.label).toContain('不是 CVR');
     expect(g.facts!.join('')).toContain('潛在觸及人數：120 人');
     expect(g.facts!.join('')).not.toContain('實際觸及人數');           // 群組人數不會被當成實際觸及
-    await addReach(w.editor, t, V({ metric: 'ACTUAL_REACH', value: 90, sourceKind: 'PLATFORM_POST_REACH', sourceText: '[DEMO] 貼文後台' }) as never);
+    await addReach(w.editor, t, V({ metric: 'ACTUAL_REACH', value: 90, sourceKind: 'PLATFORM_POST_REACH', sourceText: '[DEMO] 貼文後台', dedupeMethod: null, evidenceRef: null }) as never);
     expect(kpi(await getTrialKpis(w.manager, t), 'conversionRate').status).toBe('INSUFFICIENT');   // 實際觸及也不是導購訪客
-    await addReach(w.editor, t, V({ value: 300 }) as never);
+    await addVerified(t, { value: 300 });
     const cvr = kpi(await getTrialKpis(w.manager, t), 'conversionRate');
     expect(cvr).toMatchObject({ status: 'OK', value: 2, sampleSize: 300 });                       // 6 ÷ 300
     expect(cvr.parts!.find((x) => x.key === 'groupMemberOrderRatio')!.value).toBe(5);              // 兩者並存、各是各的
@@ -128,12 +134,86 @@ describe('K-2：觸及與導購資料（人工填寫、三種分開）', () => {
     const low = await addReach(w.editor, t, V({ credibility: 'LOW' }) as never);
     expect(kpi(await getTrialKpis(w.manager, t), 'conversionRate').reason).toContain('可信度為低');
     await voidReach(w.editor, low.id, { reason: '[DEMO] 改用平台數據' });
-    await addReach(w.editor, t, V({ periodStart: dayOffset(-60), periodEnd: dayOffset(-50) }) as never);
+    await addVerified(t, { periodStart: dayOffset(-60), periodEnd: dayOffset(-50) });
     expect(kpi(await getTrialKpis(w.manager, t), 'conversionRate').reason).toContain('沒有重疊');
-    await addReach(w.editor, t, V({ value: 200 }) as never);                       // 統計期間較晚的一筆勝出
+    await addVerified(t, { value: 200 });                                           // 統計期間較晚的一筆勝出
     expect(kpi(await getTrialKpis(w.manager, t), 'conversionRate')).toMatchObject({ status: 'OK', value: 3 });   // 6 ÷ 200
-    await addReach(w.editor, t, V({ value: 4 }) as never);                          // 訪客少於訂單：資料不合理
+    await addVerified(t, { value: 4 });                                              // 訪客少於訂單：資料不合理
     expect(kpi(await getTrialKpis(w.manager, t), 'conversionRate').reason).toContain('資料不合理');
+  });
+});
+
+describe('K-4：有效導購訪客的可驗證性（佐證、去重方式、第二人查核、規則版本）', () => {
+  it('高／中可信度需附來源佐證；去重方式必填；人工去重要說明；低可信度可不附佐證', async () => {
+    const { t } = await scenario({ orders: false });
+    await expect(addReach(w.editor, t, V({ evidenceRef: null }) as never)).rejects.toThrow(/來源佐證/);
+    await expect(addReach(w.editor, t, V({ credibility: 'MEDIUM', evidenceRef: '' }) as never)).rejects.toThrow(/來源佐證/);
+    await expect(addReach(w.editor, t, V({ dedupeMethod: null }) as never)).rejects.toThrow(/如何去重/);
+    await expect(addReach(w.editor, t, V({ dedupeMethod: 'MANUAL_DEDUP' }) as never)).rejects.toThrow(/去重方法/);
+    await expect(addReach(w.editor, t, V({ metric: 'ACTUAL_REACH', sourceKind: 'PLATFORM_POST_REACH', dedupeMethod: 'UNKNOWN' }) as never)).rejects.toThrow(/只適用於「有效導購訪客」/);
+    await expect(addReach(w.editor, t, V({ evidenceRef: '請打 0912345678' }) as never)).rejects.toThrow(/電話/);
+    expect((await addReach(w.editor, t, V({ credibility: 'LOW', evidenceRef: null, dedupeMethod: 'UNKNOWN' }) as never)).id).toBeTruthy();
+    const ok = await addReach(w.editor, t, V({ dedupeMethod: 'MANUAL_DEDUP', dedupeNote: '[DEMO] 依下單帳號與短連結紀錄比對後去除重複' }) as never);
+    const row = (await listReach(w.manager, t)).records.find((x) => x.id === ok.id)!;
+    expect(row).toMatchObject({ evidenceRef: '[DEMO] 短連結報表 R-001', dedupeMethod: 'MANUAL_DEDUP', verificationStatus: 'UNVERIFIED', rulesVersion: 'reach-rules/2026-11-04.1' });
+  });
+
+  it('填寫者自選「高」但沒有查核：CVR 維持資料不足（不算已驗證）；第二人查核後才採用', async () => {
+    const { t } = await scenario();
+    const r = await addReach(w.editor, t, V({ value: 300 }) as never);
+    const before = kpi(await getTrialKpis(w.manager, t), 'conversionRate');
+    expect(before).toMatchObject({ status: 'INSUFFICIENT', value: null });
+    expect(before.reason).toContain('尚未經第二位');
+    await verifyReach(w.manager, r.id, { decision: 'VERIFIED', note: '[DEMO] 已對照報表 R-001，去重方式為短連結不重複用戶端' });
+    expect(kpi(await getTrialKpis(w.manager, t), 'conversionRate')).toMatchObject({ status: 'OK', value: 2 });
+    const row = (await listReach(w.manager, t)).records.find((x) => x.id === r.id)!;
+    expect(row).toMatchObject({ verificationStatus: 'VERIFIED', verifiedBy: w.manager.userId, verifyRulesVersion: 'reach-rules/2026-11-04.1' });
+    expect((await query(`SELECT 1 FROM audit_logs WHERE organization_id=$1 AND action='selection.trial.reach.verify' AND entity_id=$2`, [w.orgId, r.id])).length).toBe(1);
+  });
+
+  it('來源不能證明不重複（沒去重、不知道、點擊數）：即使已查核也不用，CVR 資料不足', async () => {
+    const { t } = await scenario();
+    const r = await addReach(w.editor, t, V({ dedupeMethod: 'NOT_DEDUPED', sourceKind: 'PLATFORM_ANALYTICS' }) as never);
+    await verifyReach(w.manager, r.id, { decision: 'VERIFIED', note: '[DEMO] 數字與報表一致' });
+    const k = kpi(await getTrialKpis(w.manager, t), 'conversionRate');
+    expect(k.status).toBe('INSUFFICIENT');
+    expect(k.reason).toContain('不能證明訪客不重複');
+  });
+
+  it('團主自行回報不能證明不重複；查核退回不採用', async () => {
+    const { t } = await scenario();
+    const a = await addReach(w.editor, t, V({ sourceKind: 'HOST_SELF_REPORT' }) as never);
+    await verifyReach(w.manager, a.id, { decision: 'VERIFIED', note: '[DEMO] 數字合理' });
+    expect(kpi(await getTrialKpis(w.manager, t), 'conversionRate').reason).toContain('團主自行回報');
+    const b = await addReach(w.editor, t, V({ periodEnd: dayOffset(11), value: 250 }) as never);   // 統計期間較晚，會被採用為最新一筆
+    await verifyReach(w.manager, b.id, { decision: 'REJECTED', note: '[DEMO] 報表連結打不開，無法查核' });
+    expect(kpi(await getTrialKpis(w.manager, t), 'conversionRate').reason).toContain('查核退回');
+  });
+
+  it('填寫者不能查核自己填的資料（服務層與資料庫都擋）；只能查核一次；沒有權限的人不能查核；非有效導購訪客不需查核', async () => {
+    const { t } = await scenario({ orders: false });
+    const mine = await addReach(w.manager, t, V() as never);   // 主管自己填
+    await expect(verifyReach(w.manager, mine.id, { decision: 'VERIFIED', note: '[DEMO] 自己查自己' })).rejects.toThrow(/不能查核自己/);
+    await expect(query(`UPDATE trial_reach_records SET verification_status='VERIFIED', verified_by=created_by, verified_at=now(), verify_note='x', verify_rules_version='v' WHERE id=$1`, [mine.id])).rejects.toThrow(/不能查核自己/);
+    await expect(verifyReach(w.editor, mine.id, { decision: 'VERIFIED', note: '[DEMO] 小編沒有查核權限' })).rejects.toThrow(/權限/);
+    const r = await addReach(w.editor, t, V() as never);
+    await verifyReach(w.manager, r.id, { decision: 'VERIFIED', note: '[DEMO] 第一次' });
+    await expect(verifyReach(w.manager, r.id, { decision: 'REJECTED', note: '[DEMO] 想改' })).rejects.toThrow(/已經查核過/);
+    await expect(query(`UPDATE trial_reach_records SET verification_status='UNVERIFIED', verified_by=NULL, verified_at=NULL, verify_note=NULL, verify_rules_version=NULL WHERE id=$1`, [r.id])).rejects.toThrow(/不可再變更查核結果/);
+    const pot = await addReach(w.editor, t, V({ metric: 'POTENTIAL_REACH', sourceKind: 'LINE_GROUP_MEMBERS', dedupeMethod: null, evidenceRef: null }) as never);
+    await expect(verifyReach(w.manager, pot.id, { decision: 'VERIFIED', note: '[DEMO] 不需要' })).rejects.toThrow(/只有「有效導購訪客」/);
+    await expect(query(`UPDATE trial_reach_records SET evidence_ref='改佐證' WHERE id=$1`, [r.id])).rejects.toThrow(/不可修改/);
+    expect((await hostC.call('POST', `/reach-records/${r.id}/verify`, { decision: 'VERIFIED', note: '團主不行' })).status).toBe(403);
+  });
+
+  it('舊資料（K-2 時期、沒有佐證與去重方式）相容：去重方式視為未知、未查核，不會被當成可用', async () => {
+    const { t } = await scenario();
+    // 模擬舊紀錄：直接以 SQL 寫入（欄位維持預設值）
+    await query(`INSERT INTO trial_reach_records (id, organization_id, trial_id, metric, value, source_kind, source_text, period_start, period_end, credibility, filled_on, created_by, dedupe_method)
+                 VALUES ('RCH-LEGACY-1',$1,$2,'QUALIFIED_VISITORS',300,'SHORT_LINK_UNIQUE_VISITORS','[DEMO] 舊資料',$3,$4,'HIGH',$5,$6,'UNKNOWN')`, [w.orgId, t, dayOffset(-10), dayOffset(10), dayOffset(0), w.editor.userId]);
+    const k = kpi(await getTrialKpis(w.manager, t), 'conversionRate');
+    expect(k.status).toBe('INSUFFICIENT');
+    expect((await listReach(w.manager, t)).records.find((x) => x.id === 'RCH-LEGACY-1')).toMatchObject({ rulesVersion: 'reach-rules/legacy', verificationStatus: 'UNVERIFIED', dedupeMethod: 'UNKNOWN' });
   });
 });
 

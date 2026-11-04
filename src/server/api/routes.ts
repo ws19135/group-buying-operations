@@ -28,6 +28,8 @@ import * as selection from '../modules/selection';
 import * as selectionV2 from '../modules/selection-v2';
 import * as trialKpis from '../modules/trial-kpis';
 import * as trialReach from '../modules/trial-reach';
+import * as commissionRecon from '../modules/commission-reconciliation';
+import * as financeCompare from '../modules/finance-comparison';
 import * as evidence from '../modules/evidence';
 import * as diligence from '../modules/diligence';
 import * as trials from '../modules/trials';
@@ -161,9 +163,13 @@ export const routes: RouteDef[] = [
   R('GET', '/trials/:id', async (c) => trials.getTrial(c.actor, c.params.id)),
   R('GET', '/trials/:id/kpis', async (c) => trialKpis.getTrialKpis(c.actor, c.params.id)),
   R('GET', '/trial-kpis/summary', async (c) => trialKpis.getTrialKpiSummary(c.actor)),
+  R('GET', '/reconciliation/commission', async (c) => commissionRecon.getCommissionReconciliation(c.actor, { campaignId: c.query.get('campaignId') ?? undefined })),
+  R('GET', '/reconciliation/fees', async (c) => financeCompare.getFeeAttributionReport(c.actor, { campaignId: c.query.get('campaignId') ?? undefined })),
+  R('GET', '/campaigns/:id/cost-allocation-analysis', async (c) => financeCompare.getCostAllocationAnalysis(c.actor, c.params.id)),
   R('GET', '/trials/:id/reach', async (c) => trialReach.listReach(c.actor, c.params.id)),
   R('POST', '/trials/:id/reach', async (c) => created(await trialReach.addReach(c.actor, c.params.id, c.body as never))),
   R('POST', '/reach-records/:id/void', async (c) => trialReach.voidReach(c.actor, c.params.id, c.body as never)),
+  R('POST', '/reach-records/:id/verify', async (c) => trialReach.verifyReach(c.actor, c.params.id, c.body as never)),
   R('PATCH', '/trials/:id', async (c) => trials.updateTrial(c.actor, c.params.id, c.body as never)),
   R('POST', '/trials/:id/conclude', async (c) => trials.concludeTrial(c.actor, c.params.id, c.body as never)),
   R('POST', '/trials/:id/review', async (c) => trials.reviewTrial(c.actor, c.params.id, c.body as never)),
@@ -303,6 +309,7 @@ export const routes: RouteDef[] = [
   R('GET', '/aftersales/cases/:id', async (c) => aftersales.getCase(c.actor, c.params.id)),
   R('PATCH', '/aftersales/cases/:id', async (c) => aftersales.updateCase(c.actor, c.params.id, c.body as never)),
   R('POST', '/aftersales/cases/:id/status', async (c) => aftersales.setCaseStatus(c.actor, c.params.id, c.body as never)),
+  R('POST', '/aftersales/cases/:id/host-attribution', async (c) => aftersales.setCaseHostAttribution(c.actor, c.params.id, c.body as never)),
   R('POST', '/aftersales/cases/:id/notes', async (c) => created(await aftersales.addCaseNote(c.actor, c.params.id, c.body as never))),
   R('POST', '/aftersales/cases/:id/refunds', async (c) => created(await aftersales.requestRefund(c.actor, c.params.id, c.body as never, c.idemKey))),
   R('GET', '/aftersales/refunds', async (c) => aftersales.listRefunds(c.actor, c.query)),

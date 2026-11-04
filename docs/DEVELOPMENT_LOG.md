@@ -382,6 +382,30 @@ Owner 要求：不重建 SOP 02／03；把 1～5 分主觀評分升級成「可�
 
 **下一步**：開始用畫面累積小規模測試團資料；滿 5 檔後從彙整頁整理提交審查。
 
+## 2026-11-04｜K-4～K-8 營運規則落地：導購訪客可驗證性、客訴團主歸屬、分潤口徑差異核對、成本分攤提案、費用歸屬對照（分支 `feat/k4-k8-rules`，基於 PR #20）
+
+**目標**：依 Owner 裁決 K-4～K-8，在不動分潤結算與 G1–G5 的前提下完善營運規則；PR #20 未合併，本分支以其為基礎、PR 以 PR #20 分支為 base。
+
+**PR #20 驗收**：CI 綠燈（head `045b3e4`）、草稿、無衝突；`git diff` 確認結算、財務、佣金、發票、閘門、`lib/kpi` 皆無變動；740 項測試／E2E 146／全流程 34 與 TEST_REPORT §10 一致。無阻擋性問題。
+
+**變更**
+- K-4：migration 019、`REACH_RULES` 版本化＋指紋測試、佐證／去重方式／第二人查核、`POST /api/reach-records/:id/verify`。
+- K-5：migration 020、`lib/complaint-attribution.ts`、案件頁人工指定、KPI 客訴率分開呈現（同時修正 PR #20 的分子分母口徑混用）。
+- K-6：`lib/commission-reconciliation.ts`＋唯讀 API／畫面；廠商審查第 10 題新增選填欄位。
+- K-7：`lib/cost-allocation-proposal.ts`（4 種候選方法、情境比較）＋唯讀分析；提案文件；多商品維持資料不足。
+- K-8：`lib/fee-attribution.ts`＋唯讀報告；整合方案文件。
+- 文件：`TRIAL_KPI.md`（§3.1、§3.2、§5、§7）、`COMMISSION_RECONCILIATION.md`、`MULTI_PRODUCT_COST_ALLOCATION_PROPOSAL.md`、`FEE_ATTRIBUTION_REPORT.md`、`KPI_SETTLEMENT_INTEGRATION_PROPOSAL.md`；SRS（FR-TRIAL-KPI-08／09、FR-FIN-RECON-01～03）、SAD、SDD §18B.11、KNOWN_ISSUES（W-1～W-8）、TEST_REPORT §11、API／資料字典已同步。
+
+**驗證**：見 TEST_REPORT §11。
+
+**與規格的差異**：新增 migration 019／020（只新增欄位）、新增唯讀畫面與 API；結算演算法、財務、發票、G1–G5 完全不動。
+
+**風險與阻擋**：見 KNOWN_ISSUES W-1～W-8。
+
+**需要 Owner 再次裁決**：K-4a、K-5a、K-6a～d、K-7a～e、K-8a～d（各文件末段）。原指令 K-8 第 6 點被截斷（「提出未來如何整合結…」），本次依前後文理解為「提出未來如何整合結算的方案」。
+
+**下一步**：Owner 驗收；建議先核准 K-8a（補齊欄位）與 K-6a（以合約為準的對齊流程）。
+
 ## 後續紀錄格式
 
 每次變更新增一節，至少包含：

@@ -11,6 +11,7 @@ import { pickLatest, visitorsUsable } from '../lib/trial-reach';
 import { loadV2Config } from './selection-v2';
 import { activeReach } from './trial-reach';
 import { actualContribution } from './actual-contribution';
+import { loadComplaintStats } from './complaint-attribution';
 import { activeRulesForHost, pickCommissionRule } from '../lib/commission-calc';
 import { todayTaipei } from '../lib/ids';
 
@@ -60,7 +61,7 @@ export async function buildTrialKpis(actor: Actor, t: TrialLite, camp: { open_da
   const db = pool();
   const cfg = await loadV2Config(db, actor.orgId);
   let orders: TrialKpiInput['orders'] = { total: 0, established: 0, valid: 0, refunded: 0, cancelled: 0, gmv: 0, refund: 0 };
-  let complaintCases = 0;
+  let complaints: TrialKpiInput['complaints'] = { total: 0, unattributed: 0, sharedCases: 0, hostExclusive: 0, hostShared: 0, campaignValid: 0 };
   let shipments: TrialKpiInput['shipments'] = { nonCancelled: 0, withDates: 0, onTime: 0 };
   let dataAsOf: string | null = null;
   let contribution: ActualProfitResult | null = null;
@@ -69,7 +70,10 @@ export async function buildTrialKpis(actor: Actor, t: TrialLite, camp: { open_da
   if (t.campaign_id) {
     const a = await loadActualSales(db, { orgId: actor.orgId, campaignId: t.campaign_id, hostId: t.host_id });
     orders = { total: a.total, established: a.established, valid: a.valid, refunded: a.refundedOrders, cancelled: a.cancelled, gmv: a.gmv, refund: a.refund };
-    complaintCases = Number((await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM service_cases WHERE campaign_id=$1 AND organization_id=$2 AND status <> 'CANCELLED'`, [t.campaign_id, actor.orgId])).rows[0].n);
+    const cs = await loadComplaintStats(db, actor.orgId, t.campaign_id);
+    const campaignValid = t.host_id ? (await loadActualSales(db, { orgId: actor.orgId, campaignId: t.campaign_id, hostId: null })).valid : a.valid;
+    const hx = t.host_id ? cs.byHost[t.host_id] : undefined;
+    complaints = { total: cs.total, unattributed: cs.unattributed, sharedCases: cs.sharedCases, hostExclusive: hx?.exclusive ?? 0, hostShared: hx?.shared ?? 0, campaignValid };
     const sh = (await db.query<{ n: number; w: number; ok: number }>(
       `SELECT count(*) FILTER (WHERE s.status <> 'CANCELLED')::int AS n,
               count(*) FILTER (WHERE s.status IN ('SHIPPED','DELIVERED') AND s.shipped_date IS NOT NULL AND s.planned_date IS NOT NULL)::int AS w,
@@ -87,7 +91,7 @@ export async function buildTrialKpis(actor: Actor, t: TrialLite, camp: { open_da
   const input: TrialKpiInput = {
     period: { from: camp?.open_date ?? null, to: camp?.close_date ?? null }, dataAsOf, orders,
     reach: { potential: pickLatest(records, 'POTENTIAL_REACH'), actual: pickLatest(records, 'ACTUAL_REACH'), visitors, visitorsUsable: visitorsUsable(visitors, { from: camp?.open_date ?? null, to: camp?.close_date ?? null }) },
-    contribution, complaintCases, checks: { tested: Number(chk.tested), failed: Number(chk.failed) }, shipments, hostIntent: t.host_intent, estimatedContributionPerOrder: estimate, lowSampleBelow: cfg.minSample.orders,
+    contribution, complaints, hostScoped: !!t.host_id, checks: { tested: Number(chk.tested), failed: Number(chk.failed) }, shipments, hostIntent: t.host_intent, estimatedContributionPerOrder: estimate, lowSampleBelow: cfg.minSample.orders,
   };
   const canCost = can(actor, 'product.cost.read');
   const result = maskTrialKpis(computeTrialKpis(input), canCost);

@@ -83,9 +83,13 @@
 | GET | `/api/trials/:id` | 是 |
 | GET | `/api/trials/:id/kpis` | 是 |
 | GET | `/api/trial-kpis/summary` | 是 |
+| GET | `/api/reconciliation/commission` | 是 |
+| GET | `/api/reconciliation/fees` | 是 |
+| GET | `/api/campaigns/:id/cost-allocation-analysis` | 是 |
 | GET | `/api/trials/:id/reach` | 是 |
 | POST | `/api/trials/:id/reach` | 是 |
 | POST | `/api/reach-records/:id/void` | 是 |
+| POST | `/api/reach-records/:id/verify` | 是 |
 | PATCH | `/api/trials/:id` | 是 |
 | POST | `/api/trials/:id/conclude` | 是 |
 | POST | `/api/trials/:id/review` | 是 |
@@ -184,6 +188,7 @@
 | GET | `/api/aftersales/cases/:id` | 是 |
 | PATCH | `/api/aftersales/cases/:id` | 是 |
 | POST | `/api/aftersales/cases/:id/status` | 是 |
+| POST | `/api/aftersales/cases/:id/host-attribution` | 是 |
 | POST | `/api/aftersales/cases/:id/notes` | 是 |
 | POST | `/api/aftersales/cases/:id/refunds` | 是 |
 | GET | `/api/aftersales/refunds` | 是 |

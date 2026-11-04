@@ -77,7 +77,9 @@ describe('小規模測試團 KPI：整合（真實資料庫）', () => {
     expect(rc.value).toBe(42.86);                                                                     // 3 張有退款（2 部分退款＋1 全額退款）÷ 7 張計入銷售（4＋2＋1）
     expect(rc.parts!.find((x) => x.key === 'cancelRate')!.value).toBe(12.5);                          // 1 ÷（7＋1）
     const cd = kpi(r, 'complaintDefect');
-    expect(cd.parts!.find((x) => x.key === 'complaintPer100')!.value).toBe(16.67);                    // 1 ÷ 6 × 100
+    expect(cd.parts!.find((x) => x.key === 'complaintPer100')!.value).toBe(11.11);                    // 檔期整體：1 件 ÷ 檔期有效訂單 9（團主甲 6＋團主乙 3）× 100
+    expect(cd.parts!.find((x) => x.key === 'hostComplaintPer100')!.value).toBe(0);                    // 這件客訴沒有關聯訂單＝未歸屬，不計入任何團主
+    expect(cd.facts!.join()).toContain('未歸屬 1 件');
     expect(cd.parts!.find((x) => x.key === 'defectRate')!.value).toBe(40);                            // 2 ÷ 5
     expect(kpi(r, 'onTimeShip')).toMatchObject({ status: 'OK', value: 75, completeness: 1 });
     expect(kpi(r, 'conversionRate').status).toBe('INSUFFICIENT');
@@ -122,7 +124,7 @@ describe('小規模測試團 KPI：整合（真實資料庫）', () => {
     expect(asEd.reference!.value).toBeNull();
     const raw = JSON.stringify((await ed.call('GET', `/trials/${t}/kpis`)).json);
     expect(raw).not.toContain(String(COST));
-    expect(raw).not.toContain(String(Math.round(fz.results.companyContribution / 100)));
+    expect(raw).not.toContain(`"value":${Math.round(fz.results.companyContribution / 100)}`);   // 比對 JSON 的值，不比對任意子字串（日期裡可能剛好有相同數字；例如統計期間起日 2026-10-25 含「25」）
   });
 
   it('權限與隔離：團主與廠商不能看；其他組織看不到；範圍外的檔期看不到', async () => {
