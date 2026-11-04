@@ -1,0 +1,52 @@
+name: Live UAT (staging only)
+
+# 在「預備環境（staging）」以 HTTPS 執行 Live UAT（scripts/prod-uat.ts）：登入與強制改密碼、RBAC、完整團購流程、KPI、財務差異、稽核。
+# 只能手動觸發；環境固定為 staging（不接受 production）；ERP_URL 必須是 https://。
+# UAT 會建立 [UAT-…] 標示的測試資料，所以只能對「全新、空的」staging 資料庫執行（腳本偵測到非 UAT 資料會拒絕）。
+# 需要 staging Environment 的 Secrets：UAT_ADMIN_EMAIL、UAT_ADMIN_PASSWORD（初次啟用密碼）、UAT_ADMIN_NEW_PASSWORD（管理者改密碼後的新密碼）。
+# 結果檔作為 artifact 保存 7 天；不含任何密碼（腳本會遮蔽）。
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_empty_staging:
+        description: '我確認 staging 資料庫是全新的空資料庫（輸入 yes）'
+        required: true
+        default: 'no'
+
+permissions:
+  contents: read
+
+jobs:
+  uat:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Guard
+        run: |
+          [ "${{ inputs.confirm_empty_staging }}" = "yes" ] || { echo "未確認 staging 是空資料庫，停止"; exit 1; }
+          case "${{ vars.ERP_URL }}" in https://*) ;; *) echo "staging 的 ERP_URL 必須是 https:// 開頭"; exit 1;; esac
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - name: HTTPS / headers smoke
+        run: |
+          u="${{ vars.ERP_URL }}"; host="${u#https://}"; host="${host%%/*}"
+          code="$(curl -s -o /dev/null -w '%{http_code}' "http://$host/")"; echo "http→ $code"; case "$code" in 301|302|307|308) ;; *) echo "HTTP 沒有導向 HTTPS"; exit 1;; esac
+          curl -fsSI "$u/login" | tee headers.txt | head -20
+          grep -qi '^strict-transport-security:' headers.txt || { echo "缺少 HSTS"; exit 1; }
+          curl -fsS "$u/api/ready"; echo; curl -fsS "$u/api/health"; echo
+          code="$(curl -s -o /dev/null -w '%{http_code}' "$u/api/auth/me")"; echo "未登入 /auth/me → $code"; [ "$code" = 401 ] || { echo "未登入應回 401"; exit 1; }
+      - name: Live UAT
+        env:
+          BASE_URL: ${{ vars.ERP_URL }}
+          UAT_ALLOW_WRITE: 'yes'
+          UAT_ADMIN_EMAIL: ${{ secrets.UAT_ADMIN_EMAIL }}
+          UAT_ADMIN_PASSWORD: ${{ secrets.UAT_ADMIN_PASSWORD }}
+          UAT_ADMIN_NEW_PASSWORD: ${{ secrets.UAT_ADMIN_NEW_PASSWORD }}
+          UAT_RESULT_FILE: uat-result.json
+          UAT_SNAPSHOT_FILE: uat-snapshot.json
+        run: npx tsx scripts/prod-uat.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: uat-result-staging, path: 'uat-result.json', retention-days: 7 }

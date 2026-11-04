@@ -468,3 +468,10 @@ Owner 要求：不重建 SOP 02／03；把 1～5 分主觀評分升級成「可�
 **驗證**：全套測試 56 檔／921 項通過；`tsc`、`eslint` 無錯誤；本機 production 模式＋空資料庫：`prod:bootstrap`、`/api/health`、`/api/ready`、Live UAT 21/21、重啟後資料仍在、備份與還原演練。
 **未做（刻意）**：未部署、未連任何外部服務、未啟用通知／金流／排程、未碰既有資料庫、未改結算、佣金、發票。
 **需要 Owner**：`HANDOFF.md` §1。
+
+## 2026-11-04｜部署加固（PR #23 之後）
+
+**起因**：複查部署流程發現：部署不備份也不套用 migration（含新 migration 的版本會卡在 `/api/ready` 409）、只有 production 目標、設定檔不隨 commit 同步、沒有 ghcr 登入說明、compose／Caddyfile 沒有 CI 驗證。
+**變更**：`deploy/deploy-remote.sh`（拉映像→確認已初次建置→部署前備份→migration→啟動→就緒）、`host-backup.sh`、`host-restore-drill.sh`；部署工作流程支援 `staging`／`production` 兩個 Environment 並同步設定檔；新增 `uat-staging.yml`（只能對 staging、需 https、需確認空資料庫）；`docker-build.yml` 加入 compose 結構、Caddyfile、腳本語法驗證；`tests/deploy-scripts.test.ts`；`OWNER_SETUP_CHECKLIST.md`。
+**驗證**：見 TEST_REPORT §16。**未做**：任何真實主機部署（缺主機、DNS、金鑰）。
+**需要 Owner**：`OWNER_SETUP_CHECKLIST.md` 全部步驟。

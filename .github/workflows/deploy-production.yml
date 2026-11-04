@@ -1,7 +1,10 @@
-name: Deploy production
+name: Deploy (staging / production)
 
-# 正式環境部署：**只能手動觸發**（workflow_dispatch），且綁定 GitHub Environment「production」——
-# 請在 Repository Settings → Environments → production 設定 Required reviewers（Owner 核准後才會執行）與下列 Secrets。
+# 部署：**只能手動觸發**（workflow_dispatch）。target 選 staging（預備環境）或 production（正式環境），各自綁定同名的 GitHub Environment——
+# 請在 Repository Settings → Environments 建立 staging 與 production，並替 production 設定 Required reviewers（Owner 核准後才會執行）。
+# 每個 Environment 各有自己的 Secrets 與 Variable（兩個環境的主機、金鑰、網址互相獨立）。
+# 流程：確認該 commit 的 CI 全綠 → 建置並推送映像 → 同步 compose／Caddyfile／主機腳本到 DEPLOY_PATH → 主機端 deploy-remote.sh（拉映像、確認已初次建置、部署前備份、migration、啟動、就緒檢查）。
+# 建議順序：先部署 staging、跑完 Live UAT，再部署 production。
 # 沒有設定主機 Secrets 時，只會建置並推送映像（不會部署）。部署紀錄保存為 artifact；回滾見 docs/ROLLBACK_PLAN.md。
 # 所需 Secrets（均不得出現在程式或文件中）：DEPLOY_HOST、DEPLOY_USER、DEPLOY_SSH_KEY、DEPLOY_PATH（主機上 docker-compose.prod.yml 所在目錄）。
 on:
@@ -11,6 +14,11 @@ on:
         description: '要部署的 Git ref（預設 main）；回滾時填舊的 commit／tag'
         required: false
         default: main
+      target:
+        description: '部署目標（預設 staging；正式環境請在 staging 驗收通過後再選 production）'
+        type: choice
+        options: [staging, production]
+        default: staging
       image_tag:
         description: '回滾用：直接指定已存在的映像 tag（填了就不重新建置）'
         required: false
@@ -20,13 +28,13 @@ permissions:
   packages: write
 
 concurrency:
-  group: deploy-production
+  group: deploy-${{ inputs.target }}
   cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ inputs.target }}
     env:
       REGISTRY: ghcr.io
       IMAGE: ghcr.io/${{ github.repository }}
@@ -58,11 +66,16 @@ jobs:
           K: ${{ secrets.DEPLOY_SSH_KEY }}
           P: ${{ secrets.DEPLOY_PATH }}
         run: |
-          if [ -z "$H" ] || [ -z "$U" ] || [ -z "$K" ] || [ -z "$P" ]; then echo "deployed=false" >> "$GITHUB_OUTPUT"; echo "尚未設定主機 Secrets：只建置映像，沒有部署。" | tee deploy-log.txt; exit 0; fi
+          if [ -z "$H" ] || [ -z "$U" ] || [ -z "$K" ] || [ -z "$P" ]; then echo "deployed=false" >> "$GITHUB_OUTPUT"; echo "尚未設定 ${{ inputs.target }} 的主機 Secrets：只建置映像，沒有部署。" | tee deploy-log.txt; exit 0; fi
           install -m 600 /dev/null key; printf '%s\n' "$K" > key
-          ssh -i key -o StrictHostKeyChecking=accept-new "$U@$H" "cd '$P' && APP_IMAGE='$IMAGE:${{ steps.meta.outputs.tag }}' docker compose --env-file .env.production -f docker-compose.prod.yml pull app && APP_IMAGE='$IMAGE:${{ steps.meta.outputs.tag }}' docker compose --env-file .env.production -f docker-compose.prod.yml up -d app proxy" | tee deploy-log.txt
+          SSH="ssh -i key -o StrictHostKeyChecking=accept-new"
+          # 設定檔以 commit 為準（compose／Caddyfile／主機腳本）；.env.production 只存在主機，不會被覆蓋
+          $SSH "$U@$H" "mkdir -p '$P/deploy'"
+          scp -i key -o StrictHostKeyChecking=accept-new docker-compose.prod.yml deploy/host-common.sh deploy/deploy-remote.sh deploy/host-backup.sh deploy/host-restore-drill.sh "$U@$H:$P/"
+          scp -i key -o StrictHostKeyChecking=accept-new deploy/Caddyfile "$U@$H:$P/deploy/Caddyfile"
+          $SSH "$U@$H" "chmod +x '$P'/*.sh && '$P/deploy-remote.sh' '$IMAGE:${{ steps.meta.outputs.tag }}'" | tee deploy-log.txt
           echo "deployed=true" >> "$GITHUB_OUTPUT"
-      - name: Post-deploy readiness check
+      - name: Post-deploy readiness check (public HTTPS URL)
         if: steps.ssh.outputs.deployed == 'true'
         run: |
           : "${{ vars.ERP_URL }}"; url="${{ vars.ERP_URL }}"
@@ -71,7 +84,7 @@ jobs:
       - name: Deploy log
         if: always()
         run: |
-          { echo "ref=${{ inputs.ref }} commit=${{ steps.meta.outputs.sha }} tag=${{ steps.meta.outputs.tag }} actor=${{ github.actor }} run=${{ github.run_id }} time=$(date -u +%FT%TZ)"; } >> deploy-log.txt
+          { echo "target=${{ inputs.target }} ref=${{ inputs.ref }} commit=${{ steps.meta.outputs.sha }} tag=${{ steps.meta.outputs.tag }} actor=${{ github.actor }} run=${{ github.run_id }} time=$(date -u +%FT%TZ)"; } >> deploy-log.txt
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: deploy-log, path: deploy-log.txt }
+        with: { name: 'deploy-log-${{ inputs.target }}', path: deploy-log.txt }

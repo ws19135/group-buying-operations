@@ -148,3 +148,10 @@
 | W-27 | 🟡 | 無集中式錯誤追蹤與告警；備份排程需在主機設定 | 故障可能晚發現 | `DEPLOYMENT_RUNBOOK.md` D；Owner 選定服務 |
 | W-28 | 🟢 | Live UAT 只能在預備環境寫入；正式環境只做唯讀煙霧檢查 | 正式環境的完整流程驗證要靠預備環境結果與使用者驗收 | 由 Owner 簽核 |
 | W-29 | 🟢 | 既有真實資料庫（若有）尚未升級：需先備份、在副本跑 `npm run db:rehearsal`、並取得 Owner 另行授權 | 目前所有驗證僅針對空資料庫或虛構資料 | 有真實資料時才進行 |
+
+## 部署加固後（2026-11-04）
+| # | 級 | 問題 | 影響 | 建議 |
+|---|:-:|---|---|---|
+| W-30 | 🔴 | 主機端腳本（部署／備份／還原演練）與 SSH 部署流程**尚未在真實 VPS 上執行**，只以替身 `docker` 對真實 PostgreSQL 驗證邏輯；staging／production 皆未建立 | 第一次真實部署可能遇到主機環境差異（防火牆、DNS、ghcr 登入、Let's Encrypt） | 依 `OWNER_SETUP_CHECKLIST.md`；第一次一律先 staging |
+| W-31 | 🟡 | Live UAT 會讓 staging 資料庫含 `[UAT-…]` 資料，之後不再是空庫 | 同一個 staging 不能重複跑 UAT | 重建 staging 資料庫（`down -v` → `prod:bootstrap`）再跑 |
+| W-32 | 🟡 | 目前單機部署：主機或磁碟損壞時需靠備份還原（RPO 24 小時） | 最多損失一天資料 | 異地備份；需要更低 RPO 時評估 WAL 歸檔（Owner 決定） |

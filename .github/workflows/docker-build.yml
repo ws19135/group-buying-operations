@@ -4,10 +4,10 @@ name: Docker image check
 # 只建置與測試，不推送映像、不部署。
 on:
   pull_request:
-    paths: ['Dockerfile', '.dockerignore', 'docker-compose.prod.yml', 'deploy/**', 'package*.json', 'migrations/**', 'scripts/prod-*', '.github/workflows/docker-build.yml']
+    paths: ['Dockerfile', '.dockerignore', 'docker-compose.prod.yml', 'deploy/**', 'package*.json', 'migrations/**', 'scripts/prod-*', 'scripts/*.sh', '.github/workflows/docker-build.yml']
   push:
     branches: [main]
-    paths: ['Dockerfile', '.dockerignore', 'docker-compose.prod.yml', 'deploy/**', 'package*.json', 'migrations/**', 'scripts/prod-*', '.github/workflows/docker-build.yml']
+    paths: ['Dockerfile', '.dockerignore', 'docker-compose.prod.yml', 'deploy/**', 'package*.json', 'migrations/**', 'scripts/prod-*', 'scripts/*.sh', '.github/workflows/docker-build.yml']
   workflow_dispatch:
 
 jobs:
@@ -22,6 +22,19 @@ jobs:
           --health-cmd "pg_isready -U erp -d erp_image" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      - name: Validate compose file, Caddyfile and host scripts
+        run: |
+          printf 'ERP_DOMAIN=erp.ci.test\nPOSTGRES_USER=u\nPOSTGRES_PASSWORD=p\nPOSTGRES_DB=d\nAPP_IMAGE=x:y\n' > .env.ci
+          docker compose --env-file .env.ci -f docker-compose.prod.yml config > /dev/null
+          # 只有 proxy 可以對外開放連接埠；資料庫與 app 不得有 ports
+          docker compose --env-file .env.ci -f docker-compose.prod.yml config --format json > compose.json
+          bad="$(jq -r '.services | to_entries[] | select(.key != "proxy") | select((.value.ports // []) | length > 0) | .key' compose.json)"
+          [ -z "$bad" ] || { echo "這些服務不得對外開放連接埠：$bad"; exit 1; }
+          jq -e '.services.proxy.ports | length == 2' compose.json > /dev/null
+          rm -f compose.json
+          docker run --rm -e ERP_DOMAIN=erp.ci.test -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2 caddy validate --config /etc/caddy/Caddyfile
+          for f in deploy/*.sh scripts/*.sh; do bash -n "$f"; done
+          rm -f .env.ci
       - name: Build image
         run: docker build --build-arg BUILD_SHA=${{ github.sha }} --build-arg APP_VERSION=ci-${{ github.run_number }} -t sdh-erp:ci .
       - name: Bootstrap empty database (production mode)
