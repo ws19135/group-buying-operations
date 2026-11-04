@@ -467,6 +467,7 @@
 | paid_on | date | 是 |  |  |
 | paid_amount | bigint | 是 |  |  |
 | evidence_url | text | 是 |  |  |
+| cost_scope | text | 是 |  |  |
 
 索引：`expenses_attr_idx`、`expenses_campaign_idx`、`expenses_org_idx`、`expenses_pkey`（唯一）
 

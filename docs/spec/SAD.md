@@ -17,9 +17,9 @@
 | 項目 | 現況（✅ 已核對） |
 |---|---|
 | 技術棧 | Next.js 15.5（App Router）、React 19、TypeScript 5.9、PostgreSQL 16、`pg` 8（無 ORM）、zod 3.25、vitest 3、Playwright 1.63（`package.json`） |
-| 規模 | 67 張資料表（20 支 migration，含 013 客群分析與適配的 5 張、014 選品與試用的 7 張；015 只更新模板說明文字；016 選品 V2＋調查版本：新增 1 張補件要求表；017 試用新增團主再次合作意願兩個欄位，不新增資料表；018 新增觸及與導購資料 1 張表 `trial_reach_records`；019 有效導購訪客的佐證、去重方式與查核欄位；020 客服案件的人工團主歸屬欄位，皆只新增欄位）、201 個 API 端點（`routes.ts` 的 `R(`／`P(` 計數，含 SOP 01 的 22 條、SOP 02／03 的 33 條）、6 個角色、52 項權限（含 SOP 01 的 6 項、SOP 02／03 的 3 項）、14 種檔期狀態、8 個自動化工作 |
+| 規模 | 68 張資料表（24 支 migration（021～024：指派查核、費用歸屬、待人工確認項目、費用歸屬範圍標記），含 013 客群分析與適配的 5 張、014 選品與試用的 7 張；015 只更新模板說明文字；016 選品 V2＋調查版本：新增 1 張補件要求表；017 試用新增團主再次合作意願兩個欄位，不新增資料表；018 新增觸及與導購資料 1 張表 `trial_reach_records`；019 有效導購訪客的佐證、去重方式與查核欄位；020 客服案件的人工團主歸屬欄位，皆只新增欄位）、209 個 API 端點（`routes.ts` 的 `R(`／`P(` 計數，含 SOP 01 的 22 條、SOP 02／03 的 33 條）、6 個角色、52 項權限（含 SOP 01 的 6 項、SOP 02／03 的 3 項）、14 種檔期狀態、8 個自動化工作 |
 | 使用者介面 | 繁體中文、桌面為主；`src/app` 共 45 個頁面檔（`page.tsx`，含登入頁與首頁導向；SOP 01 新增 `/fit`、`/segments`、`/segments/[id]`，團主、商品、檔期頁另加面板；SOP 02／03 新增 `/selection`、`/diligence/[id]`、`/trials/[id]`、`/feasibility/[id]`，廠商、商品、檔期頁另加面板） |
-| 測試 | 48 個測試檔、809 項（含 SOP 01 新增的 3 檔 82 項、SOP 02／03 新增的 10 檔 187 項），使用真實 PostgreSQL；另有 Playwright E2E（`scripts/e2e-smoke.ts`，SOP 02／03 另加「選品與試用」區塊；`scripts/e2e-aftersales.ts`） |
+| 測試 | 54 個測試檔、899 項（含 SOP 01 新增的 3 檔 82 項、SOP 02／03 新增的 10 檔 187 項），使用真實 PostgreSQL；另有 Playwright E2E（`scripts/e2e-smoke.ts`，SOP 02／03 另加「選品與試用」區塊；`scripts/e2e-aftersales.ts`） |
 
 ---
 
@@ -772,3 +772,10 @@ flowchart LR
 | `finance-comparison`（擴充） | `lib/cost-allocation-impact.ts`：費用分類、利潤影響、風險（唯讀） |
 
 不變：`lib/commission-calc`、`lib/kpi.ts`、`modules/settlements.ts`、`modules/commission.ts`、發票、G1–G5。
+
+### D-1～D-9 架構補充（2026-11-05）
+
+- `lib/complaint-attribution`：`reliableWeights`（可靠比例判定）、`ORDER_SHARED_UNWEIGHTED`、`basis`／`reviewReason`；統計新增 `sharedUnweighted`、`pendingShared`。
+- `lib/cost-allocation-impact`：`BearerStatus`（COMPANY／NOT_COMPANY／PENDING）、已確認口徑與保守情境分開計算；`modules/actual-contribution` 新增承擔方待確認檢查（`lib/actual-profit` 的 `pendingBearerExpenses`）。
+- `modules/finance`：待補清單、`expenseHistory`；`lib/expense-attribution`：憑證連結規則、`costScope`。
+- 不變：結算、佣金計算、發票、G1–G5、財務總覽。無新增排程、觸發器、外部整合或檔案儲存。

@@ -184,6 +184,7 @@
 | GET | `/api/expenses` | 是 |
 | POST | `/api/expenses` | 是 |
 | PATCH | `/api/expenses/:id` | 是 |
+| GET | `/api/expenses/:id/history` | 是 |
 | PATCH | `/api/expenses/:id/attribution` | 是 |
 | POST | `/api/expenses/:id/claim/confirm` | 是 |
 | POST | `/api/expenses/:id/void` | 是 |

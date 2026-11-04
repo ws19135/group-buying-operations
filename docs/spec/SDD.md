@@ -1541,3 +1541,10 @@ NSV            = GMV − 退款
 - **023**：`commission_recon_items`（`RCI-` 編號；狀態 `OPEN／ACKNOWLEDGED／SUPERSEDED／RESOLVED`；內容指紋；`forbid_delete`；每組只有一個進行中項目）。API：`GET /api/reconciliation/commission/items`、`POST /api/reconciliation/commission/sync`、`POST /api/reconciliation/commission/items/:id/acknowledge`。
 - **無 migration**：K-5a 加權（`lib/complaint-attribution.ts`）、K-7a～e（`lib/cost-allocation-impact.ts`，`GET /api/campaigns/:id/cost-allocation-analysis` 新增 `impact`）。
 - **不變**：結算、佣金計算、發票、G1–G5、`lib/kpi.ts`。
+
+### 18B.13 D-1～D-9 設計（migration 024）
+
+- **024**：`expenses.cost_scope`（`DIRECT_PRODUCT／HOST_SPECIFIC／SHARED`，選填）＋約束 `expenses_cost_scope_shape`（與 `product_id`／`host_id` 一致）。
+- **API**：`GET /api/expenses/:id/history`（唯讀修正歷史）；`GET /api/expenses?attributionPending=1`（待補清單）；`GET /api/campaigns/:id/cost-allocation-analysis` 的 `impact` 新增 `pendingBearer`、`conservative`；案件詳情 `hostAttribution` 新增 `basis`、`reviewReason`。
+- **規則**：客訴可靠比例＝每位團主 `share_percent` > 0 且合計 100±0.01；承擔方未知＝`PENDING`；憑證連結＝https＋網域檢查；`actual-profit` 有待確認費用即資料不足。
+- **不變**：結算、佣金、發票、G1–G5；無觸發器、排程、檔案儲存或外部串接。
