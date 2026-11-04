@@ -159,3 +159,42 @@
 
 **開發中抓到的問題**：① 觸及資料表單對非「有效導購訪客」的資料也送出預設的去重方式，被服務層拒絕（全流程腳本抓到，改為預設留空）；② 客訴率在沒有有效訂單時連案件件數都不顯示（全流程腳本抓到，改為比率資料不足但件數與歸屬照實列出）；③ PR #20 的團主層級客訴率分子（檔期全部案件）與分母（團主歸因訂單）口徑混用，已改為分開呈現；④ 腳本自身的測試識別問題（不算產品缺陷）。
 
+## 12. K-4a～K-8a 決策落地（2026-11-05，分支 `feat/k4a-k8a-fee-attribution`，基於 PR #21 分支 `feat/k4-k8-rules`）
+
+| 檢查 | 結果（本次實際執行） |
+|---|---|
+| `npm run typecheck`（`tsc --noEmit`）／`eslint .` | 無錯誤 |
+| `npm test`（Vitest，真實 PostgreSQL） | **54 個檔案、872 項通過**（PR #21 為 48／809）。新增：`unit/kpi-settlement-reminder` 5、`commission-recon-items` 9、`unit/cost-allocation-impact` 11、`cost-allocation-impact` 8、`unit/expense-attribution` 6、`expense-attribution` 11；擴充 `trial-kpi-decisions`（K-4a）、`complaint-attribution`、`unit/complaint-attribution`、`unit/trial-kpi`、`unit/fee-attribution`、`unit/trial-reach-rules` |
+| `npm run build` | 成功 |
+| E2E 煙霧（`scripts/e2e-smoke.ts`） | **146/146**（重設資料庫並灌入全部 DEMO 種子） |
+| 全流程 UI（`scripts/e2e-flow.ts`，Playwright） | **45/45**（PR #21 為 42；新增 K-4a 待查核畫面、K-6a 營運主管無同步按鈕、K-6a 財務同步後建立項目）；截圖 `docs/uat/screens/flow-17-recon-items.png` |
+| 突變驗證（規則 7） | 本階段新增 **19 種**規則破壞，全部使測試變紅（見下）；另有 1 種為等價突變體（說明於下） |
+| 結算不受影響 | 與 PR #21 分支比對（`git diff origin/feat/k4-k8-rules`）：`lib/commission-calc.ts`、`lib/kpi.ts`、`modules/settlements.ts`、`modules/commission.ts`、`modules/invoices.ts`、`modules/gates.ts`、`modules/workflow.ts` **無任何變動**；`modules/finance.ts` 只新增費用歸屬相關函式（`payments`、結算、發票相關程式碼無變動）；測試在同步、確認、分析前後比對資料表筆數與 `campaignHostCommission` 結果完全相同 |
+| 沒有執行／限制 | 沒有使用真實資料、通知或金流；沒有觸發器、沒有正式部署；GitHub Pages 快照站在合併後由 workflow 重建，未在部署環境驗證；PR #20／#21 維持 Draft、未合併 |
+
+### 12.1 Owner 要求的 10 項必測與對應證據
+
+| # | 必測項目 | 證據（測試） |
+|---|---|---|
+| 1 | 單一主管不能自行查核 | `trial-kpi-decisions`：K-4a「填寫者無法自行查核」（服務層 403＋資料庫觸發器）；突變「填寫者可查核自己填的資料」→ 紅 |
+| 2 | 沒有第二位查核者時 CVR 為資料不足 | 同上：「資料維持待查核；CVR 資料不足；沒有候選人時不會自動通過」 |
+| 3 | 多團主客訴分攤與公司總數一致 | `unit/complaint-attribution`、`complaint-attribution`：Σ團主加權＋未歸屬＝公司總數；突變「每位團主都算完整 1 件」→ 紅 |
+| 4 | 缺歸因不強制歸屬 | 同上：未歸屬保留；突變「未歸屬被強制歸給某團主」→ 紅 |
+| 5 | 合約與財務不一致只提示、不改寫 | `commission-recon-items`：同步／確認前後 12 張資料表筆數與 `campaignHostCommission` 結果完全相同；可行性條款與財務規則值未被改；`unit/kpi-settlement-reminder` |
+| 6 | 多商品成本不自動分攤 | `cost-allocation-impact`：K-7e 分析不寫入、沒有分攤相關資料表、每單貢獻利潤仍資料不足；`finance-comparison` |
+| 7 | 承擔方與付款方分開記錄 | `expense-attribution`：承擔方（品牌）與實際付款方（公司）可不同；突變「缺漏被當成沒有往來款」「公司先付卻不產生應收」→ 紅 |
+| 8 | 無權限角色看不到／改不了敏感費用 | `expense-attribution`：小編、團主、廠商 403、其他組織 404、營運主管只讀；遮罩；突變「沒有成本權限也看得到」→ 紅 |
+| 9 | 未確認的應收／應付不能成為正式付款指示 | `expense-attribution`：確認後仍不產生付款、撥款、扣款、發票；程式碼掃描只有財務的手動入帳／付款會寫 `payments`；突變「內容被改後仍保持已確認」→ 紅 |
+| 10 | 既有佣金結算、發票、G1–G5、KPI 回歸 | 全套 872 項（含既有結算、發票、閘門、KPI、Dashboard、API 模糊測試）與 E2E 煙霧 146／全流程 45 皆通過；上述檔案與 PR #21 零差異 |
+
+### 12.2 突變驗證明細（規則 7：修正後拿舊的錯誤版本跑新測試必須變紅）
+
+本階段新增並已確認「紅」的規則破壞：K-4a 允許指派填寫者／填寫者可自查；K-5a 共同歸因各算完整 1 件／未歸屬被強制歸屬；K-8a 缺漏被當成沒有往來款／公司先付卻不產生應收／已確認內容被改後仍已確認／無成本權限也看得到歸屬；K-6a 已確認的項目可重複確認／口徑差異永遠不提醒／指紋固定不變（差異改變仍沿用舊項目）；K-7 已指定商品費用仍進共同池（重複分攤）／同時指定商品與團主歸為團主／承擔方未記錄被排除／缺成本被當 0／跨期費用被自動排除；另有 3 種「商品去重」退回舊寫法（見下）。
+**等價突變體**：把指紋的 `fields` 欄位清空不會改變結果，因為待覆核原因文字已包含規則版本與差異內容（兩者資訊重疊）；因此改以「指紋固定不變」驗證指紋確實被使用。
+**第一次突變驗證有 2 個倖存**：① 填寫者自查只靠資料庫擋、服務層沒被單獨驗證 → 補上 403 斷言後變紅；② 規則新版本但費率相同的情況沒有測試 → 補測試。
+
+### 12.3 開發中抓到的問題
+
+1. **同一商品多規格（SKU）被當成多商品檔期**（全流程 E2E 抓到；PR #20／#21 已存在）：`campaign_products` 每個 SKU 一列，三處查詢（`actual-contribution`、差異核對、成本分攤分析）依列數判斷，導致差異核對出現重複列、「同步為待確認項目」因唯一索引衝突失敗、每單貢獻利潤誤判為多商品而資料不足（偏保守，但不正確）。已改為依商品去重，新增回歸測試（含雙規格商品），3 處退回舊寫法都會使測試變紅。
+2. 全流程腳本第一次用營運主管去按「同步」（主管只有讀取權限、沒有按鈕，是腳本用錯角色）→ 改為主管驗證沒有按鈕、財務角色同步。
+3. 測試端：`users.status` 只允許 ACTIVE／DISABLED；數字欄位型別（JSON 與字串）斷言；日期子字串比對不穩定，改比對 `"value":N`。

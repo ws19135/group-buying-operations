@@ -236,6 +236,33 @@
 
 索引：`case_events_case_idx`、`case_events_pkey`（唯一）
 
+## `commission_recon_items`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| campaign_id | text | 否 |  | campaigns.id |
+| host_id | text | 否 |  | hosts.id |
+| product_id | text | 否 |  | products.id |
+| fingerprint | text | 否 |  |  |
+| status | text | 否 | `'OPEN'::text` |  |
+| review_reasons | jsonb | 否 |  |  |
+| snapshot | jsonb | 否 |  |  |
+| detected_by | text | 是 |  |  |
+| first_seen_at | timestamp with time zone | 否 | `now()` |  |
+| last_seen_at | timestamp with time zone | 否 | `now()` |  |
+| acknowledged_by | text | 是 |  |  |
+| acknowledged_at | timestamp with time zone | 是 |  |  |
+| acknowledge_note | text | 是 |  |  |
+| closed_at | timestamp with time zone | 是 |  |  |
+| close_reason | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| version | integer | 否 | `1` |  |
+
+索引：`commission_recon_active_uq`（唯一）、`commission_recon_items_pkey`（唯一）、`commission_recon_status_idx`
+
 ## `commission_rules`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -424,8 +451,24 @@
 | created_by | text | 是 |  |  |
 | updated_by | text | 是 |  |  |
 | version | integer | 否 | `1` |  |
+| bearer_party | text | 是 |  |  |
+| payer_party | text | 是 |  |  |
+| claim_direction | text | 否 | `'UNDETERMINED'::text` |  |
+| claim_party | text | 是 |  |  |
+| claim_status | text | 否 | `'UNCONFIRMED'::text` |  |
+| claim_confirmed_by | text | 是 |  |  |
+| claim_confirmed_at | timestamp with time zone | 是 |  |  |
+| claim_note | text | 是 |  |  |
+| host_id | text | 是 |  | hosts.id |
+| product_id | text | 是 |  | products.id |
+| terms_source_kind | text | 是 |  |  |
+| terms_ref | text | 是 |  |  |
+| payment_status | text | 否 | `'UNRECORDED'::text` |  |
+| paid_on | date | 是 |  |  |
+| paid_amount | bigint | 是 |  |  |
+| evidence_url | text | 是 |  |  |
 
-索引：`expenses_campaign_idx`、`expenses_org_idx`、`expenses_pkey`（唯一）
+索引：`expenses_attr_idx`、`expenses_campaign_idx`、`expenses_org_idx`、`expenses_pkey`（唯一）
 
 ## `feasibility_scenarios`
 
@@ -1300,8 +1343,13 @@
 | verified_at | timestamp with time zone | 是 |  |  |
 | verify_note | text | 是 |  |  |
 | verify_rules_version | text | 是 |  |  |
+| assigned_verifier_id | text | 是 |  | users.id |
+| assigned_by | text | 是 |  |  |
+| assigned_at | timestamp with time zone | 是 |  |  |
+| assignment_note | text | 是 |  |  |
+| resubmits_id | text | 是 |  | trial_reach_records.id |
 
-索引：`trial_reach_records_pkey`（唯一）、`trial_reach_trial_idx`
+索引：`trial_reach_records_pkey`（唯一）、`trial_reach_resubmit_uq`（唯一）、`trial_reach_trial_idx`
 
 ## `user_scopes`
 
