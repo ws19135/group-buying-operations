@@ -217,7 +217,7 @@ describe('D-39：營運小編只看得到自己承辦或被指派的申請', () 
 
   it('指派、交接、認領、釋出都不會建立任何通知、不動任何其他模組的資料表', async () => {
     const tables = ['approvals', 'campaigns', 'inventory_movements', 'settlements', 'settlement_items', 'payments', 'tasks', 'notifications'];
-    const count = async () => Object.fromEntries(await Promise.all(tables.map(async (t) => [t, (await query<{ n: number }>(`SELECT count(*)::int AS n FROM ${t}`))[0].n])));
+    const count = async () => Object.fromEntries(await Promise.all(tables.map(async (t) => [t, (await query<{ n: number }>(`SELECT count(*)::int AS n FROM ${t} WHERE organization_id=$1`, [w.orgId]))[0].n])));   // 只算本測試的組織：測試檔平行執行，全表計數會被別的檔案影響
     const before = await count();
     const id = await mkApp({ by: w.manager });
     await assign.assignApplication(w.manager, id, { userId: w.editor.userId as string });
@@ -788,11 +788,11 @@ describe('D-41／D-42：後台設定維持兩欄、不寄信；不改既有 task
   it('後台設定只有「聯絡信箱」與「完成狀態」兩個欄位，且更新不產生任何通知', async () => {
     const cols = await query<{ column_name: string }>(`SELECT column_name FROM information_schema.columns WHERE table_name='collaboration_launch_details' AND column_name LIKE 'backend_setup%' ORDER BY column_name`);
     expect(cols.map((c) => c.column_name)).toEqual(['backend_setup_email', 'backend_setup_note', 'backend_setup_status']);
-    const before = (await query<{ n: number }>('SELECT count(*)::int AS n FROM notifications'))[0].n;
+    const before = (await query<{ n: number }>('SELECT count(*)::int AS n FROM notifications WHERE organization_id=$1', [w.orgId]))[0].n;
     const id = await mkApp({ owner: w.editor.userId });
     await approve(id);
     await collab.putVendorLaunch(vendA, id, { backendSetupEmail: 'shop@example.invalid', backendSetupStatus: 'DONE' });
-    expect((await query<{ n: number }>('SELECT count(*)::int AS n FROM notifications'))[0].n).toBe(before);
+    expect((await query<{ n: number }>('SELECT count(*)::int AS n FROM notifications WHERE organization_id=$1', [w.orgId]))[0].n).toBe(before);
   });
 
   it('tasks.campaign_id 仍為 NOT NULL；合作模組沒有新增任何任務', async () => {

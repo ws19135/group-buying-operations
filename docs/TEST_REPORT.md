@@ -383,3 +383,7 @@
 | `unit/collaboration-rules` | 廠商可見性測試增加履約事實與硬性上限案例 | 同上 |
 | `e2e-smoke` | 廠商匯出斷言同上；新增 11 項 | 同上 |
 | `prod-readiness` | 測試用管理者信箱由疑似真實公司網域改為保留的 `.test` 網域 | D-43 清查發現（REPO_SECURITY_REPORT E2） |
+
+### 19.4 CI 發現並修正的測試缺陷（推送 `dd518bc` 後）
+
+CI 的 `npm test` 在 `dd518bc` 紅燈（2 項，皆在 `collaboration-hardening`）：「指派、交接、認領、釋出都不會建立任何通知…」`expected { campaigns: 14 … } to deeply equal { campaigns: 13 … }`、「後台設定…不產生任何通知」`expected 27 to be 25`。**根因是我新增的測試本身**：用整個資料庫的資料表列數前後比對，而 Vitest 平行執行多個測試檔，別的檔案同時新增資料就讓全域計數變動（本機兩次全套都剛好沒撞到，CI 的排程不同才現形）。修正：計數一律加上 `WHERE organization_id = 本測試組織`（每個測試檔有自己的組織，不受其他檔案影響）。修正後本機全套連跑 2 次皆 62 檔／1153 項通過。
