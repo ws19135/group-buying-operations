@@ -4,7 +4,7 @@ import type { Actor } from '@/server/lib/permissions';
 import { resetRateLimits } from '@/server/lib/rate-limit';
 import { PW, emailOf } from './helpers';
 
-export interface ApiResult<T = any> { status: number; json: any; data: T; error?: { code: string; message: string; requestId: string }; headers: Headers } // eslint-disable-line @typescript-eslint/no-explicit-any
+export interface ApiResult<T = any> { status: number; json: any; data: T; error?: { code: string; message: string; requestId: string }; headers: Headers; text: string } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export class Client {
   cookie = '';
@@ -29,7 +29,11 @@ export class Client {
     const set = res.headers.get('set-cookie');
     if (set) { const m = /^([^=]+)=([^;]*)/.exec(set); if (m) this.cookie = m[2] ? `${m[1]}=${m[2]}` : ''; }
     const text = await res.text();
-    const json = text ? JSON.parse(text) : null;
-    return { status: res.status, json, data: json?.data, error: json?.error, headers: res.headers };
+    // 不是所有回應都是 JSON（例：CSV 匯出）；解析不了就把原文放在 text，json 留 null
+    let json: any = null;   // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (text && (res.headers.get('content-type') ?? '').includes('application/json')) {
+      try { json = JSON.parse(text); } catch { json = null; }
+    }
+    return { status: res.status, json, data: json?.data, error: json?.error, headers: res.headers, text };
   }
 }

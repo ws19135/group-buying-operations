@@ -17,6 +17,7 @@
 | 測試報告 | 測了什麼、結果如何 | [`docs/TEST_REPORT.md`](../TEST_REPORT.md)、[`docs/UAT_EVIDENCE.md`](../UAT_EVIDENCE.md) | 既有 |
 | 功能完成矩陣 | 每個功能做到哪、限制是什麼 | [`docs/FEATURE_STATUS_MATRIX.md`](../FEATURE_STATUS_MATRIX.md) | 既有 |
 | 已知問題 | 已知的限制與技術債 | [`docs/KNOWN_ISSUES.md`](../KNOWN_ISSUES.md) | 既有 |
+| 合作申請與樣品管理 | 網紅樣品申請、供樣審核、寄送與補寄、收件個資、匯入匯出怎麼運作 | [`docs/phase2/INFLUENCER_SAMPLE_APPLICATION.md`](../phase2/INFLUENCER_SAMPLE_APPLICATION.md) | 既有（2026-11-06 新增模組的設計、權限矩陣與 UAT 紀錄） |
 | 自動產生的結構文件 | 資料表／關聯／端點清單 | [`docs/generated/`](../generated/) | 由 `npm run docs:gen` 從資料庫與路由表產生 |
 
 ## 2. 建議閱讀順序
@@ -43,6 +44,7 @@
 - **會影響本文的項目**：從 `git diff` 看得到，下列「核對未決」項目正在被處理，合併後請重新核對並更新本文：SAD §13／SDD §20 的 #7（`SESSION_SECRET` 未使用：`sessionSecret()` 已被移除）、#10（財務稽核可見實體：`FINANCE_ENTITIES` 已擴充）、#12（冪等鍵不含使用者：雜湊已納入送出者）、#16（匯入未套用檔期範圍：已套用）；另有 K6（`idempotency_keys` 清理：新增每日清理）、`settlement_children_guard` 修補（migration 012）、請求輸入防呆（NUL 字元、壞的網址編碼、分頁參數）。
 - ✅ 整合時另外修正：G4 檢查訊息已改為「結算試算與確認（需人工確認）」（SRS G-01／SAD §13 #2／SDD §20 #2）；庫存異動編號改用 `STK-` 前綴，012 之前的紀錄沿用 `INV-`（SRS G-06／SAD §13 #9／SDD §20 #9）；`SESSION_SECRET` 已移除（SRS G-09／NFR-SEC-09／SAD §8、§13／SDD §20 #7 的前半）；`ARCHITECTURE.md` 與 `docs/phase2/FULFILLMENT.md` 已更新。
 - 仍有效（需 Owner 決定）：結算確認不自動推進 G4（G-02）、流程模板天數無編輯入口（G-03）、申請人≠核准人無設定入口（G-04）、登入 IP 取 `X-Forwarded-For`、團主可見欄位範圍等。
+- **本輪基準（2026-11-06，分支 `feat/collaboration-applications`）**：新增模組「合作申請與樣品管理（COLLABORATION_APPLICATIONS）」，程式為 60 個測試檔、1039 項測試、28 支 migration、76 張表、253 個端點、63 項權限。本組 SRS／SAD／SDD 的敘述**尚未改寫**，新模組的需求、資料模型、狀態機、權限與限制一律以 [docs/phase2/INFLUENCER_SAMPLE_APPLICATION.md](../phase2/INFLUENCER_SAMPLE_APPLICATION.md) 與 [docs/FEATURE_STATUS_MATRIX.md](../FEATURE_STATUS_MATRIX.md) 第 60～65 列（上線驗收矩陣 G 區）為準。**未部署、未碰任何真實資料**，不得標 DEPLOYED 或 LIVE_VERIFIED。
 
 ## 5. 與程式的對應速查
 
@@ -54,5 +56,6 @@
 | 狀態機 | `src/server/workflow/state.ts`；關卡 `src/server/modules/gates.ts` |
 | 排程引擎 | `src/server/workflow/schedule.ts`（純函式）；預設模板 `template-default.ts` |
 | KPI／佣金口徑 | `src/server/lib/kpi.ts`、`src/server/lib/commission-calc.ts` |
+| 合作申請與樣品管理 | `src/server/modules/collaboration.ts`、`src/server/modules/collaboration-import.ts`；純規則（狀態機、樣品進度推導、個資保留政策）`src/server/lib/collaboration-rules.ts`；資料表 `migrations/028_collaboration_applications.sql` |
 | 資料表 | `migrations/001`～`011`；自動產生的 `docs/generated/DATA_DICTIONARY.md` |
 | 測試 | `tests/`（14 個檔案、245 項；真實 PostgreSQL） |

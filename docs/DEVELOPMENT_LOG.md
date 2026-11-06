@@ -481,3 +481,44 @@ Owner 要求：不重建 SOP 02／03；把 1～5 分主觀評分升級成「可�
 **需求**：正式建置時，先詢問是否已依 `OWNER_SETUP_CHECKLIST.md` 設置。
 **作法**：三處守門——`prod:bootstrap`（互動輸入 yes 或 `BOOTSTRAP_CONFIRM=yes`；詢問前不寫資料庫）、主機 `deploy-remote.sh`（`confirm_checklist` ＋ `preflight_env`）、GitHub 部署工作流程（production 需 `checklist_confirmed`、`staging_verified` 皆為 yes，且在 checkout 之前）。CI 的映像檢查明確帶 `BOOTSTRAP_CONFIRM=yes`。
 **驗證**：見 TEST_REPORT §17。**注意**：這是流程上的確認，不是權限控制；真正的權限仍是 GitHub Environment 的 Required reviewers。
+
+## 2026-11-06｜合作申請與樣品管理（分支 `feat/collaboration-applications`）
+
+**目標**：把廠商現行兩張 Excel／Sheets 表單（開團與補寄追蹤、樣品申請）做成 ERP 模組 `COLLABORATION_APPLICATIONS`，支援「團主先拿樣品試用、試用後才決定要不要開團」這條沒有檔期的路；不重複建立團主／廠商／商品主檔、不改 G1～G5 核准語意、不扣庫存、不產生財務或結算紀錄。未部署、未碰真實資料、廠商入口未對外開放。
+
+**變更**
+- migration `028_collaboration_applications.sql`：7 張表 `collaboration_applications`（CLB-）、`collaboration_application_items`（CLI-）、`collaboration_recipients`（CRP-，個資）、`collaboration_shipments`（CSP-）、`collaboration_launch_details`（CLD-）、`collaboration_events`（append-only，無業務 ID）、`collaboration_import_rows`（CIR-）；資料庫層約束擋住「未確認合作就塞 `campaign_id`」「核准數量大於申請數量」「標已寄出卻沒寄出日」等情況。全系統 76 張表（+7）、200 個外鍵、253 個 API 端點（+41）、migration 共 28 支。
+- 兩個 service：`src/server/modules/collaboration.ts`（案件、明細、收件資訊、寄送紀錄、開團合作資訊、三種視角分桶、匯出）、`src/server/modules/collaboration-import.ts`（三步匯入：上傳預覽→逐列確認→建立申請）；規則純函式集中在 `src/server/lib/collaboration-rules.ts`。
+- 11 項新權限（`collaboration.campaign.link`、`.create`、`.export`、`.intent.write`、`.pii.read`、`.read`、`.review`、`.self`、`.shipping.write`、`.update`、`.vendor.review`），全系統 63 項；沿用既有六種角色，沒有第七種；全部在後端強制，含欄位層級白名單。各角色持有數：管理者 63／主管 55／小編 41／團主 13／廠商 12／財務 23（財務 11 項全無）。
+- 6 個新頁面（`page.tsx` 共 53 個，+6）：`/collaboration`（營運總覽）、`/collaboration/new`（建立申請）、`/collaboration/[id]`（詳情，六個區塊）、`/collaboration/import`（匯入三步）、`/collaboration/mine`（團主工作台，卡片式、手機可用）、`/collaboration/vendor`（廠商工作台，七個分桶）。
+- 3 個測試檔共 102 項：`tests/collaboration.test.ts` 26、`tests/collaboration-rbac.test.ts` 44、`tests/unit/collaboration-rules.test.ts` 32。
+- DEMO 種子 `npm run db:seed:demo:collaboration`：6 筆申請、4 筆寄送紀錄（含補寄），冪等、拒絕在 production 執行；只用保留測試號碼與 `example.invalid`。
+- 文件：`docs/phase2/INFLUENCER_SAMPLE_APPLICATION.md`（本模組單一完整規格）、TEST_REPORT §18、KNOWN_ISSUES W-33～W-40、RTM §L、線框與現況畫面各補 6 個頁面。
+
+**與規格的差異**：
+- 權限是 **11 項**，指令列的是 10 項——多拆出 `collaboration.pii.read`，把「讀收件個資」與「讀案件」分開（Owner 待確認第 1 項）。
+- 工作台用**衍生分桶**而不是 `tasks`：`tasks.campaign_id` 為 NOT NULL 且只由流程模板批次產生，沒有通用 createTask，所以不重用任務引擎、也不另建平行任務引擎（已用測試固定 `tasks` 筆數前後不變）。
+- 收件個資獨立一張表 `collaboration_recipients`、獨立端點、獨立稽核，並有**保留期**：核准起算 90 天，一旦樣品送達改以最後寄送日起算 30 天，取較早者；到期清除是把值覆寫成「［已清除］」，且需人工或排程觸發（系統沒有自動排程）。
+- 與 SOP 03 商品試用只以 `trial_id` 選填引用，不混為同一狀態機；一般樣品申請不等於已完成 SOP 03 的試用資格評估。
+- 四個維度（申請狀態、合作狀態、物流狀態、開團意願）各自獨立的狀態機，不串成一條長鏈；「是否已補寄」不存欄位，由 `summarizeShipments()` 從寄送紀錄推導。
+
+**驗證**：見 TEST_REPORT §18。
+
+**開發中抓到的問題**：
+1. 收件個資保留期只在建立收件資料時寫入，送達後沒有改以「最後寄送日 +30 天」重算 → 個資留得比政策久；修法是把 `refreshRetention()` 掛在核准、廠商確認、新增寄送、修改寄送、確認收件共 5 個呼叫點。
+2. 廠商／團主工作台 HTTP 500：對外欄位白名單 `EXTERNAL_APP_FIELDS` 漏掉工作台要用的衍生欄位（`sample`、`sampleBucket`、`itemCount`、`recipientConfirmed`、意願與日期）→ 加寬白名單並新增 `VENDOR_EXTRA_APP_FIELDS`（只有廠商看得到 `backendSetupStatus`）。
+3. 團主永遠無法從畫面存開團意願：表單對團主顯示了 `adsIntent`／`adsNote`／`collaborationNote`，但後端 `HOST_LAUNCH_FIELDS` 不放行，送出就 403 → 那三個欄位只給內部顯示，並加 RBAC 測試把欄位契約釘住。
+
+三個問題都已修，並以突變驗證確認：拿舊的錯誤版本跑新測試全部變紅（實際錯誤訊息見 TEST_REPORT §18.2）。ℹ️ 第 3 項的錯在畫面、不在後端，所以變紅的是全流程 UI 測試（`npm run e2e:flow`）；新增的 RBAC 測試釘的是後端欄位層級契約，用來防畫面再次漂走。
+
+**需要 Owner**：
+1. 第 11 項權限 `collaboration.pii.read`：指令只列 10 項，本次多拆這一項把「讀收件個資」與「讀案件」分開。
+2. 廠商有 `collaboration.export`（可匯出但個資遮罩）是否保留。
+3. 小編（OPS_EDITOR）在 `collaborationScope` 的資料範圍是全組織，與 `campaignScope` 不同。
+4. 個資保留期數字：核准起算 90 天／送達後改以最後寄送日起算 30 天，取較早者。
+5. 「後台設定 Mail」解讀為「聯絡信箱＋設定狀態」兩個欄位、不自動寄信。
+6. 任務無法重用（`tasks.campaign_id` NOT NULL），是否另開需求讓 `tasks` 支援無檔期任務。
+7. **GitHub repo `ws19135/group-buying-operations` 目前是 public**（`isPrivate: false`，description「團購報告」）；本模組會存真實收件個資，放正式資料前必須先轉 private。
+8. 廠商入口要完成對外存取安全驗證後才可開放。
+
+**下一步**：等 Owner 裁決上列 8 項（第 7 項是放正式資料的前提，建議先處理）；之後才談部署與廠商入口對外開放，兩者目前都未進行。

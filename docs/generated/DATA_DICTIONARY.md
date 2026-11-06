@@ -236,6 +236,202 @@
 
 索引：`case_events_case_idx`、`case_events_pkey`（唯一）
 
+## `collaboration_application_items`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| application_id | text | 否 |  | collaboration_applications.id |
+| product_id | text | 否 |  | products.id |
+| sku_id | text | 是 |  | skus.id |
+| requested_qty | integer | 否 | `1` |  |
+| approved_qty | integer | 是 |  |  |
+| supply_status | text | 否 | `'PENDING'::text` |  |
+| request_reason | text | 是 |  |  |
+| vendor_note | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+| deleted_at | timestamp with time zone | 是 |  |  |
+
+索引：`collab_item_app_idx`、`collab_item_product_idx`、`collab_item_uq`（唯一）、`collaboration_application_items_pkey`（唯一）
+
+## `collaboration_applications`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| vendor_id | text | 否 |  | vendors.id |
+| host_id | text | 否 |  | hosts.id |
+| product_id | text | 是 |  | products.id |
+| source | text | 否 | `'OPS'::text` |  |
+| applied_on | date | 否 |  |  |
+| owner_user_id | text | 是 |  | users.id |
+| status | text | 否 | `'DRAFT'::text` |  |
+| collaboration_status | text | 否 | `'NOT_STARTED'::text` |  |
+| campaign_id | text | 是 |  | campaigns.id |
+| trial_id | text | 是 |  | product_trials.id |
+| status_reason | text | 是 |  |  |
+| hold_reason | text | 是 |  |  |
+| note | text | 是 |  |  |
+| internal_note | text | 是 |  |  |
+| dedupe_key | text | 是 |  |  |
+| submitted_at | timestamp with time zone | 是 |  |  |
+| internal_reviewed_at | timestamp with time zone | 是 |  |  |
+| internal_reviewed_by | text | 是 |  |  |
+| vendor_reviewed_at | timestamp with time zone | 是 |  |  |
+| vendor_reviewed_by | text | 是 |  |  |
+| decided_at | timestamp with time zone | 是 |  |  |
+| decided_by | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+| deleted_at | timestamp with time zone | 是 |  |  |
+
+索引：`collab_app_campaign_idx`、`collab_app_dedupe_uq`（唯一）、`collab_app_host_idx`、`collab_app_org_status_idx`、`collab_app_owner_idx`、`collab_app_product_idx`、`collab_app_trial_idx`、`collab_app_vendor_idx`、`collaboration_applications_pkey`（唯一）
+
+## `collaboration_events`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | bigint | 否 | `nextval('collaboration_events_id_seq'::regclass)` |  |
+| organization_id | text | 否 |  | organizations.id |
+| application_id | text | 否 |  | collaboration_applications.id |
+| dimension | text | 否 |  |  |
+| event_type | text | 否 |  |  |
+| from_status | text | 是 |  |  |
+| to_status | text | 是 |  |  |
+| note | text | 是 |  |  |
+| is_internal | boolean | 否 | `false` |  |
+| actor_user_id | text | 是 |  |  |
+| actor_role | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+
+索引：`collab_event_app_idx`、`collaboration_events_pkey`（唯一）
+
+## `collaboration_import_rows`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| batch_id | text | 否 |  | import_batches.id |
+| row_no | integer | 否 |  |  |
+| form_kind | text | 否 |  |  |
+| raw | jsonb | 否 |  |  |
+| host_name_raw | text | 是 |  |  |
+| vendor_name_raw | text | 是 |  |  |
+| product_name_raw | text | 是 |  |  |
+| resolved_host_id | text | 是 |  | hosts.id |
+| resolved_vendor_id | text | 是 |  | vendors.id |
+| resolved_product_id | text | 是 |  | products.id |
+| resolved_sku_id | text | 是 |  | skus.id |
+| resolved_campaign_id | text | 是 |  | campaigns.id |
+| resolution | text | 否 | `'NEEDS_REVIEW'::text` |  |
+| issues | jsonb | 否 | `'[]'::jsonb` |  |
+| application_id | text | 是 |  | collaboration_applications.id |
+| dedupe_key | text | 否 |  |  |
+| resolve_note | text | 是 |  |  |
+| resolved_at | timestamp with time zone | 是 |  |  |
+| resolved_by | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+| deleted_at | timestamp with time zone | 是 |  |  |
+
+索引：`collab_import_batch_idx`、`collab_import_dedupe_uq`（唯一）、`collab_import_row_uq`（唯一）、`collaboration_import_rows_pkey`（唯一）
+
+## `collaboration_launch_details`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| application_id | text | 否 |  | collaboration_applications.id |
+| intent | text | 否 | `'PENDING'::text` |  |
+| intent_responded_on | date | 是 |  |  |
+| intent_note | text | 是 |  |  |
+| planned_open_date | date | 是 |  |  |
+| confirmed_open_date | date | 是 |  |  |
+| launch_url | text | 是 |  |  |
+| vendor_portal_url | text | 是 |  |  |
+| backend_setup_email | text | 是 |  |  |
+| backend_setup_status | text | 否 | `'NOT_REQUIRED'::text` |  |
+| backend_setup_note | text | 是 |  |  |
+| ads_intent | text | 否 | `'PENDING'::text` |  |
+| ads_confirm_status | text | 否 | `'PENDING'::text` |  |
+| ads_note | text | 是 |  |  |
+| collaboration_note | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`collab_launch_intent_idx`、`collab_launch_uq`（唯一）、`collaboration_launch_details_pkey`（唯一）
+
+## `collaboration_recipients`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| application_id | text | 否 |  | collaboration_applications.id |
+| recipient_name | text | 否 |  |  |
+| recipient_phone | text | 否 |  |  |
+| postal_code | text | 是 |  |  |
+| address_line | text | 否 |  |  |
+| delivery_note | text | 是 |  |  |
+| confirmed_at | timestamp with time zone | 是 |  |  |
+| confirmed_by | text | 是 |  |  |
+| retention_until | date | 是 |  |  |
+| purged_at | timestamp with time zone | 是 |  |  |
+| purge_reason | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+| deleted_at | timestamp with time zone | 是 |  |  |
+
+索引：`collab_recipient_retention_idx`、`collab_recipient_uq`（唯一）、`collaboration_recipients_pkey`（唯一）
+
+## `collaboration_shipments`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| application_id | text | 否 |  | collaboration_applications.id |
+| shipment_type | text | 否 |  |  |
+| shipped_by_party | text | 否 | `'VENDOR'::text` |  |
+| ship_date | date | 是 |  |  |
+| carrier | text | 是 |  |  |
+| tracking_no | text | 是 |  |  |
+| quantity | integer | 是 |  |  |
+| status | text | 否 | `'PENDING'::text` |  |
+| receipt_confirmed_at | timestamp with time zone | 是 |  |  |
+| receipt_confirmed_by | text | 是 |  |  |
+| receipt_note | text | 是 |  |  |
+| fulfillment_shipment_id | text | 是 |  | shipments.id |
+| cancel_reason | text | 是 |  |  |
+| note | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| created_by | text | 是 |  |  |
+| updated_by | text | 是 |  |  |
+| version | integer | 否 | `1` |  |
+
+索引：`collab_ship_app_idx`、`collab_ship_status_idx`、`collab_ship_tracking_uq`（唯一）、`collaboration_shipments_pkey`（唯一）
+
 ## `commission_recon_items`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |

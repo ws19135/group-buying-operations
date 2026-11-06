@@ -4,7 +4,7 @@
 > 狀態：對**已實作系統**的逆向整理（Phase 1 MVP ＋ Phase 2 切片），逐項與 `src/`、`migrations/`、`tests/` 核對；不是事前設計。系統層面的架構、部署與安全見 [SAD](SAD.md)，索引與約定見 [README](README.md)。
 > 基準版本：已提交程式 HEAD `3be9a94`；撰寫期間另有未提交的安全強化變更未納入，會影響的項目見 [README §4](README.md)。
 > 標記：✅ 已對照程式確認；❓ 列於 §20「核對未決」。所有金額口徑一律「**待 Owner 確認**」。
-> 不重貼的內容：資料表逐欄定義 → [DATA_DICTIONARY](../generated/DATA_DICTIONARY.md)；130 個端點完整清單 → [API_ENDPOINTS](../generated/API_ENDPOINTS.md)；請求格式範例 → [API.md](../API.md)。本文件只寫「設計上重要的欄位、約束與規則」。
+> 不重貼的內容：資料表逐欄定義 → [DATA_DICTIONARY](../generated/DATA_DICTIONARY.md)；253 個端點完整清單 → [API_ENDPOINTS](../generated/API_ENDPOINTS.md)；請求格式範例 → [API.md](../API.md)。本文件只寫「設計上重要的欄位、約束與規則」。
 
 ---
 
@@ -71,6 +71,7 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 | EVI／VDD／VDI | 證據連結／廠商合作資格審查／調查項目（SOP 02／03；`EVI` 與 SOP 01 的 `EVD` 不同） | `EVI-000001`、`VDD-000001`、`VDI-000001` |
 | SEL／TRL／TCK／FSB | 選品評估／商品試用／試用檢核項／可行性情境（SOP 02／03） | `SEL-000001`、`TRL-000001`、`TCK-000001`、`FSB-000001` |
 | RUN／NTF／INT | 自動化執行／通知／進件 | `RUN-YYYYMMDD-0001`、`NTF-YYYYMMDD-000001`、`INT-000001` |
+| CLB／CLI／CRP／CSP／CLD／CIR | 合作申請單／申請樣品明細／收件資訊／樣品寄送紀錄／開團合作資訊／匯入列（合作申請與樣品管理） | `CLB-000001`、`CLI-000001`、`CRP-000001`、`CSP-000001`、`CLD-000001`、`CIR-000001`（匯入批次沿用 `IMP-YYYYMMDD-0001`） |
 
 > 時間分段的計數（CMP、TSK、IMP、SET、RUN、NTF）以台北日期或月份為 `period`，跨期自動重新從 1 起算。
 
@@ -78,7 +79,7 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 
 ## 1. 角色與權限矩陣
 
-> **本節矩陣由 `src/server/lib/permissions.ts` 直接產生**（腳本 `import ROLE_PERMISSIONS` 後輸出，非手抄）。52 項權限（SOP 01 新增 6 項：`segment.read／write`、`fit.read／assess／review／config`；SOP 02／03 新增 3 項：`selection.read／write／config`）；各角色持有數：管理者 52、主管 45、小編 32、團主 10、廠商 7、財務 23。
+> **本節矩陣由 `src/server/lib/permissions.ts` 直接產生**（腳本 `import ROLE_PERMISSIONS` 後輸出，非手抄）。63 項權限（SOP 01 新增 6 項：`segment.read／write`、`fit.read／assess／review／config`；SOP 02／03 新增 3 項：`selection.read／write／config`；合作申請與樣品管理新增 11 項 `collaboration.*`）；各角色持有數：管理者 63、主管 55、小編 41、團主 13、廠商 12、財務 23。
 
 | 權限 | 管理者 | 主管 | 小編 | 團主 | 廠商 | 財務 |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
@@ -93,6 +94,17 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 | `campaign.sensitive.read` | ● | ● |  |  |  | ● |
 | `campaign.transition` | ● | ● | ● |  |  |  |
 | `campaign.write` | ● | ● | ● |  |  |  |
+| `collaboration.campaign.link` | ● | ● | ● |  |  |  |
+| `collaboration.create` | ● | ● | ● | ● | ● |  |
+| `collaboration.export` | ● | ● | ● |  | ● |  |
+| `collaboration.intent.write` | ● | ● | ● | ● |  |  |
+| `collaboration.pii.read` | ● | ● | ● |  |  |  |
+| `collaboration.read` | ● | ● | ● |  |  |  |
+| `collaboration.review` | ● | ● |  |  |  |  |
+| `collaboration.self` | ● |  |  | ● | ● |  |
+| `collaboration.shipping.write` | ● | ● | ● |  | ● |  |
+| `collaboration.update` | ● | ● | ● |  |  |  |
+| `collaboration.vendor.review` | ● | ● | ● |  | ● |  |
 | `commission.read` | ● | ● |  | ● |  | ● |
 | `commission.write` | ● |  |  |  |  | ● |
 | `community.read` | ● | ● | ● | ● |  | ● |
@@ -141,6 +153,7 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 - `OPS_MANAGER` ＝ 全部權限，**扣除** `user.manage`、`commission.write`、`host.self`、`vendor.self`、`refund.complete`、`finance.write`、`settlement.confirm`（程式用 `ALL.filter(…)`）。
 - SOP 01 的 6 項權限只給管理者、主管與（部分）營運小編：小編有 `segment.read／write`、`fit.read／assess`，**沒有** `fit.review`、`fit.config`；財務、團主、廠商一項都沒有（客群分析與適配評估無外部入口）。矩陣中這 6 列依 `permissions.ts` 補入；其餘列未重新產生，沿用原基準。
 - SOP 02／03 的 3 項權限：`selection.read`（管理者、主管、小編、財務）、`selection.write`（管理者、主管、小編）、`selection.config`（管理者、主管）；團主、廠商一項都沒有。**覆核評估與試用、核准調查、確認法務無虞、覆寫試用建議沿用既有 `product.review`；成本、分潤與利潤欄位沿用既有 `product.cost.read`**，不另立新權限。矩陣中這 3 列依 `permissions.ts` 補入。
+- 合作申請與樣品管理的 11 項權限刻意分三種維度：①**動作**（`read／create／update／review／vendor.review／shipping.write／intent.write／campaign.link／export`）②**資料範圍**（`collaboration.self`＝團主與廠商只看自己的案件；內部靠 `collaboration.read`，資料範圍由新的 `collaborationScope` 決定，營運小編為全組織，與 `campaignScope` 不同，見 D-39）③**個資**（`collaboration.pii.read` 把「讀案件」與「讀收件人姓名／電話／地址」分開；案件詳情 API 完全不回傳個資內容，必須走專用端點且每次讀取寫稽核）。營運小編**刻意沒有** `collaboration.review`（需要核准權限的決策留給主管，註解寫在 `permissions.ts`）；財務 11 項全無，**不會因為是財務就取得收件人電話與地址**；廠商有 `collaboration.export` 但沒有 `collaboration.pii.read`，所以匯出時收件三欄是「［無權限］」。這 12 列依 `permissions.ts` 補入。
 - 核准關卡的決定者另有一張表（`GATE_APPROVER_ROLES`），**不用** `approval.*` 權限判斷：G1／G2／G5 ＝ 管理者、主管；G3 ＝ 管理者、主管、財務；G4 ＝ 管理者、財務。
 - 測試鎖定：`tests/unit/misc.test.ts`「權限矩陣（不可被默默放寬）」、`tests/aftersales.test.ts`「權限矩陣（定義）」、`tests/rbac.test.ts`。
 
@@ -1395,13 +1408,156 @@ NSV            = GMV − 退款
 - **K-6／K-7／K-8（唯讀，無 migration）**：`GET /api/reconciliation/commission`、`GET /api/reconciliation/fees`、`GET /api/campaigns/:id/cost-allocation-analysis`（皆需 `finance.read`＋`product.cost.read`）；畫面 `/finance/reconciliation`。廠商審查第 10 題（`dd-catalog`）新增選填欄位 `hostCommissionPct`、`hostPaidBy`、`effectiveFrom`、`effectiveTo`（敏感）。
 - **不變**：`lib/commission-calc`、`lib/kpi.ts`、結算、財務、發票、G1–G5；多商品檔期每單貢獻利潤仍為資料不足。
 
+---
+
+## 18C. 合作申請與樣品管理（`modules/{collaboration,collaboration-import}.ts`，migration 028）
+
+### 18C.1 範圍與「明確不做」
+
+模組 `collaboration.ts`、`collaboration-import.ts`、純函式 `lib/collaboration-rules.ts`。設計文件：[`docs/phase2/INFLUENCER_SAMPLE_APPLICATION.md`](../phase2/INFLUENCER_SAMPLE_APPLICATION.md)。
+
+需求來源是廠商現行的兩張表單，所以這個模組必須能在「**還沒有檔期**」的狀態下運作——既有的履約出貨（`fulfillment_batches.campaign_id`）與任務（`tasks.campaign_id`）都是 `NOT NULL`，無法承載「先寄樣、試用後才決定要不要開團」這條路。因此新增 7 張表自己管寄送，工作佇列改用衍生分桶。
+
+**明確不做**（每一條都有測試固定對應資料表的列數前後相同）：不扣庫存、不產生財務或結算紀錄、不寫入 `approvals`（廠商確認供樣不等於 G1–G5 任何核准）、不新建或修改檔期、不自動寄送任何通知、不另建平行任務引擎、不改 `product_trials` 的結論／覆核／有效期、不把收件地址寫回團主主檔。
+
+### 18C.2 資料表與關鍵欄位（7 張）
+
+| 資料表 | ID | 關鍵欄位與設計理由 |
+|---|---|---|
+| `collaboration_applications` | `CLB-` | `vendor_id`／`host_id`／`product_id`（代表商品，明細另記）皆指向既有主檔；`source` ∈ `OPS／HOST_FORM／VENDOR_FORM／IMPORT`；`status`（9 種）與 `collaboration_status`（7 種）是**兩個不同維度**；`campaign_id`、`trial_id` 都是選填引用；`note`（外部可見）與 `internal_note`（僅內部）分開兩欄；`dedupe_key` 供匯入與重複建立防護 |
+| `collaboration_application_items` | `CLI-` | `product_id` ＋ `sku_id`（規格是同一商品的選項，不是另一個商品）、`requested_qty`／`approved_qty`、`supply_status` ∈ `PENDING／AVAILABLE／PARTIAL／UNAVAILABLE` |
+| `collaboration_recipients` | `CRP-` | 本系統唯一合法存放收件個資的位置：姓名、電話、地址、`host_confirmed_at`、`retention_until`、`purged_at`；每筆申請最多一份未刪除的收件資料 |
+| `collaboration_shipments` | `CSP-` | `kind` ∈ `INITIAL／RESEND`、`status` ∈ `PENDING／SHIPPED／DELIVERED／RETURNED／CANCELLED`、`ship_date`、`carrier`／`tracking_no`、`received_at`、`feedback`、`fulfillment_shipment_id`（有檔期時選填關聯回既有出貨單） |
+| `collaboration_launch_details` | `CLD-` | `intent`／`intent_replied_on`、`planned_open_date`／`confirmed_open_date`（**兩個不同欄位**）、`launch_url`、`vendor_portal_url`、`ads_intent`／`ads_confirm_status`、`backend_setup_email`／`backend_setup_status` |
+| `collaboration_events` | — | append-only 處理歷程；`dimension` ∈ `APPLICATION／COLLABORATION／SAMPLE／INTENT／CAMPAIGN／DATA` |
+| `collaboration_import_rows` | `CIR-` | `raw` jsonb 原始列、對應結果、`issues`、`resolution` ∈ `NEEDS_REVIEW／RESOLVED／SKIPPED／IMPORTED`、`dedupe_key` |
+
+**資料庫層約束**（不只靠服務層）：
+
+| 約束 | 擋住什麼 |
+|---|---|
+| `collab_app_campaign_requires_confirm` | 還沒確認合作就塞 `campaign_id`（直接下 `UPDATE` 也擋，已用測試驗證） |
+| `collab_app_hold_reason` | 暫緩沒寫原因 |
+| `collab_item_approved_le_requested`／`_partial_needs_qty`／`_unavailable_zero` | 核准數量大於申請數量、供應狀態與數量不一致 |
+| `collab_ship_shipped_needs_date`／`_cancel_reason`／`_delivered_confirm` | 標已寄出沒有寄出日、取消沒原因、標送達卻沒走「確認收件」（會失去簽收時間） |
+| `collab_launch_intent_date` | 回覆了意願卻沒有回覆日期 |
+| `collab_launch_ads_confirm` | 團主還沒表達投廣意願就先確認投廣 |
+
+觸發器：6 張表有 `touch_row()`＋`forbid_delete()`，`collaboration_events` 改用 `forbid_modify()`（UPDATE／DELETE 皆擋）。唯一索引見 §19.1。
+
+### 18C.3 四個維度的狀態機（刻意不串成一條長鏈）
+
+```
+① 申請狀態 status
+   DRAFT ─▶ SUBMITTED ─▶ INTERNAL_REVIEW ─▶ VENDOR_REVIEW ─▶ APPROVED ─▶ CLOSED
+                │               │                  │
+                └───────────────┴──────────────────┬┴─▶ REJECTED（終態）
+                                                   ├──▶ CANCELLED（終態）
+                                                   └──▶ ON_HOLD ─▶（回任一進行中狀態）
+
+② 合作狀態 collaboration_status
+   NOT_STARTED ─▶ SAMPLE_IN_PROGRESS ─▶ TRIAL_IN_PROGRESS ─▶ AWAITING_INTENT
+                                                                 ├─▶ COLLABORATION_CONFIRMED ─▶ CAMPAIGN_LINKED
+                                                                 └─▶ DECLINED
+
+③ 物流狀態（collaboration_shipments 每一列各走一次，互不干擾）
+   PENDING ─▶ SHIPPED ─▶ DELIVERED
+                 │          └─▶ RETURNED
+                 └─▶ CANCELLED
+
+④ 開團意願 intent
+   PENDING ⇄ WILLING / UNDECIDED / UNWILLING
+
+   樣品進度：不存欄位，由 summarizeShipments() 從 ③ 的所有紀錄推導
+             NOT_REQUESTED / PREPARING / SHIPPED / DELIVERED / RESEND_PENDING / RESENT / RETURNED
+```
+
+`internalReview` 的決策是 `APPROVE`（直接核准）或 `TO_VENDOR`（轉廠商確認供樣）——兩者會走到不同狀態，DEMO 種子與完整流程用的是 `TO_VENDOR`。
+
+### 18C.4 推導規則（`lib/collaboration-rules.ts`，32 項單元測試）
+
+| 函式 | 規則 |
+|---|---|
+| `summarizeShipments(facts)` | 樣品進度與 `resent`（是否已補寄）：**只有真的存在一列 `RESEND` 且填了 `ship_date` 才算已補寄**，取消的補寄不算；來源表單的「是否已補寄」勾選只當參考值 |
+| `supplyStatusFor(requested, approved)` | `approved === 0` → `UNAVAILABLE`；`approved < requested` → `PARTIAL`；相等 → `AVAILABLE`（與資料庫 CHECK 同一套規則） |
+| `computeRetentionUntil(approvedOn, summary, today)` | 核准日 ＋ `RECIPIENT_RETENTION_DAYS_AFTER_APPROVAL`（90）；一旦送達，改以**最後寄送日** ＋ `RECIPIENT_RETENTION_DAYS_AFTER_DELIVERY`（30），**取較早者**（數字待 Owner 確認 D-40） |
+| 分桶 | 廠商工作台的七個桶（待審核樣品、待寄出、已寄出、待補寄、團主待回覆、確認開團、已建立檔期）由申請狀態、供應狀態、寄送紀錄與意願推導，不存欄位、不建任務 |
+
+`refreshRetention()` 掛在 **5 個呼叫點**：內部核准、廠商確認供樣、新增寄送（含補寄）、修改寄送、確認收件。少任何一個，已送達的案件就會繼續沿用較長的核准基準，個資留得比政策久——這正是開發中抓到的真實 bug（見 `docs/DEVELOPMENT_LOG.md`）。
+
+### 18C.5 收件個資的設計（唯一一組與個資有關的路徑）
+
+```
+案件詳情 GET /collaboration/applications/:id
+  └── 回傳：申請、明細、寄送、開團、歷程 ……  ← 完全不含收件內容（只有 recipientConfirmed 布林）
+
+收件個資 GET /collaboration/applications/:id/recipient      ← 唯一入口
+  ├── 內部：需 collaboration.pii.read
+  ├── 團主：只能讀自己的案件
+  └── 廠商：必須同時滿足 ① 未清除 ② 申請已核准 ③ 團主已確認可用 ④ 未過保留期
+        成功 → 寫 audit_logs action='collaboration.recipient.read'
+        被拒 → 寫 collaboration_events 'RECIPIENT_READ_DENIED'
+```
+
+欄位投影：對外角色走白名單 `EXTERNAL_APP_FIELDS`（含工作台需要的衍生欄位 `sample`、`sampleBucket`、`itemCount`、`shipmentCount`、`recipientConfirmed`、`intent`、兩個開團日期、`launchUrl`、`adsIntent`），廠商另加 `VENDOR_EXTRA_APP_FIELDS`（`backendSetupStatus`）；刻意不含 `internalNote`、`ownerName`、`dedupeKey`、`backendSetupEmail`、`vendorPortalUrl`。改地址＝軟刪除舊列、新建一列（保留歷史，不覆寫）。到期清除 `POST /collaboration/recipients/purge-expired`（僅管理者）把三個欄位覆寫成「［已清除］」並記 `purged_at`，**需人工或排程觸發**。自由備註欄（意願備註、投廣備註、廠商備註、收件備註）一律過 `assertNoPii()`。
+
+### 18C.6 API（41 條，完整清單見 `docs/generated/API_ENDPOINTS.md`）
+
+| 群組 | 代表端點 | 權限 |
+|---|---|---|
+| 總覽與列表 | `GET /collaboration/overview`、`GET /collaboration/applications` | `collaboration.read`（內部）或 `collaboration.self`（團主／廠商只看自己） |
+| 申請單 | `POST /collaboration/applications`、`GET/PATCH /collaboration/applications/:id`、`/submit`、`/internal-review`、`/vendor-review`、`/hold`、`/resume`、`/cancel`、`/close` | `create`／`update`；內部核准需 `review`；廠商確認供樣需 `vendor.review` |
+| 樣品明細 | `POST /collaboration/applications/:id/items`、`PATCH /collaboration/items/:id`、`/remove` | `update`／`vendor.review` |
+| 收件個資 | `PUT/PATCH/GET /collaboration/applications/:id/recipient`、`POST /collaboration/recipients/purge-expired` | 讀取需 `pii.read`（或自己的案件）；清除僅管理者 |
+| 樣品寄送 | `POST /collaboration/applications/:id/shipments`、`PATCH /collaboration/shipments/:id`、`/receipt`、`/cancel` | `shipping.write`；確認收件為團主（或代為處理的內部角色） |
+| 開團合作 | `PUT/PATCH /collaboration/applications/:id/launch`（團主只能寫意願與開團日期）、`/vendor-launch`（廠商的後台設定）、`/confirm-collaboration`、`/decline-collaboration` | `intent.write`／`vendor.review`／`update` |
+| 檔期與試用 | `POST /collaboration/applications/:id/link-campaign`、`/unlink-campaign`、`/link-trial` | `campaign.link`（回傳與稽核明寫 `gateImpact: 'NONE'`） |
+| 匯入 | `POST /collaboration/imports/preview`、`GET /collaboration/imports`、`POST /collaboration/imports/:id/commit`、`GET /collaboration/import-rows`、`PATCH /collaboration/import-rows/:id` | 需同時有 `create` 與 `update`（僅內部） |
+| 匯出 | `GET /collaboration/applications/export`（`?form=form1` 或 `?form=form2`） | `export`；沒有 `pii.read` 者收件三欄為「［無權限］」 |
+| 主檔頁面板 | `GET /hosts/:id/collaboration-applications`、`GET /vendors/:id/collaboration-summary`、`GET /products/:id/collaboration-applications` | `read`，或 `self` ＋ 自己的 `hostId`／`vendorId` |
+
+### 18C.7 匯入設計（`collaboration-import.ts`）
+
+三步：上傳預覽（依標題列自動對應欄位，每列產生一筆匯入列與問題清單）→ 逐列人工確認主檔對應或跳過 → 只把 `RESOLVED` 的列建立成申請單。
+
+| 問題代碼 | 阻斷 | 處理 |
+|---|---|---|
+| `HOST_NOT_FOUND`／`HOST_AMBIGUOUS` | ✅ | 列為待確認，**不自動建立團主主檔、不自動合併不同的人** |
+| `SKU_UNRESOLVED` | ✅ | 等人工指定規格 |
+| `SHIP_DATE_UNREADABLE` | — | 不建立寄送紀錄，不補假日期 |
+| `INTENT_UNREADABLE` | — | 維持「待回覆」 |
+| `CAMPAIGN_NOT_LINKED` | — | 只留預計日期與連結，不自動建檔期 |
+| `RECIPIENT_INCOMPLETE` | — | 不建立收件資料 |
+| `RESENT_UNREADABLE` | — | 「是否已補寄」只當參考值，實際以寄送紀錄推導 |
+
+防重複三層：`import_batches.checksum`（同檔案重匯 409）、`collab_import_dedupe_uq`、建立前再查一次申請單的 `dedupe_key`。冪等鍵只取來源列欄位，所以事後人工修正對應不會改變鍵值。
+
+### 18C.8 畫面與工作台
+
+| 路徑 | 誰看得到 | 顯示什麼 |
+|---|---|---|
+| `/collaboration` | 內部（`collaboration.read`） | 分桶 KPI、11 種篩選＋預計與已確認開團日各自一組區間、搜尋、排序、分頁、匯出；**收件個資不在列表上** |
+| `/collaboration/:id` | 內部；團主與廠商只看自己的 | 六個區塊：申請資料、申請樣品明細、收件資訊（要按一下才顯示，每次寫稽核）、樣品寄送紀錄、開團合作資訊、處理歷程 |
+| `/collaboration/new` | `collaboration.create` | 建立申請；商品／規格選項用 `collaborationProductOptions`（一次拿多家廠商，刻意不用只收單一廠商的 `productSkuOptions`） |
+| `/collaboration/mine` | 團主 | **卡片式、手機可用**（390×844 實測無水平溢出）；從團主主檔帶入基本資料，但收件資訊必須重新確認 |
+| `/collaboration/vendor` | 廠商 | 七個分桶；頁面明講「確認供樣不等於 G1–G5，也不會自動建立檔期」；**未對外開放**（D-44） |
+| `/collaboration/import` | 內部（`create`＋`update`） | 三步匯入、欄位對應說明、批次與資料列、逐列修正對應 |
+
+團主、廠商、商品三個主檔詳情頁各加一個面板（`collaboration/Blocks.tsx`，共用同一張表格，所以同一份資料在不同頁長得一樣）。
+
+
 ## 19. 橫切設計
 
 ### 19.1 去重與冪等鍵總表
 
 | 對象 | 機制 | 鍵 |
 |---|---|---|
-| 建立類 API（18 個範圍） | `Idempotency-Key` ＋ `request_hash` | `(org, scope, key)`；範圍：`vendor.create`、`host.create`、`community.create`、`product.create`、`campaign.create`、`fulfillment_batch.create`、`shipment.create`、`inventory.adjust`、`aftersales.case.create`、`aftersales.refund.request`、`settlement.create`、`payment.create`、`invoice.create`、`expense.create`、`segment.create`、`segment.link`（SOP 01）、`dd.create`、`trial.create`（SOP 02／03） |
+| 建立類 API（21 個範圍） | `Idempotency-Key` ＋ `request_hash` | `(org, scope, key)`；範圍：`vendor.create`、`host.create`、`community.create`、`product.create`、`campaign.create`、`fulfillment_batch.create`、`shipment.create`、`inventory.adjust`、`aftersales.case.create`、`aftersales.refund.request`、`settlement.create`、`payment.create`、`invoice.create`、`expense.create`、`segment.create`、`segment.link`（SOP 01）、`dd.create`、`trial.create`（SOP 02／03）、`collaboration.application.create`、`collaboration.item.create`、`collaboration.shipment.create`（合作申請與樣品管理） |
+| 合作申請單 | 部分唯一索引 | `collab_app_dedupe_uq`：`(org, dedupe_key)`（dedupe_key 由廠商×團主×商品與來源列組成，只認進行中的申請） |
+| 申請樣品明細 | 唯一索引 | `collab_item_uq`：`(application_id, product_id, coalesce(sku_id, ''))`——重複送出不長出重複列 |
+| 收件資訊／開團合作資訊 | 唯一索引 | `collab_recipient_uq`：每筆申請最多一份未刪除的收件資料；`collab_launch_uq`：每筆申請一份開團合作資訊 |
+| 樣品寄送紀錄 | 部分唯一索引 | `collab_ship_tracking_uq`：`(org, lower(carrier), tracking_no)`，未取消 |
+| 合作申請匯入 | 唯一索引 ＋ 批次 checksum | `collab_import_row_uq`：`(batch_id, row_no)`；`collab_import_dedupe_uq`：`(org, dedupe_key)`；同一份檔案重匯由 `import_batches.checksum` 擋成 409 |
 | 廠商 | 部分唯一索引 | 正規化名稱、統編 |
 | 團主／社群／商品／規格 | 部分唯一索引 | 正規化名稱；`(platform, 正規化名稱)`；`(vendor, 正規化名稱)`；`(product, lower(sku_code))` |
 | 檔期 | 部分唯一索引 | `(vendor, 正規化標題, 開團日)`，未取消 |
@@ -1516,7 +1672,11 @@ NSV            = GMV − 退款
 | `tests/selection-g1.test.ts`（SOP 02／03） | 15 | §18B.8：**G1–G5 與商品審核語意不變**（檢查項、核准列、通知、任務、狀態）、摘要內容、紅黃綠燈、敏感資料、檔期範圍 |
 | **合計（原基準）** | **245** | 14 個檔案；真實 PostgreSQL；一檔一組織 |
 | **合計（含 SOP 01 的 82 項，以全套重跑為準）** | **405** | 20 個檔案（SOP 01 開工前以全套重跑為 17 檔 323 項；SOP 01 新增 3 檔 82 項）；既有 API 模糊測試（`security-fuzz.test.ts`）自動涵蓋新路由，無 5xx |
+| `tests/unit/collaboration-rules.test.ts`（合作申請） | 32 | §18C：狀態常數、`summarizeShipments`（首次／補寄／取消／退回的進度推導）、`supplyStatusFor`、`computeRetentionUntil`（90／30 天取較早者）、分桶推導 |
+| `tests/collaboration.test.ts`（合作申請） | 26 | §18C：三種建立來源、多規格明細、廠商部分供樣、首次寄送＋補寄、保留期隨核准→寄出→送達→補寄重算、平行情境（4 種）、檔期關聯（含資料庫 CHECK）、匯入 8 種髒資料與冪等、事件 append-only、**對既有模組零副作用**（10 張表列數前後相同） |
+| `tests/collaboration-rbac.test.ts`（合作申請） | 44 | §18C：11 項權限矩陣、資料範圍（團主／廠商／跨組織 404）、欄位白名單（工作台欄位在、內部欄位不在）、收件個資（哨兵字串掃描 API 與 CSV、廠商四條件、逐次稽核）、團主只能寫意願與開團日期、廠商的後台設定狀態團主看不到、匯出遮罩、廠商不能核准 G1–G5、稽核 403 |
 | **合計（含 SOP 02／03 的 187 項，以各檔 `it(` 計數）** | **592** | 30 個檔案（SOP 02／03 新增 10 檔 187 項）；全部通過的實測結果見 `docs/TEST_REPORT.md` |
+| **合計（含合作申請與樣品管理的 102 項，以 `vitest run` 實跑為準）** | **1039** | 60 個檔案（本模組開工前全套重跑為 57 檔 937 項；新增 3 檔 102 項）；E2E 煙霧 170／170、全流程 UI 71／71；實測輸出見 `docs/TEST_REPORT.md` §18 |
 
 > 項數以 `grep -cE "^\s*(it|test)\("` 計算，加總為 245，與 `vitest run` 的輸出一致。E2E（Playwright）：`scripts/e2e-smoke.ts`（含 SOP 01 新增的 37 項，共 86 項；新區塊涵蓋團主客群分析建立與讀回、商品候選團主適配、檔期適配分頁與 G1 唯讀提示、覆核流程、評分設定、客群清單／詳情、團主／廠商／財務無權限）、`scripts/e2e-aftersales.ts`（52 項）。
 
@@ -1524,6 +1684,7 @@ NSV            = GMV − 退款
 
 ## 22. 文件自檢
 
+- **合作申請與樣品管理更新**：資料表 76（028 新增 7 張）、端點 253（`routes.ts` 的 `R(`／`P(` 行數；合作申請區塊 41 條，與 `npm run docs:gen` 印出的 253 一致）、權限 63（各角色持有數：管理者 63、主管 55、小編 41、團主 13、廠商 12、財務 23，由腳本 `import ROLE_PERMISSIONS` 實際印出，非手抄）、有 `forbid_delete` 的表 60、append-only 的表 5（新增 `collaboration_events`）、`touch_row` 的表 44、冪等範圍 21、測試 1039（**以 `vitest run` 實跑為準，不是 `grep` 估算**：60 檔，本模組 3 檔 102 項）、E2E 煙霧 170、全流程 UI 71、migration 升級演練 20/20。§18C 的狀態機、推導函式、約束與 API 逐項對照 `lib/collaboration-rules.ts`、`modules/{collaboration,collaboration-import}.ts`、`routes.ts` 與 `migrations/028`（觸發器以 `CREATE TRIGGER` 逐行核對）。**未做的核對**：§18C 的狀態圖與 §19.1／§21 的增補**尚未**以 mermaid 重新 render（只目視核對語法）；沒有在正式環境執行任何驗證（未部署）。
 - **SOP 02／03 更新**：資料表 65（014 新增 7 張）、端點 185（`routes.ts` 的 `R(`／`P(` 行數；SOP 02／03 區塊 33 條）、權限 52（各角色持有數：管理者 52、主管 45、小編 32、團主 10、廠商 7、財務 23，依 `permissions.ts` 規則推算）、有 `forbid_delete` 的表 54、`touch_row` 的表 38、冪等範圍 18、測試 592（以 `it(` 計數：既有 405＋新增 187，30 檔）。§18B 的演算法、目錄與 API 逐項對照 `lib/{selection-score,dd-catalog,trial-catalog,feasibility-calc,decision-risk}.ts`、`modules/{selection,evidence,diligence,trials,feasibility,decision-summary}.ts`、`routes.ts` 與 `migrations/014`；§18B.4 的狀態圖與 SAD §4.5 的流程圖及 §4.2／§7.2 圖的增補**尚未**以 mermaid 重新 render（只目視核對語法）。E2E 項數以 `docs/uat/e2e-results.json` 為準，本文件未重新引用。
 - **SOP 01 更新**：資料表 58、端點 152（`routes.ts` 的 `R(`／`P(` 行數）、權限 49（各角色持有數：管理者 49、主管 42、小編 30、團主 10、廠商 7、財務 22，依 `permissions.ts` 規則推算）、有 `forbid_delete` 的表 47、`touch_row` 的表 31、冪等範圍 16、全套測試 405（20 檔）、E2E 86。§18A 的演算法與 API 逐項對照 `lib/fit-score.ts`、`modules/fit.ts`、`modules/segments.ts`、`routes.ts` 與 `migrations/013`；§18A.4 的序列圖與其餘增補**尚未**以 mermaid 重新 render（只目視核對語法）。其餘計數沿用原基準：
 - **計數類**（以指令重新計算，非引用舊文件）：資料表 53（`CREATE TABLE`）、端點 130（`routes.ts` 的 `R(`／`P(` 與 `API_ENDPOINTS.md` 一致）、權限 43 與各角色持有數（匯入 `permissions.ts` 計算）、測試 245（14 個檔案逐檔 `it(` 計數；`vitest run` 同為 245）、有 `forbid_delete` 的表 42、append-only 的表 4、無刪除保護的表 7、`touch_row` 的表 26、冪等範圍 14、自動化工作 8、事件類型 6、模板步驟 15／階段 8／檔期狀態 14／關卡 5。

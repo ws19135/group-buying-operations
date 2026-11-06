@@ -36,6 +36,9 @@ import * as evidence from '../modules/evidence';
 import * as diligence from '../modules/diligence';
 import * as trials from '../modules/trials';
 import * as feasibility from '../modules/feasibility';
+import * as collaboration from '../modules/collaboration';
+import * as collabImport from '../modules/collaboration-import';
+import { APPLICATION_STATUSES as COLLAB_APP_STATUSES } from '../lib/collaboration-rules';
 import { g1Summary } from '../modules/decision-summary';
 import { listAudit, listCampaignAudit } from '../modules/audit-read';
 import { loadActiveTemplate } from '../workflow/templates';
@@ -334,6 +337,61 @@ export const routes: RouteDef[] = [
   R('GET', '/aftersales/refunds', async (c) => aftersales.listRefunds(c.actor, c.query)),
   R('POST', '/aftersales/refunds/:id/decision', async (c) => aftersales.decideRefund(c.actor, c.params.id, c.body as never)),
   R('POST', '/aftersales/refunds/:id/complete', async (c) => aftersales.completeRefund(c.actor, c.params.id, c.body as never)),
+
+  // ---------- 合作申請與樣品管理（COLLABORATION_APPLICATIONS） ----------
+  // 同一筆案件、不同授權視角：營運總覽、廠商工作台、團主「我的樣品申請」都走這組 API，不另開資料副本
+  R('GET', '/collaboration/overview', async (c) => collaboration.overview(c.actor)),
+  // 匯出要排在 /applications/:id 之前，否則 export 會被當成 id
+  R('GET', '/collaboration/applications/export', async (c) => {
+    const r = await collaboration.exportApplications(c.actor, c.query);
+    return { raw: r.csv, contentType: 'text/csv; charset=utf-8', filename: r.filename };
+  }),
+  R('GET', '/collaboration/applications', async (c) => collaboration.listApplications(c.actor, c.query)),
+  R('POST', '/collaboration/applications', async (c) => created(await collaboration.createApplication(c.actor, c.body as never, c.idemKey))),
+  R('GET', '/collaboration/applications/:id', async (c) => collaboration.getApplication(c.actor, c.params.id)),
+  R('PATCH', '/collaboration/applications/:id', async (c) => collaboration.updateApplication(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/applications/:id/submit', async (c) => collaboration.submitApplication(c.actor, c.params.id)),
+  R('POST', '/collaboration/applications/:id/internal-review', async (c) => collaboration.internalReview(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/applications/:id/vendor-review', async (c) => collaboration.vendorReview(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/applications/:id/hold', async (c) => collaboration.holdApplication(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
+  R('POST', '/collaboration/applications/:id/resume', async (c) => collaboration.resumeApplication(c.actor, c.params.id, body(c, z.object({ to: z.enum(COLLAB_APP_STATUSES) })).to)),
+  R('POST', '/collaboration/applications/:id/cancel', async (c) => collaboration.cancelApplication(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
+  R('POST', '/collaboration/applications/:id/close', async (c) => collaboration.closeApplication(c.actor, c.params.id, body(c, z.object({ reason: z.string().nullable().optional() })).reason ?? null)),
+  // 申請樣品明細（可多商品、多規格）
+  R('POST', '/collaboration/applications/:id/items', async (c) => created(await collaboration.addItem(c.actor, c.params.id, c.body as never, c.idemKey))),
+  R('PATCH', '/collaboration/items/:id', async (c) => collaboration.updateItem(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/items/:id/remove', async (c) => collaboration.removeItem(c.actor, c.params.id, body(c, z.object({ reason: z.string().nullable().optional() })).reason ?? null)),
+  // 收件資訊（個資）：讀取走專用端點，每次成功讀取都寫稽核
+  R('PUT', '/collaboration/applications/:id/recipient', async (c) => collaboration.putRecipient(c.actor, c.params.id, c.body as never)),
+  R('PATCH', '/collaboration/applications/:id/recipient', async (c) => collaboration.putRecipient(c.actor, c.params.id, c.body as never)),
+  R('GET', '/collaboration/applications/:id/recipient', async (c) => collaboration.getRecipient(c.actor, c.params.id)),
+  R('POST', '/collaboration/recipients/purge-expired', async (c) => collaboration.purgeExpiredRecipients(c.actor)),
+  // 樣品寄送（首次／補寄各自一列；「是否已補寄」由紀錄推導）
+  R('POST', '/collaboration/applications/:id/shipments', async (c) => created(await collaboration.addShipment(c.actor, c.params.id, c.body as never, c.idemKey))),
+  R('PATCH', '/collaboration/shipments/:id', async (c) => collaboration.updateShipment(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/shipments/:id/receipt', async (c) => collaboration.confirmReceipt(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/shipments/:id/cancel', async (c) => collaboration.cancelShipment(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
+  // 開團合作資訊：團主／營運與廠商各自可寫的欄位分開
+  R('PUT', '/collaboration/applications/:id/launch', async (c) => collaboration.putLaunch(c.actor, c.params.id, c.body as never)),
+  R('PATCH', '/collaboration/applications/:id/launch', async (c) => collaboration.putLaunch(c.actor, c.params.id, c.body as never)),
+  R('PUT', '/collaboration/applications/:id/vendor-launch', async (c) => collaboration.putVendorLaunch(c.actor, c.params.id, c.body as never)),
+  R('PATCH', '/collaboration/applications/:id/vendor-launch', async (c) => collaboration.putVendorLaunch(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/applications/:id/confirm-collaboration', async (c) => collaboration.confirmCollaboration(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/applications/:id/decline-collaboration', async (c) => collaboration.declineCollaboration(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
+  // 關聯既有檔期／SOP 03 試用紀錄：只建立關聯，不建檔期、不碰 G1～G5
+  R('POST', '/collaboration/applications/:id/link-campaign', async (c) => collaboration.linkCampaign(c.actor, c.params.id, body(c, z.object({ campaignId: z.string() })).campaignId)),
+  R('POST', '/collaboration/applications/:id/unlink-campaign', async (c) => collaboration.unlinkCampaign(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
+  R('POST', '/collaboration/applications/:id/link-trial', async (c) => collaboration.linkTrial(c.actor, c.params.id, body(c, z.object({ trialId: z.string() })).trialId)),
+  // 匯入廠商現有的兩種表單：預覽 → 人工確認對應 → 正式建立（不自动猜主檔對應）
+  R('POST', '/collaboration/imports/preview', async (c) => created(await collabImport.previewImport(c.actor, c.body as never))),
+  R('GET', '/collaboration/imports', async (c) => collabImport.listImportBatches(c.actor, c.query)),
+  R('POST', '/collaboration/imports/:id/commit', async (c) => collabImport.commitImport(c.actor, c.params.id)),
+  R('GET', '/collaboration/import-rows', async (c) => collabImport.listImportRows(c.actor, c.query)),
+  R('PATCH', '/collaboration/import-rows/:id', async (c) => collabImport.resolveImportRow(c.actor, c.params.id, c.body as never)),
+  // 主檔串接：團主／廠商／商品詳情頁的合作申請區塊
+  R('GET', '/hosts/:id/collaboration-applications', async (c) => collaboration.hostApplications(c.actor, c.params.id)),
+  R('GET', '/vendors/:id/collaboration-summary', async (c) => collaboration.vendorSummary(c.actor, c.params.id)),
+  R('GET', '/products/:id/collaboration-applications', async (c) => collaboration.productApplications(c.actor, c.params.id)),
 
   // ---------- 例外／自動化／進件／通知／稽核 ----------
   R('GET', '/exceptions', async (c) => automation.listExceptions(c.actor, c.query)),

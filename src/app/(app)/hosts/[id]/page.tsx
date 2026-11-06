@@ -11,6 +11,7 @@ import { AVAIL_KIND, CAMPAIGN_STATUS, HOST_PART, HOST_STATUS, PLATFORM, COMMUNIT
 import { as } from '@/ui/types';
 import { PARTNER_TYPE_LABEL } from '@/server/lib/segment-vocab';
 import { HostSegments } from './HostSegments';
+import { HostCollaborationCard } from '../../collaboration/Blocks';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,7 @@ export default withActor(async (actor, props: { params: Params }) => {
         </div>
       </div>
       {can(actor, 'segment.read') ? <HostSegments actor={actor} hostId={h.id} communities={h.communities.map((c) => ({ id: c.id, name: c.name }))} /> : null}
+      {can(actor, 'collaboration.read') || (can(actor, 'collaboration.self') && actor.hostIds.includes(h.id)) ? <HostCollaborationCard actor={actor} hostId={h.id} /> : null}
       <Card title="歷史團購" flush testid="host-history">
         {h.history.length === 0 ? <EmptyState title="尚無參與的檔期" /> : (
           <Table head={['檔期', '狀態', '期間', '我的角色', '參與狀態']}>{h.history.map((c) => <tr key={c.id}><td><Link href={`/campaigns/${c.id}`}>{c.title}</Link></td><td><StatusBadge map={CAMPAIGN_STATUS} value={c.status} /></td><td>{c.openDate ?? '—'} ～ {c.closeDate ?? '—'}</td><td>{c.role === 'PRIMARY' ? '主要' : '共同'}</td><td><StatusBadge map={HOST_PART} value={c.participationStatus} /></td></tr>)}</Table>

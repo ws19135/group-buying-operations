@@ -29,6 +29,12 @@
 | [20-product-selection](#20-product-selection) | 商品詳情：選品評估、商品試用、商業可行性 | P2（SOP 02／03） |
 | [21-campaign-g1-summary](#21-campaign-g1-summary) | 檔期：選品與試用（G1 決策摘要） | P2（SOP 02／03） |
 | [22-trial-detail](#22-trial-detail) | 試用詳情：四大面向檢核、結論與覆核 | P2（SOP 03） |
+| [23-collaboration-list](#23-collaboration-list) | 合作申請營運總覽 | P2（T-COLLAB） |
+| [24-collaboration-new](#24-collaboration-new) | 建立合作申請 | P2（T-COLLAB） |
+| [25-collaboration-detail](#25-collaboration-detail) | 合作申請詳情（六個區塊） | P2（T-COLLAB） |
+| [26-collaboration-import](#26-collaboration-import) | 匯入廠商現有表單（三步） | P2（T-COLLAB） |
+| [27-collaboration-mine](#27-collaboration-mine) | 團主工作台：我的樣品申請 | P2（T-COLLAB） |
+| [28-collaboration-vendor](#28-collaboration-vendor) | 廠商工作台：網紅申請與樣品寄送 | P2（T-COLLAB） |
 
 ## 01-login
 **登入**（P1）　現況畫面：`screens/anon-login.png`
@@ -373,6 +379,92 @@
 | 10 | 異動歷史 | audit_logs | 建立、更新檢核、結論、覆核；敏感檢核項的文字在稽核中以「[敏感]」取代 | — |
 | 11 | 檢核項單列儲存 | 同 7 | 每列獨立儲存，樂觀鎖衝突提示重新整理 | — |
 
+## 23-collaboration-list
+**合作申請營運總覽**（P2（T-COLLAB））　現況畫面：`../uat/screens/40-collaboration.png`　對應需求：見 [RTM §L](../REQUIREMENTS_TRACEABILITY_MATRIX.md)
+
+> 這一組（23～28）**尚未繪製 SVG 線框**：本模組是先有畫面、後補線框，SVG 待補；下面的說明表依實際畫面整理，實際畫面見 [AS_BUILT_SCREENS.md](AS_BUILT_SCREENS.md) 的「合作申請與樣品管理」。
+> 模組規格見 [`docs/phase2/INFLUENCER_SAMPLE_APPLICATION.md`](../phase2/INFLUENCER_SAMPLE_APPLICATION.md)。
+
+| # | 元件 | 資料來源 | 互動與規則 | 角色差異 |
+|---|---|---|---|---|
+| 1 | 說明橫幅（樣品申請不是檔期、確認供樣不等於 G1～G5） | — | 明示不扣庫存、不產生財務或結算紀錄、不新建檔期 | 需 `collaboration.read` 且為內部角色；團主、廠商、財務沒有這個入口 |
+| 2 | 分桶 KPI（待審核樣品／待寄出／待補寄／團主待回覆…） | GET /api/collaboration/applications（衍生分桶） | 每個桶點進去＝已套好篩選條件的清單；分桶是衍生值，不是 `tasks` | — |
+| 3 | 篩選列（月份、廠商、團主、商品、申請狀態、合作狀態、寄送進度、開團意願、是否投廣、後台設定狀態、承辦人） | `collaboration_applications`＋`collaboration_launch_details` | 條件放在網址上可分享 | 小編的資料範圍是全組織（見 KNOWN_ISSUES W-39） |
+| 4 | 開團日區間篩選（**預計開團日**與**已確認開團日分開兩組**） | `planned_open_date`／`confirmed_open_date` | 來源表單只有一欄，系統刻意分成兩件事 | — |
+| 5 | 清單（搜尋、排序、分頁） | 同 2 | **收件個資不在列表上**；要看必須進案件按一下，每次讀取寫稽核 | 無 `collaboration.pii.read` 者在詳情也讀不到 |
+| 6 | 匯出（表單一／表單二格式 CSV） | GET …?form=form1｜form2 | 欄位順序與來源表單一致、含 UTF-8 BOM | 需 `collaboration.export`；無 `collaboration.pii.read` 者收件人／電話／地址為「［無權限］」 |
+| 7 | ＋ 建立申請 | → `/collaboration/new` | — | 需 `collaboration.create` |
+
+## 24-collaboration-new
+**建立合作申請**（P2（T-COLLAB））　現況畫面：`../uat/screens/flow-19-collaboration-created.png`（全流程）　對應需求：見 [RTM §L](../REQUIREMENTS_TRACEABILITY_MATRIX.md)
+
+| # | 元件 | 資料來源 | 互動與規則 | 角色差異 |
+|---|---|---|---|---|
+| 1 | 建立來源（營運／團主 HOST_FORM／廠商 VENDOR_FORM） | `collaboration_applications.source` | 三種來源都寫同一張表，不產生第二份副本 | 需 `collaboration.create`（管理者、主管、小編、團主、廠商） |
+| 2 | 團主、廠商、代表商品選擇 | `hosts`／`vendors`／`products` 主檔 | 一律從既有主檔選，**不另建名單**；一個人代表多家廠商時依 `user_scopes` 的多個 VENDOR 範圍限制可選範圍 | 團主只能選自己；廠商只能選自己代理的廠商 |
+| 3 | 申請樣品明細（可多商品、多規格） | `collaboration_application_items` | 規格是同一商品底下的選項，不是另一個商品；同一申請重複送出被 `collab_item_uq` 擋住 | — |
+| 4 | 收件資訊 | `collaboration_recipients` | 從團主主檔帶入基本資料，但**收件資訊必須重新確認**（主檔沒有地址欄位）；備註過 `assertNoPii()` | 需 `collaboration.pii.read`；團主只能填自己的；廠商不能寫 |
+| 5 | 備註（對外／內部） | `note`／`internal_note` | 內部備註不給團主與廠商 | 內部備註僅內部角色 |
+| 6 | 送出 | POST /api/collaboration/applications | 冪等鍵防重複送出；建立後導向詳情；不建立檔期、不寫 `approvals` | — |
+
+## 25-collaboration-detail
+**合作申請詳情（六個區塊）**（P2（T-COLLAB））　現況畫面：`../uat/screens/41-collaboration-detail.png`、`../uat/screens/flow-22-collaboration-done.png`　對應需求：見 [RTM §L](../REQUIREMENTS_TRACEABILITY_MATRIX.md)
+
+| # | 元件 | 資料來源 | 互動與規則 | 角色差異 |
+|---|---|---|---|---|
+| 1 | 四個維度的狀態列（申請狀態／合作狀態／樣品進度／開團意願） | 四個獨立欄位；樣品進度由 `summarizeShipments()` 推導 | 刻意不做單一狀態欄位、不串成一條長鏈；暫緩必填原因（`collab_app_hold_reason`） | 內部核准決策需 `collaboration.review`（管理者、主管；**小編刻意沒有**） |
+| 2 | 區塊①申請資料 | `collaboration_applications` | 樂觀鎖；改主檔需 `collaboration.update` | 團主與廠商不能改申請主檔 |
+| 3 | 區塊②申請樣品明細（申請／核准數量、供應狀態） | `collaboration_application_items` | 逐項確認供樣；核准數量不得大於申請數量、部分供樣需數量、不供樣須為 0（資料庫約束） | 確認供樣需 `collaboration.vendor.review`（含廠商） |
+| 4 | 區塊③收件資訊（個資） | 獨立端點 GET /api/collaboration/applications/:id/recipient | **詳情 API 完全不回傳收件內容**，要按一下才讀；每次成功讀取寫 `collaboration.recipient.read`，被拒寫 `RECIPIENT_READ_DENIED`；改地址＝軟刪除舊列、新建一列；顯示保留期 | 內部需 `collaboration.pii.read`；團主只看自己；廠商需同時滿足未清除、已核准、團主已確認可用、未過保留期 |
+| 5 | 區塊④樣品寄送紀錄（首次 INITIAL／補寄 RESEND） | `collaboration_shipments` | 每列各走一次物流狀態、互不干擾；標已寄出必須有寄出日、取消必填原因、標送達必須有簽收；物流單號同組織不得重複 | 需 `collaboration.shipping.write`（含廠商）；廠商不能代團主簽收 |
+| 6 | 「是否已補寄」 | 推導值 | 不是打勾欄位：只認「真的有一列補寄紀錄並填了寄出日期」；取消的補寄不算 | — |
+| 7 | 區塊⑤開團合作資訊（意願、預計／已確認開團日、開團連結、是否投廣、後台設定） | `collaboration_launch_details` | 回覆意願需同時有回覆日期；團主沒表達投廣意願前不能先確認投廣；「後台設定 Mail」只記錄聯絡信箱與設定狀態，**系統不寄信** | 團主只能寫 `HOST_LAUNCH_FIELDS`（意願與開團日期）；廠商只能寫 `VENDOR_LAUNCH_FIELDS`（後台相關）；兩組不重疊，範圍外欄位 403 |
+| 8 | 關聯既有正式檔期 | PATCH …（`campaign_id`） | 只在確認合作後可填（`collab_app_campaign_requires_confirm`，直接下 `UPDATE` 也會被擋）；**只關聯、不新建檔期、不改檔期狀態**；回傳與稽核明寫 `gateImpact: 'NONE'` | 需 `collaboration.campaign.link` |
+| 9 | SOP 03 試用引用 | `trial_id`（選填） | 只引用，不混為同一狀態機；不改試用結論／覆核／有效期 | — |
+| 10 | 區塊⑥處理歷程 | `collaboration_events`（append-only） | 維度 ∈ APPLICATION／COLLABORATION／SAMPLE／INTENT／CAMPAIGN／DATA；不可修改（`forbid_modify()`） | 稽核紀錄不給廠商與團主 |
+
+## 26-collaboration-import
+**匯入廠商現有表單（三步）**（P2（T-COLLAB））　現況畫面：`../uat/screens/42-collaboration-import.png`　對應需求：見 [RTM §L](../REQUIREMENTS_TRACEABILITY_MATRIX.md)
+
+| # | 元件 | 資料來源 | 互動與規則 | 角色差異 |
+|---|---|---|---|---|
+| 1 | 步驟①上傳預覽 | POST 上傳；`import_batches`＋`collaboration_import_rows` | 依標題列自動對應欄位；每列產生一筆 `collaboration_import_rows`；阻斷性問題標 `NEEDS_REVIEW` 並寫入 `import_errors` | 僅內部營運；需 `collaboration.create` |
+| 2 | 問題標示（指令列出的 8 種髒資料狀況） | `issues` | 阻斷：`HOST_AMBIGUOUS`／`HOST_NOT_FOUND`／`SKU_UNRESOLVED`；非阻斷：`SHIP_DATE_UNREADABLE`／`INTENT_UNREADABLE`／`CAMPAIGN_NOT_LINKED`／`RECIPIENT_INCOMPLETE`／`RESENT_UNREADABLE` | — |
+| 3 | 步驟②逐列確認 | PATCH 單列 | 人工指定團主／商品／規格，或跳過該列；**系統不替人猜**，也不自動建立團主主檔 | — |
+| 4 | 步驟③建立申請 | POST 建立 | 只處理 `RESOLVED` 的列；`NEEDS_REVIEW` 與 `SKIPPED` 一律略過 | — |
+| 5 | 防重複 | `import_batches.checksum`、`collaboration_import_rows.dedupe_key`、`collaboration_applications.dedupe_key` | 同一檔案不能匯第二次（回 409）；冪等鍵只取來源列欄位，事後人工修正對應不會改變鍵值 | — |
+| 6 | 錯誤報告與稽核 | `import_errors`、`audit_logs` | 批次編號沿用既有 `IMP-YYYYMMDD-0001` | — |
+| 7 | 缺資料時的處理 | — | 缺配送日期不建立寄送紀錄、不補假日期；缺意願維持「待回覆」；收件資訊不完整不建立收件資料；有開團日期但沒有正式檔期只留預計日期 | — |
+
+## 27-collaboration-mine
+**團主工作台：我的樣品申請**（P2（T-COLLAB））　現況畫面：`../uat/screens/44-collaboration-mine.png`、`../uat/screens/45-mobile-collaboration.png`（390 寬）、`../uat/screens/flow-21-collaboration-host.png`　對應需求：見 [RTM §L](../REQUIREMENTS_TRACEABILITY_MATRIX.md)
+
+| # | 元件 | 資料來源 | 互動與規則 | 角色差異 |
+|---|---|---|---|---|
+| 1 | 版面 | — | **卡片式版面，手機可用；實測 390px 寬無水平溢出**（E2E 檢查），不是桌面表格靠橫向捲動 | 需 `collaboration.self`（團主） |
+| 2 | 我的申請卡片（狀態、樣品進度、意願） | GET /api/collaboration/applications（`EXTERNAL_APP_FIELDS` 白名單） | 只回傳對外允許的欄位與衍生欄位（`sample`、`sampleBucket`、`itemCount`、`recipientConfirmed`、意願與日期） | 只看自己的 `host_id`；讀別人的 id 與讀不存在的 id 回應完全相同（不洩漏存在性），跨組織 404 |
+| 3 | 申請樣品 | POST /api/collaboration/applications（HOST_FORM） | 從團主主檔帶入基本資料 | 需 `collaboration.create` |
+| 4 | 確認／更新收件資訊 | `collaboration_recipients` | **收件資訊必須重新確認**（主檔沒有地址欄位，而且地址會變）；不覆寫團主主檔；備註過 `assertNoPii()` | 只能看與寫自己的 |
+| 5 | 確認收件 | PATCH 簽收 | 確認收件會重算個資保留期（送達後改以最後寄送日起算 30 天） | 廠商不能代團主簽收 |
+| 6 | 回覆開團意願與預計開團日 | `collaboration_launch_details`（`HOST_LAUNCH_FIELDS`） | 只能寫意願與開團日期兩類欄位；`adsIntent`／`adsNote`／`collaborationNote` 只給內部顯示，團主送出會 403（已用 RBAC 測試把欄位契約釘住） | — |
+| 7 | 看不到的東西 | — | 廠商後台連結、後台設定 Mail／狀態、內部備註、別的團主的任何資料一律不回傳 | 由後端決定，不是畫面隱藏 |
+
+## 28-collaboration-vendor
+**廠商工作台：網紅申請與樣品寄送（七個分桶）**（P2（T-COLLAB））　現況畫面：`../uat/screens/43-collaboration-vendor.png`、`../uat/screens/flow-20-collaboration-vendor.png`　對應需求：見 [RTM §L](../REQUIREMENTS_TRACEABILITY_MATRIX.md)
+
+> ⛔ **這個入口尚未對外開放**：可以開發與測試，但在完成對外存取安全驗證前不得開放到正式／公開環境（見 KNOWN_ISSUES W-35）。
+
+| # | 元件 | 資料來源 | 互動與規則 | 角色差異 |
+|---|---|---|---|---|
+| 1 | 說明橫幅 | — | 頁面明講「確認供樣只影響這裡的樣品流程，不等於公司的 G1～G5 核准，也不會自動建立檔期」 | 需 `collaboration.self`（廠商） |
+| 2 | 七個分桶（待審核樣品、待寄出、已寄出、待補寄、團主待回覆、確認開團、已建立檔期） | 衍生分桶，不是 `tasks` | 點進去是已套好條件的清單；不另建平行任務引擎 | 只看自己的 `vendor_id`；一個人代表多家廠商時依 `user_scopes` 的多個 VENDOR 範圍 |
+| 3 | 逐項確認供樣數量 | `collaboration_application_items` | 核准數量不得大於申請數量；部分供樣需數量；不供樣為 0 | 需 `collaboration.vendor.review` |
+| 4 | 建立與編輯寄送紀錄（含補寄） | `collaboration_shipments` | 標已寄出必須有寄出日；取消必填原因；物流單號同組織不得重複 | 需 `collaboration.shipping.write` |
+| 5 | 收件資訊（受限） | 獨立端點 | 廠商要同時滿足四個條件（未清除、申請已核准、團主已確認可用、未過保留期），任一不符就拒絕並記錄 | 廠商沒有 `collaboration.pii.read` |
+| 6 | 回填廠商後台連結與後台設定狀態 | `collaboration_launch_details`（`VENDOR_LAUNCH_FIELDS`） | 「後台設定 Mail」只記錄聯絡信箱與設定狀態，系統不寄信；只有廠商看得到 `backendSetupStatus`（`VENDOR_EXTRA_APP_FIELDS`） | 團主看不到後台連結與設定 |
+| 7 | 匯出（個資遮罩） | GET …?form=form1｜form2 | 廠商有 `collaboration.export` 但沒有 `collaboration.pii.read`，所以收件人／電話／地址一律是「［無權限］」 | 是否保留廠商匯出＝Owner 待確認第 2 項 |
+| 8 | 廠商不能做的事 | — | 代替團主簽收、寫收件資料、寫開團意願、改申請主檔、讀稽核紀錄、看別家廠商的任何資料 | 一律後端擋；越權寫入 403、範圍外 404 |
+
 ## 設計共通規則
 
 - 狀態一律用「徽章＋文字」，不只靠顏色。
@@ -383,3 +475,4 @@
 - 結算相關頁面固定顯示「試算，口徑待 Owner 確認；非正式付款依據」。
 - 客群分析與適配：空值一律顯示「未知」（不是「無」或 0 分）；每個偏好與維度標示事實／估計；評分權重標示「建議值，待 Owner 確認」；適配評估只供查閱與人工覆核，不影響 G1–G5。
 - 選品與試用：分數與評估只是決策建議，不自動核准商品或 G1；G1 決策摘要 `gateImpact` 恆為 NONE；缺資料顯示「未知」；成本、分潤與利潤由後端依 `product.cost.read` 決定是否回傳；證據只存連結與有效期，不存檔案本體；評分權重與有效天數標示「建議值，待 Owner 確認」。
+- 合作申請與樣品管理：樣品申請不是檔期，不扣庫存、不產生財務或結算紀錄；廠商「確認供樣」不等於 G1～G5 任何核准（`gateImpact` 恆為 NONE）；「是否已補寄」是推導值而不是打勾欄位；收件資訊是個資，列表上不顯示、詳情要按一下才讀且每次讀取寫稽核；團主與廠商可寫的欄位由後端白名單決定，兩組不重疊。

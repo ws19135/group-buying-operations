@@ -66,8 +66,14 @@
 | 57 | 備份與還原：`backup.sh`（校驗碼、可讀性驗證、保留期限）、`restore-drill.sh`（還原到暫存資料庫並逐表比對） | IMPLEMENTED_NEW / TESTED（本機） | 演練：27 筆 migration、各表筆數一致 | cron 排程與異地備份未設定（Owner） |
 | 58 | O-2 已付款費用受控更正：`POST /expenses/:id/correct-paid`、不可變更正紀錄（`expense_corrections`）、稽核、重新確認、歷史顯示、不產生付款指示 | IMPLEMENTED_NEW / TESTED | `tests/prod-readiness.test.ts`；`expense-integrity` | 不碰結算；需 `finance.write`＋`product.cost.read` |
 | 59 | O-1 KPI 口徑標示：每單貢獻利潤公式說明「依合約條款推算，非會計核對淨利」；未改公式、未納入台帳 | IMPLEMENTED_NEW / TESTED | `tests/trial-kpis.test.ts` | KPI 與台帳並列顯示屬後續 Owner 決定 |
+| 60 | 合作申請與樣品管理（COLLABORATION_APPLICATIONS）主流程：申請狀態 9 種與合作狀態 7 種分成兩個維度、三種來源（營運／團主／廠商）、送出→內部審核→廠商供樣審核→核准、暫緩／恢復／取消／結案；入口＝內部「合作管理 → 網紅合作申請」 | IMPLEMENTED_NEW / TESTED | `tests/collaboration.test.ts`（26）、`tests/unit/collaboration-rules.test.ts`（32）；`npm run e2e:flow` 71/71（§13 完整流程只用畫面跑完、三角色各自登入、記錄 17 筆事件）；設計見 `docs/phase2/INFLUENCER_SAMPLE_APPLICATION.md` | 不自動寄信：「後台設定 Mail」只記錄聯絡信箱與設定狀態（測試固定 `notifications` 筆數不變）；不重用任務引擎（`tasks.campaign_id` NOT NULL，改用衍生分桶，測試固定 `tasks` 筆數不變） |
+| 61 | 樣品寄送與補寄推導：每一筆寄送各走自己的物流狀態；樣品進度不存欄位，由 `summarizeShipments()` 推導；補寄只有「真的填了寄出日期」才算已補寄，取消的補寄不計 | IMPLEMENTED_NEW / TESTED | `tests/unit/collaboration-rules.test.ts`、`tests/collaboration.test.ts`；突變驗證：工作台欄位白名單太窄的舊版轉紅（`團主的列表缺少 sample`） | 不接物流 API；不扣庫存、不產生財務或結算紀錄（測試固定 `inventory_movements`／`settlements`／`settlement_items`／`payments` 筆數不變） |
+| 62 | 收件個資治理：個資獨立表 `collaboration_recipients`、詳情 API 完全不回傳收件內容（另走 `GET …/recipient` 並逐次寫稽核）、保留期（核准起 90 天；送達後改最後寄送日起 30 天，取較早者）在核准／廠商確認／新增寄送／修改寄送／確認收件 5 個呼叫點重算、匯出遮罩 | IMPLEMENTED_NEW / TESTED | `tests/collaboration-rbac.test.ts`（44）；突變驗證：舊版保留期未隨送達重算（舊 `2027-02-04`，新測試期待 `2026-12-01`）轉紅 | 到期清除要人工或排程觸發（`POST /api/collaboration/recipients/purge-expired`，僅管理者），系統沒有自動排程；保留期天數待 Owner 確認 |
+| 63 | 廠商與團主工作台：廠商「廠商工作台 → 網紅申請與樣品寄送」、團主「團主工作台 → 我的樣品申請」，以 `collaboration.self` 限定只看自己，欄位走白名單投影 | IMPLEMENTED_NEW / TESTED | `tests/collaboration-rbac.test.ts`；`npm run e2e` 170/170（本模組 17 項）；截圖 `docs/uat/screens/40~45-collaboration-*.png`、`flow-19~22-collaboration-*.png`；突變驗證：把投廣等內部欄位顯示給團主的舊版表單會讓 `npm run e2e:flow` 在「團主存意願」轉紅 | **廠商入口未對外開放**：完成對外存取安全驗證前不得開放到正式／公開環境（待 Owner）；財務角色刻意沒有任何合作申請權限 |
+| 64 | 表單一（開團與補寄追蹤）／表單二（樣品申請）匯入與匯出：三步（上傳預覽→逐列確認→建立申請）、`import_batches.checksum` ＋ `collaboration_import_rows.dedupe_key` 雙重防重複、兩種匯出格式含 UTF-8 BOM | IMPLEMENTED_NEW / TESTED | `tests/collaboration.test.ts`；`npm run db:rehearsal` 20/20（028 套在舊版 001～017 資料庫上，舊資料筆數與欄位前後相同、重跑冪等）；`npm run docs:gen`（76 張表、200 個外鍵、253 個端點） | 對應不到唯一主檔的列只能留在 `collaboration_import_rows` 等人工確認；不自動建立團主主檔、不自動猜著合併 |
+| 65 | 檔期關聯與 G1～G5 不受影響：合作確認後只關聯既有檔期（不新建、不改檔期狀態），`approvals` 表完全不寫入，`linkCampaign` 的回傳與稽核明寫 `gateImpact: 'NONE'`；SOP 03 商品試用只以 `trial_id` 選填引用 | IMPLEMENTED_NEW / TESTED | `tests/collaboration.test.ts`（`approvals` 與 G1 檢查項不變）；`npx tsc --noEmit` exit 0、`npm run lint` 無告警、`npm run test` 60 檔 1039 項、`npm run build` exit 0（6 條 `/collaboration*` 路由都在） | 一般樣品申請不等於已完成 SOP 03 的試用資格評估，不改試用結論／覆核／有效期 |
 
-## 上線驗收矩陣（A～F，2026-11-04）
+## 上線驗收矩陣（A～G，2026-11-04；G 區 2026-11-06 補）
 
 > 狀態定義：IMPLEMENTED 已實作｜TESTED 自動化測試（含真實 PostgreSQL）與本機 E2E 通過｜DEPLOYED 已部署到正式／預備主機｜LIVE_VERIFIED 在該主機（HTTPS）以 Live UAT 驗證｜BLOCKED 缺外部資源｜OWNER_DECISION_REQUIRED 待 Owner 決定。
 > **目前沒有任何項目是 DEPLOYED 或 LIVE_VERIFIED**（沒有主機）；「本機 production 模式空資料庫 Live UAT 21/21」是預備驗證，不等於上線驗證。
@@ -80,5 +86,6 @@
 | D | 八項 KPI：不設門檻（K-1）；有效導購訪客需來源／去重／獨立查核；成本未知或未歸屬→利潤「資料不足」 | ✅ | ✅ | — | — | 每單貢獻利潤為合約條款推算，已明確標示非會計淨利（O-1） |
 | E | 訂單履約：庫存、出貨、簽收、退款、客訴、售後 | ✅ | ✅ | — | — | 不接物流 API；不處理真實金流退款；廠商入口未解凍（NOT_STARTED） |
 | F | 財務與分潤：入帳、對帳、發票紀錄、費用歸屬、結算試算、O-2 更正 | ✅（僅紀錄＋試算） | ✅ | — | — | 結算流程未改動；不自動付款；預付款允許（O-3：付款日早於費用日不是錯誤） |
+| G | 合作申請與樣品管理：申請與供樣審核、樣品寄送與補寄、收件個資治理、廠商與團主工作台、表單一／二匯入 | ✅ | ✅ | — | — | 廠商入口未對外開放（需先完成對外存取安全驗證）；不自動寄信、不碰 G1～G5／庫存／財務；收件個資保留期天數與 11 項權限的切分待 Owner 確認 |
 | — | 正式環境：容器、HTTPS、備份、回滾、部署流程 | ✅ | ✅（本機） | ❌ | ❌ | BLOCKED：主機、網域、部署金鑰（見 `HANDOFF.md`） |
 | — | 真實通知（LINE／Email）、金流、Google 同步 | ❌ | — | — | — | 依政策未啟用；BLOCKED 或需 Owner 授權 |

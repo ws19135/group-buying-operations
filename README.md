@@ -2,14 +2,14 @@
 
 團購營運研究與 **團購 ERP** 的主要空間：規格文件（藍圖、路線圖、研究）＋ Phase 1 MVP 的實作與紀錄。
 
-> **狀態（2026-10-28）**：Phase 1 MVP ＋ Phase 2 切片（履約出貨、售後、財務結算試算）已建置完成，只含虛構 DEMO 資料，可在本機／隔離環境操作。**尚未部署正式環境、未連任何正式資料或真實通知。** 完成度與證據見 [功能完成矩陣](docs/FEATURE_STATUS_MATRIX.md)、[測試報告](docs/TEST_REPORT.md)、[已知問題](docs/KNOWN_ISSUES.md)。
+> **狀態（2026-11-06）**：Phase 1 MVP ＋ Phase 2 切片（履約出貨、售後、財務結算試算）＋「合作申請與樣品管理（網紅樣品申請）」已建置完成，只含虛構 DEMO 資料，可在本機／隔離環境操作。**尚未部署正式環境、未連任何正式資料或真實通知。** 完成度與證據見 [功能完成矩陣](docs/FEATURE_STATUS_MATRIX.md)、[測試報告](docs/TEST_REPORT.md)、[已知問題](docs/KNOWN_ISSUES.md)。
 >
 > | 項目 | 數字（以 CI 為準） |
 > |---|---|
-> | 自動化測試 | 30 檔 592 項（真實 PostgreSQL，含安全審查與 API 模糊測試）＋ E2E 122 項 |
-> | 資料表／遷移 | 65 張表、14 支 migration |
-> | API 端點 | 185 個（[清單](docs/generated/API_ENDPOINTS.md)） |
-> | 角色／權限 | 6 種角色、52 項權限 |
+> | 自動化測試 | 60 檔 1039 項（真實 PostgreSQL，含安全審查與 API 模糊測試）＋ E2E 煙霧 170 項、全流程 71 項 |
+> | 資料表／遷移 | 76 張表、28 支 migration |
+> | API 端點 | 253 個（[清單](docs/generated/API_ENDPOINTS.md)） |
+> | 角色／權限 | 6 種角色、63 項權限 |
 >
 > 📌 **進行中的整理**：SRS／SAD／SDD／線框圖已補齊並併入主分支（見下方「文件地圖」）。這些是對**已完成系統的逆向整理並與程式核對**，不是事前設計。
 
@@ -55,8 +55,9 @@ flowchart TB
     M3["訂單匯入、佣金預估、儀表板"]
     M4["Phase 2：履約出貨、售後退款、財務結算試算"]
     M5["自動化 8 個工作、通知佇列、廠商進件、例外管理"]
+    M6["合作申請與樣品管理：網紅樣品申請、供樣審核、寄送與補寄、收件個資"]
   end
-  S --> DB[("PostgreSQL 16<br/>65 張表<br/>禁止 DELETE、稽核不可改、版本自動維護")]
+  S --> DB[("PostgreSQL 16<br/>76 張表<br/>禁止 DELETE、稽核不可改、版本自動維護")]
   W["Worker（預設關閉）"] --> DB
   W -.->|僅測試 Adapter| N["通知（LINE／Email 未接）"]
   X1["電商訂單 API／Webhook"] -.-|BLOCKED| S
@@ -121,7 +122,7 @@ flowchart LR
 |---|---|---|---|
 | **需求** | [SRS 需求規格](docs/spec/SRS.md)（功能／非功能需求、使用案例、驗收條件、追溯） | ✅ | 逆向整理＋與程式核對 |
 | | [需求追溯矩陣](docs/REQUIREMENTS_TRACEABILITY_MATRIX.md) | ✅ | 需求 → 實作 → 測試 → 狀態 |
-| | [功能完成矩陣](docs/FEATURE_STATUS_MATRIX.md) | ✅ | 38 項功能的實作狀態與證據 |
+| | [功能完成矩陣](docs/FEATURE_STATUS_MATRIX.md) | ✅ | 65 項功能的實作狀態與證據 |
 | | [主藍圖](docs/ERP_MASTER_BLUEPRINT.md)、[研究報告](docs/2026-taiwan-group-buying-complete-research.md) | ✅ | 事前規劃 |
 | **架構** | [SAD 系統架構](docs/spec/SAD.md) | ✅ | 逆向整理 |
 | | [架構說明](docs/ARCHITECTURE.md) | ✅ | 邏輯架構、核心不變條件、安全基線 |
@@ -131,6 +132,7 @@ flowchart LR
 | | [工作流程映射](docs/WORKFLOW_MAPPING.md)、[Dashboard 規格](docs/DASHBOARD_SPEC.md)、[自動化](docs/AUTOMATION.md)、[API 說明](docs/API.md) | ✅ | 設計說明 |
 | | [SOP 01 客群分析與商品適配](docs/phase2/SEGMENT_FIT.md) | ✅ | 資料模型、評分規則、流程串接、待決策 |
 | | [SOP 02／03 商品選品、合作資格審查、試用與可行性](docs/phase2/PRODUCT_SELECTION_TRIAL.md) | ✅ | 盤點（沿用／擴充／新增／待核准）、資料模型、評分與風險規則、權限、G1 決策摘要、待決策 D-25～D-36 |
+| | [合作申請與樣品管理（網紅樣品申請）](docs/phase2/INFLUENCER_SAMPLE_APPLICATION.md) | ✅ | 業務流程、7 張資料表、四個維度的狀態機、11 項權限、收件個資政策、匯入匯出、Owner 待確認 8 項 |
 | | [Phase 2：履約](docs/phase2/FULFILLMENT.md)、[售後](docs/phase2/AFTERSALES.md)、[財務](docs/phase2/FINANCE.md) | ✅ | 模組設計與限制 |
 | **介面** | [Wireframe 線框圖與畫面清單](docs/wireframes/WIREFRAMES.md)、[現況實畫面](docs/wireframes/AS_BUILT_SCREENS.md) | ✅ | 低擬真線框＋現況截圖 |
 | | [UAT 證據（含截圖）](docs/UAT_EVIDENCE.md) | ✅ | 驗收畫面 |
@@ -182,6 +184,7 @@ Next.js 15 + TypeScript + PostgreSQL 16 模組化單體；服務層 `src/server`
 
 ## 版本基準
 
+- 程式基準：2026-11-06（分支 `feat/collaboration-applications`；新增「合作申請與樣品管理」模組，**未部署、未碰真實資料**；廠商入口未對外開放）
 - 報告彙整日：2026-10-28
 - 法規與官方來源核對日：2026-10-28
 - 法規資訊僅供營運規劃；實際個案仍應由法務、會計或主管機關確認。

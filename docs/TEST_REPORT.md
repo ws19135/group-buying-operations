@@ -272,3 +272,44 @@
 | 主機 `deploy-remote.sh`（替身 docker＋真實 PostgreSQL） | 非互動未確認 → 拒絕（docker 指令 0 個）；`CONFIRM_CHECKLIST=no` → 拒絕；範本網域／短密碼 → 設定檢查擋下；含 DEMO 設定 → 擋下；全部正確＋確認 → 部署成功；pty 答 `no` 停止、答 `yes` 進入部署 |
 | 結構性守衛 `tests/deploy-scripts.test.ts` | 15 項通過；**11 種變異全部變紅**（先 migrate 再詢問、接受任何回答、CI 不帶確認、部署不呼叫確認、設定檢查放在 pull 之後、非互動放行、互動任何答案放行、移除密碼長度檢查、workflow 只要求一個確認欄位、確認步驟移到 checkout 之後、主機端不帶確認） |
 | 未能執行 | GitHub 工作流程的確認欄位實際行為（需在 GitHub 上手動觸發 Deploy；僅以 YAML 解析與結構測試驗證）；真實 VPS |
+
+## 18. 合作申請與樣品管理（2026-11-06，分支 `feat/collaboration-applications`）
+
+| 檢查 | 結果（本次實際執行） |
+|---|---|
+| `npx tsc --noEmit`／`npm run lint` | 型別檢查 exit 0；Lint 無告警 |
+| `npm test`（Vitest，真實 PostgreSQL） | **60 個檔案、1039 項通過**（本次執行的前一輪基準為 57 檔／937 項；新增 `collaboration` 26、`collaboration-rbac` 44、`unit/collaboration-rules` 32，本模組合計 102 項）。⚠️ §17 的表沒有記錄全套總數，本報告最後一次記錄全套總數的是 §15（56 檔／921 項）；57 檔／937 項這組基準只來自本次執行前的實跑，不在前面任何一節裡 |
+| `npm run build` | exit 0；6 條 `/collaboration*` 路由都在建置輸出中 |
+| Migration 升級演練 | `npm run db:rehearsal`：**20/20 通過**。028 套在舊版（001～017）資料庫上，舊資料筆數與欄位前後相同；重跑冪等 |
+| E2E 煙霧 | `npm run e2e`：**170/170 通過**（其中本模組 17 項） |
+| E2E 全流程 UI（Playwright） | `npm run e2e:flow`：**71/71 通過**；第十三節完整流程只用畫面跑完，三種角色各自登入自己的工作台，記錄 17 筆事件 |
+| 文件產生 | `npm run docs:gen`：76 張表（+7）、200 個外鍵、253 個 API 端點（+41）；migration 共 28 支 |
+| DEMO 種子 | `npm run db:seed:demo:collaboration`：6 筆申請、4 筆寄送紀錄（含補寄）；冪等；拒絕在 production 執行。資料只用保留測試號碼與 `example.invalid`，不含任何真實個資 |
+| 權限 | 新增 11 項權限（全系統 63 項）；各角色持有數由 `ROLE_PERMISSIONS` 實際印出：管理者 63／主管 55／小編 41／團主 13／廠商 12／財務 23。財務 11 項全無；小編刻意沒有 `collaboration.review` |
+| 突變驗證（鐵律：修正後拿舊的錯誤版本跑新測試必須變紅） | **3 種皆變紅**，明細見 §18.2 |
+| 截圖 | `docs/uat/screens/40~45-collaboration-*.png`（煙霧）、`flow-19~22-collaboration-*.png`（全流程） |
+| 沒有執行／限制 | **未部署**到任何正式環境、未碰任何真實資料或既有正式訂單（不得標記 DEPLOYED 或 LIVE_VERIFIED）；**廠商入口未對外開放**（完成對外存取安全驗證前不得開放到正式／公開環境）；**個資到期清除需人工或排程觸發**（`POST /api/collaboration/recipients/purge-expired`，僅管理者，系統沒有自動排程）；本模組不產生任何通知、不自動寄信 |
+
+### 18.1 Owner 要求的特別驗證
+
+| 項目 | 證據 |
+|---|---|
+| 指令第十節列的 20 項測試案例 | 20 項全部有自動化測試覆蓋，逐項對照見 `docs/phase2/INFLUENCER_SAMPLE_APPLICATION.md` §十；分佈於 `collaboration`（26）、`collaboration-rbac`（44）、`unit/collaboration-rules`（32） |
+| 第十三節完整流程（只用畫面跑完） | `npm run e2e:flow` **71/71**；營運、廠商、團主三種角色各自登入自己的工作台，從建立申請→確認供樣→寄出與補寄→收件確認→回覆意願→確認合作→關聯既有檔期，全程只操作畫面，記錄 17 筆事件 |
+| 個資不外洩 | 詳情 API 完全不回傳收件內容，必須走 `GET /api/collaboration/applications/:id/recipient`，每次成功讀取寫一筆 `collaboration.recipient.read`，被拒寫 `RECIPIENT_READ_DENIED`；哨兵字串（`SENTINEL-收件人-ABC`、`0900111222`、`SENTINEL-地址-…`）灌入後掃描每一條不該出現個資的 API 回應與 CSV，出現即失敗；無 `collaboration.pii.read` 者匯出得到 `［無權限］`（廠商有 `export` 但無 `pii.read`，這條路徑真的被走到並被測到）；備註欄全部過 `assertNoPii()` |
+| 廠商不能核准 G1～G5 | `approvals` 表完全不被本模組寫入（測試固定筆數前後不變）；`linkCampaign` 的回傳與稽核都明寫 `gateImpact: 'NONE'`；未修改 `modules/gates.ts`。測試位置：`collaboration-rbac` 的「G1～G5 不受影響」群組 |
+| 既有模組回歸 | 既有全部測試檔與本模組一起跑綠（60 檔／1039 項）；另以測試固定 `inventory_movements`／`settlements`／`settlement_items`／`payments`／`tasks`／`notifications` 筆數前後不變，證明不扣庫存、不產生財務或結算紀錄、不另建平行任務引擎、不發通知 |
+
+### 18.2 突變驗證明細（鐵律：修正後拿舊的錯誤版本跑新測試必須變紅）
+
+| # | 刻意回到的錯誤版本 | 新測試的實際結果 |
+|---|---|---|
+| 1 | 個資保留期未隨送達重算（只在建立收件資料時寫入） | 變紅：舊版算出 `2027-02-04`，新測試期待 `2026-12-01` |
+| 2 | 工作台對外欄位白名單太窄（`EXTERNAL_APP_FIELDS` 漏掉衍生欄位） | 變紅：`團主的列表缺少 sample` |
+| 3 | 開團合作資訊表單把內部欄位（`adsIntent`、`adsNote`、`collaborationNote`）顯示給團主，送出整組欄位被後端 `HOST_LAUNCH_FIELDS` 擋成 403 | 變紅：`npm run e2e:flow` 在團主存開團意願那一步失敗（修正前以資料庫確認 `intent` 仍為 `PENDING`）。ℹ️ 註：新增的 RBAC 測試釘的是**後端欄位層級契約**（團主可寫意願與開團日期、不可寫投廣與合作備註），用來防畫面再次漂走；它不測畫面，所以拿舊的表單程式跑它不會變紅，變紅的是全流程 UI 測試 |
+
+### 18.3 開發中抓到的問題
+
+1. **收件個資保留期算得比政策久**：保留期只在建立收件資料時寫入，樣品送達後沒有改以「最後寄送日 +30 天」重算。修法：`refreshRetention()` 掛在核准、廠商確認、新增寄送、修改寄送、確認收件共 5 個呼叫點。
+2. **廠商／團主工作台 HTTP 500**：對外欄位白名單 `EXTERNAL_APP_FIELDS` 漏掉工作台要用的衍生欄位（`sample`、`sampleBucket`、`itemCount`、`recipientConfirmed`、意願與日期）。修法：加寬白名單，並加 `VENDOR_EXTRA_APP_FIELDS`（只有廠商看得到 `backendSetupStatus`）。
+3. **團主永遠無法從畫面存開團意願**：開團合作資訊表單對團主顯示了 `adsIntent`／`adsNote`／`collaborationNote`，但後端 `HOST_LAUNCH_FIELDS` 不放行，送出就 403。修法：那三個欄位只給內部顯示，並加 RBAC 測試把欄位契約釘住。

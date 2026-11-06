@@ -155,3 +155,16 @@
 | W-30 | 🔴 | 主機端腳本（部署／備份／還原演練）與 SSH 部署流程**尚未在真實 VPS 上執行**，只以替身 `docker` 對真實 PostgreSQL 驗證邏輯；staging／production 皆未建立 | 第一次真實部署可能遇到主機環境差異（防火牆、DNS、ghcr 登入、Let's Encrypt） | 依 `OWNER_SETUP_CHECKLIST.md`；第一次一律先 staging |
 | W-31 | 🟡 | Live UAT 會讓 staging 資料庫含 `[UAT-…]` 資料，之後不再是空庫 | 同一個 staging 不能重複跑 UAT | 重建 staging 資料庫（`down -v` → `prod:bootstrap`）再跑 |
 | W-32 | 🟡 | 目前單機部署：主機或磁碟損壞時需靠備份還原（RPO 24 小時） | 最多損失一天資料 | 異地備份；需要更低 RPO 時評估 WAL 歸檔（Owner 決定） |
+
+## 合作申請與樣品管理（2026-11-06）
+
+| # | 級 | 問題 | 影響 | 建議 |
+|---|:-:|---|---|---|
+| W-33 | 🔴 | GitHub repo `ws19135/group-buying-operations` 目前是 **public**（`isPrivate: false`，description「團購報告」），而本模組會存真實的收件人姓名、電話、地址 | 若在 repo 仍為 public 時放進正式資料，個資會有外洩風險 | **放正式資料前必須先把 repo 轉成 private**（Owner 待確認第 7 項）；在那之前只用 `example.invalid` 與保留測試號碼 |
+| W-34 | 🟡 | 本模組**未部署**到任何正式環境，也未碰任何真實資料或既有正式訂單；所有驗證都在本機／隔離環境 | 不得標記 DEPLOYED 或 LIVE_VERIFIED；正式環境的行為沒有證據 | 依既有部署流程（見 W-23、`OWNER_SETUP_CHECKLIST.md`）；第一次一律先 staging |
+| W-35 | 🔴 | **廠商入口（`/collaboration/vendor`）未對外開放**：已開發、已測試，但未完成對外存取安全驗證 | 若提前開放，外部帳號的存取面沒有經過驗證 | 完成對外存取安全驗證後才可開放到正式／公開環境（Owner 待確認第 8 項） |
+| W-36 | 🟡 | 收件個資到期**不會自動清除**：清除端點 `POST /api/collaboration/recipients/purge-expired`（僅管理者）需人工呼叫或由外部排程觸發，系統本身沒有排程 | 過了保留期的收件資料可能仍留在資料庫 | 定期人工執行，或在主機上設排程；保留期數字（核准起算 90 天／送達後以最後寄送日起算 30 天，取較早者）待 Owner 確認 |
+| W-37 | 🟡 | 匯入時對應不到唯一主檔的列只能留在 `collaboration_import_rows` 等**人工確認**：`HOST_NOT_FOUND`、`HOST_AMBIGUOUS`、`SKU_UNRESOLVED` 一律阻斷，系統不自動建立團主主檔、也不自動猜著合併 | 來源表單名稱不一致時，匯入要人逐列指定或跳過 | 匯入前先整理來源名稱；逐列確認後再執行第三步建立申請 |
+| W-38 | 🟢 | 與 SOP 03 商品試用**刻意不共用狀態機**：只以 `trial_id` 選填引用，一般樣品申請不等於已完成 SOP 03 的試用資格評估 | 同一次試用可能在本模組與 `product_trials` 各有一筆紀錄，兩邊狀態不連動 | 需要正式試用資格時另走 SOP 03；要對照時在申請上填 `trial_id` |
+| W-39 | 🟡 | 營運小編（OPS_EDITOR）在 `collaborationScope` 的資料範圍是**全組織**，與 `campaignScope`（會限制到承辦檔期）不同 | 小編看得到組織內全部申請，包含不是自己承辦的 | Owner 待確認第 3 項：是否改為只看自己承辦的申請 |
+| W-40 | 🟢 | 本模組**不自動寄信、不產生任何通知**：「後台設定 Mail」只記錄聯絡信箱與設定狀態（已用測試固定 `notifications` 筆數前後不變） | 團主與廠商不會收到系統提醒，要靠工作台自己看 | Owner 待確認第 5 項；確認解讀後再決定要不要接通知 |

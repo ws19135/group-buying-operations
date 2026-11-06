@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-11-04T09:31:34.868Z",
+  "ranAt": "2026-11-06T06:48:36.909Z",
   "total": 20,
   "passed": 20,
   "failed": 0,
@@ -17,7 +17,7 @@
     {
       "name": "正式 migrate 工具升級成功（019～025 依序套用）",
       "ok": true,
-      "detail": "已套用：019_reach_verifiability.sql, 020_case_host_attribution.sql, 021_reach_verifier_assignment.sql, 022_expense_attribution.sql, 023_commission_recon_items.sql, 024_expense_cost_scope.sql, 025_expense_integrity.sql"
+      "detail": "已套用：019_reach_verifiability.sql, 020_case_host_attribution.sql, 021_reach_verifier_assignment.sql, 022_expense_attribution.sql, 023_commission_recon_items.sql, 024_expense_cost_scope.sql, 025_expense_integrity.sql, 026_user_password_policy.sql, 027_expense_corrections.sql, 028_collaboration_applications.sql"
     },
     {
       "name": "重複執行不再套用任何 migration（冪等）；checksum 保護有效",

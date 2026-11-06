@@ -28,7 +28,9 @@ describe('Migration', () => {
       'campaigns', 'campaign_products', 'campaign_hosts', 'campaign_placements', 'approvals', 'exceptions',
       'workflow_templates', 'workflow_template_steps', 'tasks', 'task_dependencies',
       'import_batches', 'import_errors', 'orders', 'order_items', 'attributions', 'commission_rules', 'settlements', 'settlement_items',
-      'automation_settings', 'automation_runs', 'notifications', 'vendor_intake_submissions', 'daily_summaries'];
+      'automation_settings', 'automation_runs', 'notifications', 'vendor_intake_submissions', 'daily_summaries',
+      'collaboration_applications', 'collaboration_application_items', 'collaboration_recipients',
+      'collaboration_shipments', 'collaboration_launch_details', 'collaboration_events', 'collaboration_import_rows'];
     const have = (await query<{ table_name: string }>(`SELECT table_name FROM information_schema.tables WHERE table_schema='public'`)).map((t) => t.table_name);
     for (const t of expected) expect(have, t).toContain(t);
     const noOrg = (await query<{ table_name: string }>(
@@ -40,7 +42,8 @@ describe('Migration', () => {
 
   it('外鍵都有對應索引的關鍵欄位（campaigns / tasks / orders 的查詢路徑）', async () => {
     const idx = (await query<{ indexname: string }>(`SELECT indexname FROM pg_indexes WHERE schemaname='public'`)).map((i) => i.indexname);
-    for (const name of ['campaigns_org_status_idx', 'campaigns_dates_idx', 'tasks_org_status_idx', 'tasks_campaign_idx', 'orders_campaign_idx', 'audit_entity_idx', 'campaign_hosts_host_idx', 'campaign_placements_comm_idx', 'events_pending_idx'])
+    for (const name of ['campaigns_org_status_idx', 'campaigns_dates_idx', 'tasks_org_status_idx', 'tasks_campaign_idx', 'orders_campaign_idx', 'audit_entity_idx', 'campaign_hosts_host_idx', 'campaign_placements_comm_idx', 'events_pending_idx',
+      'collab_app_org_status_idx', 'collab_app_host_idx', 'collab_app_vendor_idx', 'collab_ship_app_idx'])
       expect(idx, name).toContain(name);
   });
 });
