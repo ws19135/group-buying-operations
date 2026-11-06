@@ -43,7 +43,7 @@ beforeAll(async () => {
   vendA = await addUser(w.orgId, 'VENDOR', { vendorIds: [vA] });
   vendB = await addUser(w.orgId, 'VENDOR', { vendorIds: [vB] });
 
-  appA = (await collab.createApplication(w.manager, { vendorId: vA, hostId: hA, items: [{ productId: pA, requestedQty: 1 }] })).id;
+  appA = (await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: vA, hostId: hA, items: [{ productId: pA, requestedQty: 1 }] })).id;
   await collab.submitApplication(w.manager, appA);
   await collab.internalReview(w.manager, appA, { decision: 'APPROVE' });
   await collab.putRecipient(hostA, appA, {
@@ -51,7 +51,7 @@ beforeAll(async () => {
   });
   shipA = (await collab.addShipment(w.editor, appA, { shipmentType: 'INITIAL', shipDate: dayOffset(-2) })).id;
 
-  appB = (await collab.createApplication(w.manager, { vendorId: vB, hostId: hB, items: [{ productId: pB }] })).id;
+  appB = (await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: vB, hostId: hB, items: [{ productId: pB }] })).id;
 
   // 另一個組織的同類資料：任何角色都不該看見
   const v2 = (await mkVendor(w2, '別組織廠商')).id;
@@ -217,7 +217,7 @@ describe('收件個資：欄位層級保護、履約期間限制、讀取稽核'
   });
 
   it('申請還沒核准時，廠商拿不到收件資料（履約必需期間之外）', async () => {
-    const pending = (await collab.createApplication(w.manager, { vendorId: vB, hostId: hB, items: [{ productId: pB }] })).id;
+    const pending = (await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: vB, hostId: hB, items: [{ productId: pB }] })).id;
     await collab.putRecipient(hostB, pending, { recipientName: '乙收件', recipientPhone: '0922333444', addressLine: '某路 2 號', confirm: true });
     const r = await cl.vendB.call('GET', `/collaboration/applications/${pending}/recipient`);
     expect(r.status).toBe(403);
@@ -228,10 +228,20 @@ describe('收件個資：欄位層級保護、履約期間限制、讀取稽核'
     expect(denied.length).toBeGreaterThan(0);
   });
 
-  it('已核准＋團主已確認的情況下，廠商讀得到（履約必需），而且同樣寫稽核', async () => {
-    const r = await cl.vendA.call<{ addressLine: string }>('GET', `/collaboration/applications/${appA}/recipient`);
+  it('已核准＋團主已確認＋還有待寄出的寄送時，廠商讀得到（履約必需），而且同樣寫稽核；寄出之後視窗關閉（D-44）', async () => {
+    // appA 的首次寄送已經寄出（履約不再需要地址），另建一筆「還沒寄」的案件驗證履約例外
+    const open = (await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: vA, hostId: hA, items: [{ productId: pA }] })).id;
+    await collab.submitApplication(w.manager, open);
+    await collab.internalReview(w.manager, open, { decision: 'APPROVE' });
+    await collab.putRecipient(hostA, open, { recipientName: PII.name, recipientPhone: PII.phone, addressLine: PII.address, confirm: true });
+    const pending = await collab.addShipment(w.editor, open, { shipmentType: 'INITIAL' });   // 沒有寄出日＝待寄出
+    const r = await cl.vendA.call<{ addressLine: string }>('GET', `/collaboration/applications/${open}/recipient`);
     expect(r.status).toBe(200);
     expect(r.data.addressLine).toBe(PII.address);
+    await collab.updateShipment(w.editor, pending.id, { shipDate: dayOffset(-1) });
+    const closed = await cl.vendA.call('GET', `/collaboration/applications/${open}/recipient`);
+    expect(closed.status).toBe(403);
+    expect(closed.error?.message).toContain('寄送');
     const audited = await query(
       `SELECT 1 FROM audit_logs WHERE organization_id=$1 AND action='collaboration.recipient.read' AND actor_user_id=$2`,
       [w.orgId, vendA.userId]);
@@ -247,7 +257,7 @@ describe('收件個資：欄位層級保護、履約期間限制、讀取稽核'
   });
 
   it('清除保留期已過的收件資料後，內容真的不見（不是只軟刪除）', async () => {
-    const tmp = (await collab.createApplication(w.manager, { vendorId: vA, hostId: hA, items: [{ productId: pA }] })).id;
+    const tmp = (await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: vA, hostId: hA, items: [{ productId: pA }] })).id;
     await collab.putRecipient(w.manager, tmp, { recipientName: 'SENTINEL-待清除', recipientPhone: '0955666777', addressLine: 'SENTINEL-待清除地址', confirm: true });
     await query(`UPDATE collaboration_recipients SET retention_until=$2 WHERE application_id=$1`, [tmp, dayOffset(-10)]);
     const res = await collab.purgeExpiredRecipients(w.admin);
@@ -263,11 +273,13 @@ describe('收件個資：欄位層級保護、履約期間限制、讀取稽核'
 });
 
 describe('匯出：沒有個資權限的人帶不走收件人、電話與地址', () => {
-  it('廠商可以匯出自己的案件，但收件個資全部遮罩', async () => {
+  it('廠商可以匯出自己的案件，但表單二根本沒有收件人／電話／地址欄位（D-38）', async () => {
     const r = await cl.vendA.call('GET', '/collaboration/applications/export?form=form2');
     expect(r.status).toBe(200);
     expect(r.headers.get('content-type')).toContain('text/csv');
-    expect(r.text).toContain('［無權限］');
+    const header = r.text.replace('\uFEFF', '').split('\r\n')[0];
+    for (const col of ['收件人', '聯繫電話', '地址']) expect(header).not.toContain(col);
+    expect(r.text).toContain(appA);
     for (const leak of [PII.name, PII.phone, PII.address]) expect(r.text).not.toContain(leak);
   });
 
@@ -296,7 +308,7 @@ describe('廠商確認供樣不等於公司核准：G1～G5 完全不受影響',
     const camp = await mkCampaign(w, vA);
     const before = await query<{ id: string; gate_key: string; status: string }>(
       'SELECT id, gate_key, status FROM approvals WHERE campaign_id=$1 ORDER BY id', [camp.id]);
-    const id = (await collab.createApplication(w.manager, { vendorId: vA, hostId: hA, items: [{ productId: pA, requestedQty: 1 }] })).id;
+    const id = (await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: vA, hostId: hA, items: [{ productId: pA, requestedQty: 1 }] })).id;
     await collab.submitApplication(w.manager, id);
     await collab.internalReview(w.manager, id, { decision: 'TO_VENDOR' });
     const its = (await collab.getApplication(vendA, id)).items as { id: string }[];
@@ -314,7 +326,7 @@ describe('廠商確認供樣不等於公司核准：G1～G5 完全不受影響',
 
   it('關聯檔期只寫關聯欄位，稽核明確記錄對 Gate 沒有影響', async () => {
     const camp = await mkCampaign(w, vA);
-    const id = (await collab.createApplication(w.manager, { vendorId: vA, hostId: hA, items: [{ productId: pA }] })).id;
+    const id = (await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: vA, hostId: hA, items: [{ productId: pA }] })).id;
     await collab.submitApplication(w.manager, id);
     await collab.internalReview(w.manager, id, { decision: 'APPROVE' });
     await collab.putLaunch(hostA, id, { intent: 'WILLING' });
@@ -365,7 +377,7 @@ describe('越權寫入：欄位層級與動作層級都在後端擋', () => {
   });
 
   it('廠商不能代替團主簽收', async () => {
-    const id = (await collab.createApplication(w.manager, { vendorId: vA, hostId: hA, items: [{ productId: pA }] })).id;
+    const id = (await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: vA, hostId: hA, items: [{ productId: pA }] })).id;
     await collab.submitApplication(w.manager, id);
     await collab.internalReview(w.manager, id, { decision: 'APPROVE' });
     const s = await collab.addShipment(vendA, id, { shipmentType: 'INITIAL', shipDate: dayOffset(-1) });
@@ -381,7 +393,7 @@ describe('越權寫入：欄位層級與動作層級都在後端擋', () => {
   });
 
   it('已退回／已取消的申請不可再被修改', async () => {
-    const id = (await collab.createApplication(w.manager, { vendorId: vA, hostId: hA, items: [{ productId: pA }] })).id;
+    const id = (await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: vA, hostId: hA, items: [{ productId: pA }] })).id;
     await collab.submitApplication(w.manager, id);
     await collab.internalReview(w.manager, id, { decision: 'REJECT', note: '這一季不做' });
     expect((await collab.getApplication(w.manager, id)).status).toBe('REJECTED');
@@ -390,7 +402,7 @@ describe('越權寫入：欄位層級與動作層級都在後端擋', () => {
   });
 
   it('核准數量不可大於申請數量（廠商無法藉此多發樣品）', async () => {
-    const id = (await collab.createApplication(w.manager, { vendorId: vA, hostId: hA, items: [{ productId: pA, requestedQty: 2 }] })).id;
+    const id = (await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: vA, hostId: hA, items: [{ productId: pA, requestedQty: 2 }] })).id;
     await collab.submitApplication(w.manager, id);
     await collab.internalReview(w.manager, id, { decision: 'TO_VENDOR' });
     const its = (await collab.getApplication(vendA, id)).items as { id: string }[];

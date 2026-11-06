@@ -12,9 +12,12 @@ import { normalizeName } from '../lib/text';
 import { parseCsv } from '../lib/csv';
 import { listPaged, pageParams } from '../lib/repo';
 import {
-  IMPORT_FORM_KINDS, RECIPIENT_RETENTION_DAYS_AFTER_APPROVAL, addDaysIso, importDedupeKey, mapHeaders, parseIntent, parseLooseDate, parseYesNo,
+  IMPORT_FORM_KINDS, RECIPIENT_RETENTION_DAYS_AFTER_APPROVAL, addDaysIso, importDedupeKey, isSafeHttpUrl, looksLikeFormula, mapHeaders,
+  parseIntent, parseLooseDate, parseYesNo, scrubImportPii,
   type ImportFormKind,
 } from '../lib/collaboration-rules';
+import { containsPii } from './aftersales';
+import { startAssignment } from './collaboration-assignment';
 
 /**
  * 匯入廠商現有的兩種表單（表單一＝開團追蹤、表單二＝網紅樣品申請）。
@@ -41,6 +44,10 @@ const ISSUE_MESSAGE: Record<string, string> = {
   RESENT_UNREADABLE: '「是否已補寄」無法判讀，匯入後以實際寄送紀錄為準',
   CAMPAIGN_NOT_LINKED: '有開團連結或開團日期，但沒有對應的正式檔期；只會留下連結與預計日期，不會自動建立檔期',
   RECIPIENT_INCOMPLETE: '收件資訊不完整（收件人／電話／地址缺一），匯入後不會建立收件資料',
+  FORMULA_INJECTION: '儲存格內容以 = + - @ 開頭，可能是試算表公式注入；請確認來源檔案或跳過這一列',
+  URL_UNSAFE: '連結不是安全的 http／https 網址（或內嵌帳號密碼），匯入後不會保存這個連結',
+  EMAIL_INVALID: '後台設定 Mail 格式不正確，匯入後不會保存',
+  NOTE_HAS_PII: '備註含電話或 Email，備註對團主與廠商可見，匯入後不會保存備註',
 };
 
 type Issue = { code: keyof typeof ISSUE_MESSAGE | string; message: string; blocking: boolean };
@@ -167,7 +174,7 @@ export async function previewImport(actor: Actor, raw: z.input<typeof previewSch
       for (const x of r.issues.filter((y) => y.blocking)) {
         await tx.query(
           `INSERT INTO import_errors (organization_id, batch_id, line_no, code, message, raw_row) VALUES ($1,$2,$3,$4,$5,$6)`,
-          [actor.orgId, batchId, r.rowNo, x.code, x.message, JSON.stringify(r.raw)]);
+          [actor.orgId, batchId, r.rowNo, x.code, x.message, JSON.stringify(scrubImportPii(r.raw))]);
       }
     }
     await audit(tx, actor, {
@@ -189,6 +196,12 @@ export async function previewImport(actor: Actor, raw: z.input<typeof previewSch
 
 async function buildRow(tx: Tx, actor: Actor, kind: ImportFormKind, vendorId: string, rowNo: number, rec: Record<string, string>): Promise<ParsedRow> {
   const issues: Issue[] = [];
+  // 惡意 CSV：任何欄位以公式字元開頭都擋下待人工確認（不自動猜、不自動放行）
+  if (Object.values(rec).some((v) => looksLikeFormula(v))) issues.push(issue('FORMULA_INJECTION', true));
+  if (rec.launchUrl && !isSafeHttpUrl(rec.launchUrl)) issues.push(issue('URL_UNSAFE', false));
+  if (rec.vendorPortalUrl && !isSafeHttpUrl(rec.vendorPortalUrl)) issues.push(issue('URL_UNSAFE', false));
+  if (rec.backendSetupEmail && !/^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(rec.backendSetupEmail)) issues.push(issue('EMAIL_INVALID', false));
+  if (rec.note && containsPii(rec.note)) issues.push(issue('NOTE_HAS_PII', false));
   const hostNameRaw = rec.hostName || null;
   const productNameRaw = rec.productName || null;
 
@@ -252,7 +265,8 @@ export async function resolveImportRow(actor: Actor, rowId: string, raw: z.input
     if (row.resolution === 'IMPORTED') throw precondition('這一列已經建立申請單，不可再修改對應');
 
     if (input.skip) {
-      await tx.query(`UPDATE collaboration_import_rows SET resolution='SKIPPED', resolve_note=$2, updated_by=$3 WHERE id=$1`, [rowId, input.note ?? null, actor.userId]);
+      await tx.query(`UPDATE collaboration_import_rows SET resolution='SKIPPED', resolve_note=$2, updated_by=$3,
+        raw = raw - 'recipientName' - 'recipientPhone' - 'addressLine', pii_scrubbed_at = now() WHERE id=$1`, [rowId, input.note ?? null, actor.userId]);
       await audit(tx, actor, { action: 'collaboration.import.skip', entityType: 'collaboration_import_row', entityId: rowId, reason: input.note ?? null });
       return { id: rowId, resolution: 'SKIPPED' };
     }
@@ -313,12 +327,14 @@ export async function commitImport(actor: Actor, batchId: string) {
       const existing = await tx.query<{ id: string }>(
         'SELECT id FROM collaboration_applications WHERE organization_id=$1 AND dedupe_key=$2 AND deleted_at IS NULL', [actor.orgId, r.dedupe_key]);
       if (existing.rowCount) {
-        await tx.query(`UPDATE collaboration_import_rows SET resolution='IMPORTED', application_id=$2, updated_by=$3 WHERE id=$1`, [r.id, existing.rows[0].id, actor.userId]);
+        await tx.query(`UPDATE collaboration_import_rows SET resolution='IMPORTED', application_id=$2, updated_by=$3,
+          raw = raw - 'recipientName' - 'recipientPhone' - 'addressLine', pii_scrubbed_at = now() WHERE id=$1`, [r.id, existing.rows[0].id, actor.userId]);
         skipped++;
         continue;
       }
       const appId = await applyRow(tx, actor, r);
-      await tx.query(`UPDATE collaboration_import_rows SET resolution='IMPORTED', application_id=$2, updated_by=$3 WHERE id=$1`, [r.id, appId, actor.userId]);
+      await tx.query(`UPDATE collaboration_import_rows SET resolution='IMPORTED', application_id=$2, updated_by=$3,
+        raw = raw - 'recipientName' - 'recipientPhone' - 'addressLine', pii_scrubbed_at = now() WHERE id=$1`, [r.id, appId, actor.userId]);
       created.push(appId);
     }
     await tx.query('UPDATE import_batches SET updated_rows=$2 WHERE id=$1', [batchId, created.length]);
@@ -343,6 +359,10 @@ async function applyRow(tx: Tx, actor: Actor, r: {
   const resent = parseYesNo(rec.resentRaw);
   const ads = parseYesNo(rec.adsIntentRaw);
   const appliedOn = shipDate ?? planned ?? resendDate ?? todayTaipei();
+  const safeNote = rec.note && !containsPii(rec.note) ? rec.note : null;
+  const safeLaunchUrl = rec.launchUrl && isSafeHttpUrl(rec.launchUrl) ? rec.launchUrl : null;
+  const safePortalUrl = rec.vendorPortalUrl && isSafeHttpUrl(rec.vendorPortalUrl) ? rec.vendorPortalUrl : null;
+  const safeEmail = rec.backendSetupEmail && /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(rec.backendSetupEmail) ? rec.backendSetupEmail : null;
 
   // 歷史資料已經是「廠商同意並寄出」之後的狀態，所以落在 APPROVED；沒有任何核准動作被偽造，
   // status_reason 明寫是匯入，稽核也留有批次來源。
@@ -352,7 +372,9 @@ async function applyRow(tx: Tx, actor: Actor, r: {
        status, collaboration_status, status_reason, note, dedupe_key, decided_at, created_by, updated_by)
      VALUES ($1,$2,$3,$4,$5,'IMPORT',$6,'APPROVED',$7,'由歷史表單匯入',$8,$9,now(),$10,$10)`,
     [appId, actor.orgId, r.resolved_vendor_id, r.resolved_host_id, r.resolved_product_id, appliedOn,
-      shipDate ? 'SAMPLE_IN_PROGRESS' : 'NOT_STARTED', rec.note || null, r.dedupe_key, actor.userId]);
+      shipDate ? 'SAMPLE_IN_PROGRESS' : 'NOT_STARTED', safeNote, r.dedupe_key, actor.userId]);
+  // 小編匯入的案件由自己承辦；主管匯入的案件進待指派佇列（D-39）
+  if (actor.role === 'OPS_EDITOR' && actor.userId) await startAssignment(tx, actor, appId, actor.userId, 'PRIMARY');
 
   if (r.resolved_product_id) {
     await tx.query(
@@ -408,8 +430,8 @@ async function applyRow(tx: Tx, actor: Actor, r: {
     [await ids.collaborationLaunch(tx), actor.orgId, appId, intent,
       // 來源表單沒有「回覆日期」欄；有意願就以該列的日期補登，避免沒有依據的空值
       intent === 'PENDING' ? null : (planned ?? shipDate ?? appliedOn),
-      planned, rec.launchUrl || null, rec.vendorPortalUrl || null, rec.backendSetupEmail || null,
-      rec.backendSetupEmail ? 'DONE' : 'NOT_REQUIRED', ads === null ? 'PENDING' : ads ? 'YES' : 'NO', actor.userId]);
+      planned, safeLaunchUrl, safePortalUrl, safeEmail,
+      safeEmail ? 'DONE' : 'NOT_REQUIRED', ads === null ? 'PENDING' : ads ? 'YES' : 'NO', actor.userId]);
 
   await tx.query(
     `INSERT INTO collaboration_events (organization_id, application_id, dimension, event_type, to_status, note, is_internal, actor_user_id, actor_role)

@@ -25,6 +25,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     { href: '/collaboration/vendor', label: '網紅申請與樣品寄送', testid: 'nav-collaboration-vendor', group: '合作管理', show: actor.role === 'VENDOR' && has('collaboration.self') },
     { href: '/collaboration/mine', label: '我的樣品申請', testid: 'nav-collaboration-mine', group: '合作管理', show: actor.role === 'HOST' && has('collaboration.self') },
     { href: '/collaboration/import', label: '合作申請匯入', testid: 'nav-collaboration-import', group: '合作管理', show: has('collaboration.read') && has('collaboration.create') },
+    { href: '/collaboration/retention', label: '個資保留與清除', testid: 'nav-collaboration-retention', group: '合作管理', show: has('collaboration.retention.manage') },
     { href: '/vendors', label: '廠商', testid: 'nav-vendors', group: '主檔', show: has('vendor.read') || has('vendor.self') },
     { href: '/hosts', label: '團主', testid: 'nav-hosts', group: '主檔', show: has('host.read') || has('host.self') },
     { href: '/communities', label: '社群', testid: 'nav-communities', group: '主檔', show: has('community.read') },

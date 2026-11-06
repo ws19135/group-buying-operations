@@ -1,7 +1,7 @@
 {
-  "ranAt": "2026-11-06T06:48:36.909Z",
-  "total": 20,
-  "passed": 20,
+  "ranAt": "2026-11-06T10:08:10.400Z",
+  "total": 31,
+  "passed": 31,
   "failed": 0,
   "checks": [
     {
@@ -17,7 +17,7 @@
     {
       "name": "正式 migrate 工具升級成功（019～025 依序套用）",
       "ok": true,
-      "detail": "已套用：019_reach_verifiability.sql, 020_case_host_attribution.sql, 021_reach_verifier_assignment.sql, 022_expense_attribution.sql, 023_commission_recon_items.sql, 024_expense_cost_scope.sql, 025_expense_integrity.sql, 026_user_password_policy.sql, 027_expense_corrections.sql, 028_collaboration_applications.sql"
+      "detail": "已套用：019_reach_verifiability.sql, 020_case_host_attribution.sql, 021_reach_verifier_assignment.sql, 022_expense_attribution.sql, 023_commission_recon_items.sql, 024_expense_cost_scope.sql, 025_expense_integrity.sql, 026_user_password_policy.sql, 027_expense_corrections.sql, 028_collaboration_applications.sql, 029_collaboration_assignment_retention.sql"
     },
     {
       "name": "重複執行不再套用任何 migration（冪等）；checksum 保護有效",
@@ -101,6 +101,61 @@
     },
     {
       "name": "升級後結算佣金計算仍依既有財務規則（舊規則 8% 未被改動）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "029 演練：028 版資料庫建立成功",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "029 演練：套用 029 成功（只新增，不改 028）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "029 演練：舊資料每一欄升級前後完全相同（申請單、收件資料、匯入暫存列）",
+      "ok": true,
+      "detail": "pii_scrubbed_at 為唯一新增欄位且預設 NULL"
+    },
+    {
+      "name": "029 演練：舊收件資料與匯入暫存列內容未被改動，也沒有被自動清除",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "029 演練：既有承辦人被回填成正式的主要承辦指派；沒有承辦人的案件沒有被猜測指派；已刪除案件不回填",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "029 演練：沒有承辦人的案件落入待指派佇列（不會消失）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "029 演練：小編甲只看得到自己承辦的 CLB-P1；小編乙看不到任何一筆；主管看得到全部未刪除案件",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "029 演練：約束與保護有效（同案件只能一位主要承辦、保留例外最長 365 天、交接與清除明細不可修改、不可實體刪除）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "029 演練：交接紀錄 append-only",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "029 演練：新增的保留例外與清除紀錄資料表為空（升級不會自動建立保留例外，也不會自動清除任何資料）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "029 演練：重複執行不再套用",
       "ok": true,
       "detail": ""
     }

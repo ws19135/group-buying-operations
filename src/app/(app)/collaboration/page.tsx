@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { withActor, sp1, toQuery, type SP } from '@/server/ui/session';
 import { can, isInternal, type Actor } from '@/server/lib/permissions';
 import { listApplications, overview } from '@/server/modules/collaboration';
+import { listUnassigned } from '@/server/modules/collaboration-assignment';
+import { ActionButton } from '@/ui/ActionButton';
 import { hostOptions, vendorOptions } from '@/server/ui/options';
 import { listAssignableUsers } from '@/server/ui/lookups';
 import { Badge, Banner, Card, EmptyState, Filters, KpiCard, PageHeader, Pagination, StatusBadge, Table } from '@/ui/components';
@@ -27,6 +29,9 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
   const internal = isInternal(actor);
   const res = as<Paged<AppRowV>>(await listApplications(actor, toQuery({ ...q, limit: q.limit ?? '50' })));
   const ov = await overview(actor);
+  const queue = internal && (ov.unassigned ?? 0) > 0
+    ? as<{ items: { id: string; hostName: string; vendorName: string; productName: string | null; status: string; daysWaiting: number; formerOwnerName: string | null }[] }>(await listUnassigned(actor, toQuery({ limit: '10' }))).items
+    : [];
   const base = Object.fromEntries(Object.entries(q).filter(([k]) => k !== 'page'));
   const [vendors, hosts, owners] = await Promise.all([
     internal ? vendorOptions(actor) : Promise.resolve([]),
@@ -58,6 +63,25 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
         ))}
       </div>
 
+      {internal && (ov.unassigned ?? 0) > 0 ? (
+        <Card title={`待指派佇列（${ov.unassigned}）`} flush testid="unassigned-queue">
+          <Banner kind="warn">這些申請目前沒有有效的主要承辦人，只有營運主管看得到完整內容。營運小編可在這裡認領，認領後才能開啟案件與處理收件資料。</Banner>
+          <Table head={['申請單', '團主', '廠商／商品', '狀態', '等待天數', '']} testid="unassigned-table">
+            {queue.map((q2) => (
+              <tr key={q2.id} data-testid={`unassigned-row-${q2.id}`}>
+                <td><strong>{q2.id}</strong>{q2.formerOwnerName ? <div className="small muted">原承辦：{q2.formerOwnerName}（已停用）</div> : null}</td>
+                <td>{q2.hostName}</td>
+                <td>{q2.vendorName}<div className="small muted">{q2.productName ?? '—'}</div></td>
+                <td><StatusBadge map={APP_STATUS} value={q2.status} /></td>
+                <td>{q2.daysWaiting}</td>
+                <td>{can(actor, 'collaboration.assign') ? <Link className="btn sm" href={`/collaboration/${q2.id}`} data-testid={`btn-open-unassigned-${q2.id}`}>指派</Link>
+                  : <ActionButton endpoint={`/api/collaboration/applications/${q2.id}/claim`} label="認領" small variant="primary" testid={`btn-claim-${q2.id}`} successMessage="已認領" />}</td>
+              </tr>
+            ))}
+          </Table>
+        </Card>
+      ) : null}
+
       <Filters>
         <label>月份<input name="month" defaultValue={q.month} placeholder="2026-11" data-testid="filter-month" /></label>
         {internal ? <label>廠商<select name="vendorId" defaultValue={q.vendorId ?? ''} data-testid="filter-vendor"><option value="">全部</option>{vendors.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label> : null}
@@ -72,7 +96,7 @@ export default withActor(async (actor, props: { searchParams: SP }) => {
         <label>開團意願<select name="intent" defaultValue={q.intent ?? ''} data-testid="filter-intent"><option value="">全部</option>{Object.entries(INTENT).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></label>
         <label>投廣<select name="adsIntent" defaultValue={q.adsIntent ?? ''} data-testid="filter-ads"><option value="">全部</option>{Object.entries(ADS_INTENT).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></label>
         <label>後台設定<select name="backendSetupStatus" defaultValue={q.backendSetupStatus ?? ''} data-testid="filter-backend"><option value="">全部</option>{Object.entries(BACKEND_SETUP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></label>
-        {internal ? <label>內部負責人<select name="ownerUserId" defaultValue={q.ownerUserId ?? ''} data-testid="filter-owner"><option value="">全部</option>{owners.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label> : null}
+        {internal ? <label>主要承辦人<select name="ownerUserId" defaultValue={q.ownerUserId ?? ''} data-testid="filter-owner"><option value="">全部</option>{owners.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label> : null}
         <label>預計開團日（起）<input type="date" name="plannedFrom" defaultValue={q.plannedFrom} data-testid="filter-planned-from" /></label>
         <label>預計開團日（迄）<input type="date" name="plannedTo" defaultValue={q.plannedTo} data-testid="filter-planned-to" /></label>
         <label>已確認開團日（起）<input type="date" name="confirmedFrom" defaultValue={q.confirmedFrom} data-testid="filter-confirmed-from" /></label>

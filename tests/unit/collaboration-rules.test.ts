@@ -118,9 +118,9 @@ describe('欄位層級權限白名單', () => {
 });
 
 describe('收件個資：廠商只在履約必需期間看得到', () => {
-  const base = { applicationStatus: 'APPROVED' as const, confirmedAt: '2026-10-01', purgedAt: null, retentionUntil: '2026-12-30' };
+  const base = { applicationStatus: 'APPROVED' as const, confirmedAt: '2026-10-01', purgedAt: null, retentionUntil: '2026-12-30', fulfilmentOpen: true, baseOn: '2026-10-01' };
 
-  it('四個條件都成立才給看', () => {
+  it('五個條件都成立才給看', () => {
     expect(vendorMaySeeRecipient(base, '2026-10-05')).toEqual({ allowed: true });
   });
 
@@ -128,12 +128,21 @@ describe('收件個資：廠商只在履約必需期間看得到', () => {
     [{ ...base, applicationStatus: 'VENDOR_REVIEW' as const }, 'NOT_APPROVED'],
     [{ ...base, confirmedAt: null }, 'NOT_CONFIRMED'],
     [{ ...base, purgedAt: '2026-11-01' }, 'PURGED'],
-    [{ ...base, retentionUntil: '2026-10-01' }, 'RETENTION_EXPIRED'],
+    [{ ...base, fulfilmentOpen: false, retentionUntil: '2026-10-01' }, 'RETENTION_EXPIRED'],
+    [{ ...base, fulfilmentOpen: false }, 'FULFILMENT_CLOSED'],
+    [{ ...base, fulfilmentOpen: undefined }, 'FULFILMENT_CLOSED'],          // 沒給履約事實＝預設拒絕（fail-closed）
+    [{ ...base, baseOn: '2026-01-01' }, 'RETENTION_EXPIRED'],              // 超過硬性上限：即使履約還沒結束也一律拒絕
+    [{ ...base, applicationStatus: 'ON_HOLD' as const }, 'NOT_APPROVED'],   // 暫緩中不給
+    [{ ...base, applicationStatus: 'CLOSED' as const }, 'NOT_APPROVED'],    // 結案不給
   ])('缺一不可：%#', (input, reason) => {
     const r = vendorMaySeeRecipient(input, '2026-10-05');
     expect(r.allowed).toBe(false);
     expect(r.reason).toBe(reason);
     expect(RECIPIENT_DENY_MESSAGE[r.reason!]).toBeTruthy();
+  });
+
+  it('保留期（90 天）已過但履約還沒結束（補寄待寄）時，廠商仍拿得到地址，直到硬性上限', () => {
+    expect(vendorMaySeeRecipient({ ...base, retentionUntil: '2026-10-01' }, '2026-10-05')).toEqual({ allowed: true });
   });
 
   it('保留期：預設核准後 90 天；全部送達後縮短為最後寄出日 +30 天', () => {

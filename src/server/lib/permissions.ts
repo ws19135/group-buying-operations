@@ -39,7 +39,9 @@ export type Permission =
   // 合作申請與樣品管理（COLLABORATION_APPLICATIONS）；收件個資另由 collaboration.pii.read 控管
   | 'collaboration.read' | 'collaboration.create' | 'collaboration.update' | 'collaboration.review' | 'collaboration.self'
   | 'collaboration.vendor.review' | 'collaboration.shipping.write' | 'collaboration.intent.write'
-  | 'collaboration.campaign.link' | 'collaboration.export' | 'collaboration.pii.read';
+  | 'collaboration.campaign.link' | 'collaboration.export' | 'collaboration.pii.read'
+  // D-39：指派／交接承辦人；D-40：設定個資保留例外、查看清除狀態（營運主管與管理者）
+  | 'collaboration.assign' | 'collaboration.retention.manage';
 
 const ALL: Permission[] = [
   'user.manage', 'audit.read',
@@ -65,6 +67,7 @@ const ALL: Permission[] = [
   'collaboration.read', 'collaboration.create', 'collaboration.update', 'collaboration.review', 'collaboration.self',
   'collaboration.vendor.review', 'collaboration.shipping.write', 'collaboration.intent.write',
   'collaboration.campaign.link', 'collaboration.export', 'collaboration.pii.read',
+  'collaboration.assign', 'collaboration.retention.manage',
 ];
 
 /**

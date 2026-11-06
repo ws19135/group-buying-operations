@@ -72,6 +72,10 @@
 | 63 | 廠商與團主工作台：廠商「廠商工作台 → 網紅申請與樣品寄送」、團主「團主工作台 → 我的樣品申請」，以 `collaboration.self` 限定只看自己，欄位走白名單投影 | IMPLEMENTED_NEW / TESTED | `tests/collaboration-rbac.test.ts`；`npm run e2e` 170/170（本模組 17 項）；截圖 `docs/uat/screens/40~45-collaboration-*.png`、`flow-19~22-collaboration-*.png`；突變驗證：把投廣等內部欄位顯示給團主的舊版表單會讓 `npm run e2e:flow` 在「團主存意願」轉紅 | **廠商入口未對外開放**：完成對外存取安全驗證前不得開放到正式／公開環境（待 Owner）；財務角色刻意沒有任何合作申請權限 |
 | 64 | 表單一（開團與補寄追蹤）／表單二（樣品申請）匯入與匯出：三步（上傳預覽→逐列確認→建立申請）、`import_batches.checksum` ＋ `collaboration_import_rows.dedupe_key` 雙重防重複、兩種匯出格式含 UTF-8 BOM | IMPLEMENTED_NEW / TESTED | `tests/collaboration.test.ts`；`npm run db:rehearsal` 20/20（028 套在舊版 001～017 資料庫上，舊資料筆數與欄位前後相同、重跑冪等）；`npm run docs:gen`（76 張表、200 個外鍵、253 個端點） | 對應不到唯一主檔的列只能留在 `collaboration_import_rows` 等人工確認；不自動建立團主主檔、不自動猜著合併 |
 | 65 | 檔期關聯與 G1～G5 不受影響：合作確認後只關聯既有檔期（不新建、不改檔期狀態），`approvals` 表完全不寫入，`linkCampaign` 的回傳與稽核明寫 `gateImpact: 'NONE'`；SOP 03 商品試用只以 `trial_id` 選填引用 | IMPLEMENTED_NEW / TESTED | `tests/collaboration.test.ts`（`approvals` 與 G1 檢查項不變）；`npx tsc --noEmit` exit 0、`npm run lint` 無告警、`npm run test` 60 檔 1039 項、`npm run build` exit 0（6 條 `/collaboration*` 路由都在） | 一般樣品申請不等於已完成 SOP 03 的試用資格評估，不改試用結論／覆核／有效期 |
+| 66 | 合作申請承辦與交接（D-39，migration 029）：營運小編只看自己承辦或被指派的申請；承辦／共同承辦、待指派佇列、認領、指派、交接（必填原因）、釋出、整批交接；承辦人停用自動回待指派佇列；交接紀錄 append-only；不產生通知 | IMPLEMENTED_NEW / TESTED | `tests/collaboration-hardening.test.ts`（D-39 區 16 項）；db:rehearsal 029 專屬 11 項；E2E 6 項 | 未部署；待指派佇列對小編顯示非個資摘要（W-48） |
+| 67 | 個資保留與清除機制（D-40）：履約未結束延後、保留例外（有依據、≤365 天、可解除）、核准後 180 天硬性上限、試跑、逐筆結果與失敗紀錄、匯入暫存與舊地址清除、健康監控頁 `/collaboration/retention`、`npm run collab:purge`（production 預設拒絕） | IMPLEMENTED_NEW / TESTED（隔離環境） | `tests/collaboration-hardening.test.ts`（D-40 區 13 項，含「沒有排程」2 項）；`tests/unit/collaboration-security-rules.test.ts`；突變 M6～M8、M11、M19 | **沒有排程**（W-42，需 Owner 授權）；備份中仍有個資（W-41） |
+| 68 | 廠商入口安全加固（D-37／D-38／D-44）：廠商收件資料僅限履約視窗、廠商匯出無個資欄位、匯出與匯入公式注入防護、URL 安全、匯入暫存去個資、敏感端點限流、跨組織統計洩漏修正 | IMPLEMENTED_NEW / TESTED | `tests/collaboration-hardening.test.ts`；`security-fuzz`；突變 M1～M20 | **廠商入口仍未對外開放**；Gate 技術檢查通過但尚有未結項（SECURITY_REVIEW §7.5） |
+| 69 | Repo 安全清查報告（D-43）與 Owner 轉 Private 操作步驟 | IMPLEMENTED_NEW（文件） | `docs/phase2/REPO_SECURITY_REPORT.md` | **未更改 repo 可見性**（需 Owner 授權）；歷史含 Owner 個人信箱（W-46） |
 
 ## 上線驗收矩陣（A～G，2026-11-04；G 區 2026-11-06 補）
 
@@ -86,6 +90,6 @@
 | D | 八項 KPI：不設門檻（K-1）；有效導購訪客需來源／去重／獨立查核；成本未知或未歸屬→利潤「資料不足」 | ✅ | ✅ | — | — | 每單貢獻利潤為合約條款推算，已明確標示非會計淨利（O-1） |
 | E | 訂單履約：庫存、出貨、簽收、退款、客訴、售後 | ✅ | ✅ | — | — | 不接物流 API；不處理真實金流退款；廠商入口未解凍（NOT_STARTED） |
 | F | 財務與分潤：入帳、對帳、發票紀錄、費用歸屬、結算試算、O-2 更正 | ✅（僅紀錄＋試算） | ✅ | — | — | 結算流程未改動；不自動付款；預付款允許（O-3：付款日早於費用日不是錯誤） |
-| G | 合作申請與樣品管理：申請與供樣審核、樣品寄送與補寄、收件個資治理、廠商與團主工作台、表單一／二匯入 | ✅ | ✅ | — | — | 廠商入口未對外開放（需先完成對外存取安全驗證）；不自動寄信、不碰 G1～G5／庫存／財務；收件個資保留期天數與 11 項權限的切分待 Owner 確認 |
+| G | 合作申請與樣品管理：申請與供樣審核、樣品寄送與補寄、收件個資治理（含承辦／交接、保留與清除機制，D-37～D-44）、廠商與團主工作台、表單一／二匯入 | ✅ | ✅ | — | — | 廠商入口未對外開放（需先完成對外存取安全驗證）；不自動寄信、不碰 G1～G5／庫存／財務；收件個資保留期天數與 11 項權限的切分待 Owner 確認 |
 | — | 正式環境：容器、HTTPS、備份、回滾、部署流程 | ✅ | ✅（本機） | ❌ | ❌ | BLOCKED：主機、網域、部署金鑰（見 `HANDOFF.md`） |
 | — | 真實通知（LINE／Email）、金流、Google 同步 | ❌ | — | — | — | 依政策未啟用；BLOCKED 或需 Owner 授權 |

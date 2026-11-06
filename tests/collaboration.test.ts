@@ -38,7 +38,7 @@ beforeAll(async () => {
 
 /** 建立一筆已核准、可以開始寄樣的申請（流程前半段的捷徑，後面多個案例都要用） */
 async function approvedApplication(items?: { productId: string; skuId?: string | null; requestedQty?: number }[]) {
-  const r = await collab.createApplication(w.manager, {
+  const r = await collab.createApplication(w.manager, { ownerUserId: w.editor.userId,
     vendorId, hostId,
     items: items ?? [{ productId, skuId: skuIds[0], requestedQty: 2 }],
   });
@@ -53,7 +53,7 @@ async function approvedApplication(items?: { productId: string; skuId?: string |
 describe('完整流程：營運建立 → 廠商供樣 → 寄送 → 團主收件 → 回覆意願 → 確認合作 → 關聯檔期', () => {
   it('一路走完，每一步的狀態與稽核都落在真實資料庫', async () => {
     // 1. 營運建立（一筆申請、兩個商品，其中一個指定規格）
-    const created = await collab.createApplication(w.manager, {
+    const created = await collab.createApplication(w.manager, { ownerUserId: w.editor.userId,
       vendorId, hostId, note: '十月團主試樣',
       items: [
         { productId, skuId: skuIds[0], requestedQty: 2, requestReason: '想試小包裝' },
@@ -192,9 +192,9 @@ describe('三種建立來源', () => {
     const v3 = (await mkVendor(w)).id;
     const p3 = await mkProduct(w, v3, { approve: true });
     const multi = await addUser(w.orgId, 'VENDOR', { vendorIds: [vendorId, v2] });
-    const a1 = await collab.createApplication(w.manager, { vendorId, hostId, items: [{ productId }] });
-    const a2 = await collab.createApplication(w.manager, { vendorId: v2, hostId, items: [{ productId: p2.id }] });
-    const a3 = await collab.createApplication(w.manager, { vendorId: v3, hostId, items: [{ productId: p3.id }] });
+    const a1 = await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId, hostId, items: [{ productId }] });
+    const a2 = await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: v2, hostId, items: [{ productId: p2.id }] });
+    const a3 = await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: v3, hostId, items: [{ productId: p3.id }] });
     const seen = (await collab.listApplications(multi, new URLSearchParams({ limit: '200' }))).items.map((x) => x.id);
     expect(seen).toContain(a1.id);
     expect(seen).toContain(a2.id);
@@ -202,7 +202,7 @@ describe('三種建立來源', () => {
   });
 
   it('同一筆申請可含同商品的多個規格，且重複送出不會長出重複明細', async () => {
-    const r = await collab.createApplication(w.manager, {
+    const r = await collab.createApplication(w.manager, { ownerUserId: w.editor.userId,
       vendorId, hostId,
       items: [{ productId, skuId: skuIds[0], requestedQty: 1 }, { productId, skuId: skuIds[1], requestedQty: 1 }],
     });
@@ -213,8 +213,8 @@ describe('三種建立來源', () => {
 
   it('同一個 Idempotency-Key 重複建立只會有一筆', async () => {
     const key = `collab-test-${Date.now()}`;
-    const a = await collab.createApplication(w.manager, { vendorId, hostId, items: [{ productId }] }, key);
-    const b = await collab.createApplication(w.manager, { vendorId, hostId, items: [{ productId }] }, key);
+    const a = await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId, hostId, items: [{ productId }] }, key);
+    const b = await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId, hostId, items: [{ productId }] }, key);
     expect(b.id).toBe(a.id);
     expect(b.replayed).toBe(true);
   });
@@ -249,7 +249,7 @@ describe('樣品寄送：首次 + 補寄', () => {
   });
 
   it('還沒核准供樣不能建立寄送紀錄；沒有首次寄送不能先補寄', async () => {
-    const r = await collab.createApplication(w.manager, { vendorId, hostId, items: [{ productId }] });
+    const r = await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId, hostId, items: [{ productId }] });
     await expect(collab.addShipment(w.editor, r.id, { shipmentType: 'INITIAL' })).rejects.toThrow();
     const id = await approvedApplication();
     await expect(collab.addShipment(w.editor, id, { shipmentType: 'RESEND' })).rejects.toThrow();
@@ -355,7 +355,7 @@ describe('平行進行的情境（不是一條長鏈）', () => {
 
 describe('檔期關聯', () => {
   async function confirmedApplication(hId: string = hostId) {
-    const r = await collab.createApplication(w.manager, { vendorId, hostId: hId, items: [{ productId }] });
+    const r = await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId, hostId: hId, items: [{ productId }] });
     await collab.submitApplication(w.manager, r.id);
     await collab.internalReview(w.manager, r.id, { decision: 'APPROVE' });
     const hA = hId === hostId ? hostActor : await addUser(w.orgId, 'HOST', { hostIds: [hId] });

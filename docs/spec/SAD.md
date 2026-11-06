@@ -17,9 +17,9 @@
 | 項目 | 現況（✅ 已核對） |
 |---|---|
 | 技術棧 | Next.js 15.5（App Router）、React 19、TypeScript 5.9、PostgreSQL 16、`pg` 8（無 ORM）、zod 3.25、vitest 3、Playwright 1.63（`package.json`） |
-| 規模 | 76 張資料表（28 支 migration（021～025：指派查核、費用歸屬、待人工確認項目、費用歸屬範圍標記、費用資料完整性），含 013 客群分析與適配的 5 張、014 選品與試用的 7 張；015 只更新模板說明文字；016 選品 V2＋調查版本：新增 1 張補件要求表；017 試用新增團主再次合作意願兩個欄位，不新增資料表；018 新增觸及與導購資料 1 張表 `trial_reach_records`；019 有效導購訪客的佐證、去重方式與查核欄位；020 客服案件的人工團主歸屬欄位，皆只新增欄位；028 合作申請與樣品管理：新增 7 張）、253 個 API 端點（`routes.ts` 的 `R(`／`P(` 計數，含 SOP 01 的 22 條、SOP 02／03 的 33 條、合作申請與樣品管理的 41 條）、6 個角色、63 項權限（含 SOP 01 的 6 項、SOP 02／03 的 3 項、合作申請與樣品管理的 11 項）、14 種檔期狀態、8 個自動化工作 |
+| 規模 | 81 張資料表（29 支 migration（029 合作申請承辦／交接、個資保留例外與清除紀錄新增 5 張表；021～025：指派查核、費用歸屬、待人工確認項目、費用歸屬範圍標記、費用資料完整性），含 013 客群分析與適配的 5 張、014 選品與試用的 7 張；015 只更新模板說明文字；016 選品 V2＋調查版本：新增 1 張補件要求表；017 試用新增團主再次合作意願兩個欄位，不新增資料表；018 新增觸及與導購資料 1 張表 `trial_reach_records`；019 有效導購訪客的佐證、去重方式與查核欄位；020 客服案件的人工團主歸屬欄位，皆只新增欄位；028 合作申請與樣品管理：新增 7 張）、253 個 API 端點（`routes.ts` 的 `R(`／`P(` 計數，含 SOP 01 的 22 條、SOP 02／03 的 33 條、合作申請與樣品管理的 41 條）、6 個角色、63 項權限（含 SOP 01 的 6 項、SOP 02／03 的 3 項、合作申請與樣品管理的 11 項）、14 種檔期狀態、8 個自動化工作 |
 | 使用者介面 | 繁體中文、桌面為主；`src/app` 共 53 個頁面檔（`page.tsx`，含登入頁與首頁導向；SOP 01 新增 `/fit`、`/segments`、`/segments/[id]`，團主、商品、檔期頁另加面板；SOP 02／03 新增 `/selection`、`/diligence/[id]`、`/trials/[id]`、`/feasibility/[id]`，廠商、商品、檔期頁另加面板；合作申請與樣品管理新增 `/collaboration`、`/collaboration/new`、`/collaboration/[id]`、`/collaboration/import`、`/collaboration/mine`（團主，卡片式、手機可用）、`/collaboration/vendor`（廠商，**未對外開放**），團主、廠商、商品頁另加面板） |
-| 測試 | 60 個測試檔、1039 項（含 SOP 01 新增的 3 檔 82 項、SOP 02／03 新增的 10 檔 187 項、合作申請與樣品管理新增的 3 檔 102 項），使用真實 PostgreSQL；另有 Playwright E2E（`scripts/e2e-smoke.ts`，SOP 02／03 另加「選品與試用」區塊，合作申請與樣品管理另加營運、廠商、團主三個區塊，共 170 項；`scripts/e2e-flow.ts` 全流程 UI 71 項；`scripts/e2e-aftersales.ts`） |
+| 測試 | 62 個測試檔、1153 項（第二輪 D-37～D-44 加固新增 2 檔 108 項並擴充既有檔；含 SOP 01 新增的 3 檔 82 項、SOP 02／03 新增的 10 檔 187 項、合作申請與樣品管理新增的 3 檔 102 項），使用真實 PostgreSQL；另有 Playwright E2E（`scripts/e2e-smoke.ts`，SOP 02／03 另加「選品與試用」區塊，合作申請與樣品管理另加營運、廠商、團主三個區塊與第二輪的承辦與保留區塊，共 181 項；`scripts/e2e-flow.ts` 全流程 UI 71 項；`scripts/e2e-aftersales.ts`） |
 
 ---
 
@@ -173,6 +173,9 @@ flowchart TB
 | `feasibility`（SOP 03） | 商業可行性試算：輸入與假設來源、版本、敏感欄位遮罩、小規模測試團實際回寫 | feasibility_scenarios；**只讀** skus、orders、attributions、service_cases、shipments、fulfillment_batches、campaign_products | `selection`、`evidence`、lib/feasibility-calc、lib/kpi（`SALES_STATUSES`） |
 | `decision-summary`（SOP 02／03） | G1 統一決策摘要（唯讀）：彙整評估、調查、試用、可行性、客群適配統計與風險 | （唯讀）product_evaluations、vendor_dd_*、product_trials、feasibility_scenarios、product_fit_assessments | `selection`、`diligence`、`trials`、`feasibility`、lib/decision-risk |
 | `collaboration` | 網紅合作申請與樣品管理：申請單與樣品明細、收件個資（獨立表、專用端點、逐次稽核、保留期重算）、樣品寄送與補寄、開團意願與兩個開團日期、廠商後台設定、檔期關聯（`gateImpact` 恆為 `NONE`）、三方工作台的衍生分桶、依角色遮罩的匯出 | collaboration_applications、collaboration_application_items、collaboration_recipients、collaboration_shipments、collaboration_launch_details、collaboration_events；**只讀** hosts、vendors、products、skus、campaigns、product_trials、shipments | `aftersales`（只借用 `containsPii`）、lib/collaboration-rules、lib/scope（`collaborationScope`）、lib/ids、lib/idempotency |
+| `collaboration-assignment`（第二輪） | 承辦與交接：指派、交接、認領、釋出、共同承辦、整批交接、待指派佇列、交接紀錄 | collaboration_assignments、collaboration_handovers | `collaboration-shared`、lib/scope |
+| `collaboration-retention`（第二輪） | 個資保留與清除：保留例外、清除（履約延後、硬性上限、試跑、逐筆結果與失敗紀錄）、匯入暫存清理、健康監控；**無排程** | collaboration_retention_holds、collaboration_purge_runs／items | `collaboration-shared`、lib/collaboration-rules |
+| `collaboration-shared`（第二輪） | 合作申請各模組共用的 `loadApp`、`logEvent`、`shipmentFacts`（避免循環相依，無端點） | — | lib/scope |
 | `collaboration-import` | 匯入廠商現行的兩張表單：預覽與欄位對應、問題清單、逐列人工確認（不自動猜著合併）、提交建立申請單；批次 checksum 與列層冪等鍵 | collaboration_import_rows；沿用 import_batches、import_errors | `collaboration`、lib/collaboration-rules |
 
 ```mermaid
@@ -452,6 +455,7 @@ flowchart TB
 | 財務 | 011 | settlement_adjustments、payments、invoices、expenses |
 | 客群分析與適配（SOP 01） | 013 | customer_segments、segment_evidence、segment_preferences、partner_segment_links、product_fit_assessments；另在 `hosts` 加可空欄位 `partner_type` |
 | 選品、合作資格審查、試用與可行性（SOP 02／03） | 014 | evidence_items、vendor_dd_records、vendor_dd_items、product_evaluations、product_trials、trial_checks、feasibility_scenarios（既有表不改；設定存 `system_settings['selection.scoring']`） |
+| 合作申請：承辦／交接、保留例外與清除紀錄 | 029 | collaboration_assignments、collaboration_handovers（append-only）、collaboration_retention_holds、collaboration_purge_runs、collaboration_purge_items（append-only）；`collaboration_import_rows` 新增 `pii_scrubbed_at` |
 | 合作申請與樣品管理 | 028 | collaboration_applications、collaboration_application_items、collaboration_recipients（個資，含 `retention_until`／`purged_at`）、collaboration_shipments、collaboration_launch_details、collaboration_events（append-only）、collaboration_import_rows；匯入沿用 import_batches／import_errors；既有表不改 |
 
 > `agreements`（合約）只有資料表，**沒有任何服務函式或 API**（以 grep 核對）。完整欄位見 [DATA_DICTIONARY](../generated/DATA_DICTIONARY.md)，關聯見 [ERD](../generated/ERD.md)。
@@ -768,6 +772,7 @@ flowchart LR
 
 ## 14. 文件自檢
 
+- **第二輪（D-37～D-44）更新後的數字**：81 表、266 端點、65 權限、62 檔／1153 測試、29 支 migration。
 - **本次（合作申請與樣品管理）更新後的數字**（76 表、253 端點、63 權限、1039 測試）以相同方法計算：`CREATE TABLE` 計數 76（`migrations/028` 7 張新表）、`routes.ts` 的 `R(`／`P(` 行數 253（合作申請區塊 41 條，與 `npm run docs:gen` 印出的 253 一致）、`permissions.ts` 匯入計算 63 項（各角色 63／55／41／13／12／23，由腳本 `import ROLE_PERMISSIONS` 印出，非手抄）、vitest 實跑 60 檔 1039 項（不是 `grep` 估算）、有 `forbid_delete` 的表 60、append-only 5 張、`touch_row` 44 張（皆以 `migrations/028` 的 `CREATE TRIGGER` 逐行核對）。**未做的核對**：本輪新增的 §4.2／§7.2 表格增補與相依圖增補沒有用 mermaid 重新 render（§4.2 的圖只加了節點，以語法目視核對）；ERD 與資料字典由 `docs:gen` 自動產生，沒有人工核對每一個外鍵。
 - 上一次（SOP 02／03）更新後的數字（65 表、185 端點、52 權限、592 測試：`routes.ts` 的 `R(`／`P(` 行數 185、`migrations/014` 7 張新表、`permissions.ts` 52 項、新增測試檔以 `it(` 計數 187）以相同方法計算；上一次（SOP 01）的數字（58 表、152 端點、49 權限、405 測試）以相同方法計算：`routes.ts` 的 `R(`／`P(` 行數為 152、`migrations/013` 為 5 張新表、`permissions.ts` 為 49 項、全套 vitest 為 20 檔 405 項；原基準的數字（53 表、130 端點、43 權限、245 測試）皆以指令重新計算：`CREATE TABLE` 計數、`routes.ts` 的 `R(`／`P(` 計數（與 `API_ENDPOINTS.md` 一致）、`permissions.ts` 匯入計算、`vitest` 各檔 `it(` 計數。
 - 模組相依圖由 `grep "from './"` 產生，非憑印象繪製。
@@ -800,7 +805,7 @@ flowchart LR
 | `collaboration`（個資層） | 收件資訊獨立成 `collaboration_recipients`：案件詳情 API 完全不回傳內容，必須走 `GET /collaboration/applications/:id/recipient`，每次成功讀取寫 `collaboration.recipient.read` 稽核、被拒絕寫 `RECIPIENT_READ_DENIED` 事件；`retention_until` 是衍生值，在核准、廠商確認、新增寄送、修改寄出日、確認收件 5 個時點重算；`purge-expired` 覆寫成「［已清除］」而不是只做軟刪除 |
 | `collaboration-import`（新） | 匯入只負責「暫存＋對應＋產生問題清單」，建立申請單仍走 `collaboration` 的正常路徑，所以匯入進來的資料與手動建立的資料走同一組驗證與稽核 |
 | `lib/collaboration-rules`（新，純函式） | 狀態常數、`summarizeShipments`、`supplyStatusFor`、`computeRetentionUntil`、分桶推導；32 項單元測試 |
-| `lib/scope`（擴充） | 新增 `collaborationScope`：團主只看 `host_id`、廠商只看 `vendor_id`、營運小編為全組織（與 `campaignScope` 不同，D-39） |
+| `lib/scope`（擴充） | 新增 `collaborationScope`：團主只看 `host_id`、廠商只看 `vendor_id`、營運小編只看自己承辦或被指派的申請（D-39；第二輪由全組織縮減，`campaignScope` 不變）、管理者與主管全組織；`collaborationUnassignedSql`（待指派佇列） |
 | `lib/permissions`（擴充） | 新增 11 項 `collaboration.*`；營運小編刻意沒有 `collaboration.review`，財務 11 項全無 |
 
 不變：`gates.ts`、`state.ts`、`tasks.ts`、`campaigns.ts`、`products.ts` 審核流程、`settlements.ts`、`commission.ts`、`finance.ts`、`fulfillment.ts`、`notifications.ts`、`trials.ts`。本模組不扣庫存、不產生財務或結算紀錄、不寫入 `approvals`、不新建檔期、不自動寄送任何通知、不另建任務引擎（全部以測試固定對應資料表的列數前後相同）。無新增排程與外部整合；廠商入口**未對外開放**。

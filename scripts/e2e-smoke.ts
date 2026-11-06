@@ -602,6 +602,37 @@ async function main() {
         `HTTP ${csvMgr.status()}`);
 
       await visit(page, w, '/collaboration/import', '合作申請匯入', { shot: '42-collaboration-import.png', expectText: /待確認/ });
+
+      // D-39：待指派佇列與承辦區塊（團主自己從手機填的那筆沒有承辦人）
+      await page.goto(`${BASE}/collaboration`, { waitUntil: 'networkidle' });
+      const queueRows = await page.locator('[data-testid^="unassigned-row-"]').count();
+      record('營運主管看得到待指派佇列（沒有承辦人的案件不會消失）', (await page.getByTestId('unassigned-queue').count()) === 1 && queueRows >= 1, `${queueRows} 筆`);
+      const qid = ((await page.locator('[data-testid^="unassigned-row-"]').first().getAttribute('data-testid')) ?? '').replace('unassigned-row-', '');
+      await visit(page, w, `/collaboration/${qid}`, '待指派案件詳情', { expectText: /承辦與交接/ });
+      record('待指派案件的詳情頁有指派承辦人按鈕與承辦區塊', (await page.getByTestId('block-assignment').count()) === 1 && (await page.getByTestId('btn-assign').count()) === 1);
+      const retentionPage = await visit(page, w, '/collaboration/retention', '個資保留與清除', { expectText: /個資保留與清除/ });
+      record('保留與清除頁：明講沒有排程、顯示健康狀態指標', /沒有排程/.test(retentionPage) && (await page.locator('div.kpi[data-testid^="kpi-ret-"]').count()) === 4);
+      const dry = await ctx.request.post(`${BASE}/api/collaboration/recipients/purge-expired`, { data: { dryRun: true } });
+      const dryJson = await dry.json().catch(() => ({}));
+      record('清除試跑（dry run）可執行並寫入執行紀錄，不改任何資料', dry.ok() && dryJson?.data?.dryRun === true && dryJson?.data?.purged === 0, `HTTP ${dry.status()}`);
+      await ctx.close();
+    }
+
+    // ---- 合作申請：營運小編只看得到自己承辦的案件（D-39）----
+    {
+      const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } }); const page = await ctx.newPage(); const w = new Watch(page);
+      await login(ctx, page, 'demo-editor@example.invalid');
+      await visit(page, w, '/collaboration', '營運小編：合作申請總覽', { expectText: /網紅合作申請/ });
+      const own = await page.locator('[data-testid^="collab-row-"]').count();
+      const queue = await page.locator('[data-testid^="unassigned-row-"]').count();
+      record('營運小編看得到自己承辦的案件，也看得到待指派佇列', own >= 1 && queue >= 1, `承辦 ${own} 筆、待指派 ${queue} 筆`);
+      const qid = ((await page.locator('[data-testid^="unassigned-row-"]').first().getAttribute('data-testid')) ?? '').replace('unassigned-row-', '');
+      const peek = await ctx.request.get(`${BASE}/api/collaboration/applications/${qid}`);
+      const peekRecipient = await ctx.request.get(`${BASE}/api/collaboration/applications/${qid}/recipient`);
+      record('小編在認領前讀不到待指派案件的內容與收件資料（404）', peek.status() === 404 && peekRecipient.status() === 404, `${peek.status()}／${peekRecipient.status()}`);
+      record('待指派佇列對小編只有「認領」，沒有指派', (await page.getByTestId(`btn-claim-${qid}`).count()) === 1);
+      const noAssign = await ctx.request.post(`${BASE}/api/collaboration/applications/${qid}/assign`, { data: { userId: 'USR-0001' } });
+      record('小編呼叫指派 API 被拒（403）', noAssign.status() === 403, `HTTP ${noAssign.status()}`);
       await ctx.close();
     }
 
@@ -617,8 +648,9 @@ async function main() {
 
       const csvVendor = await ctx.request.get(`${BASE}/api/collaboration/applications/export?form=form2`);
       const csvVendorText = await csvVendor.text();
-      record('廠商匯出時收件個資被遮罩（有欄位、沒有內容）',
-        csvVendor.ok() && /收件人/.test(csvVendorText) && /［無權限］/.test(csvVendorText) && !/0200000001|示範路/.test(csvVendorText),
+      const vendorHeader = csvVendorText.replace('\uFEFF', '').split(/\r?\n/)[0];
+      record('廠商匯出（D-38）：表單二根本沒有收件人／電話／地址欄位，內容也沒有個資',
+        csvVendor.ok() && !/收件人|聯繫電話|地址/.test(vendorHeader) && !/0200000001|示範路|［無權限］/.test(csvVendorText) && /申請單/.test(vendorHeader),
         `HTTP ${csvVendor.status()}`);
 
       const noPii = await ctx.request.get(`${BASE}/api/audit?limit=1`);

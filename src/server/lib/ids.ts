@@ -97,4 +97,6 @@ export const ids = {
   collaborationShipment: async (db: Queryable) => `CSP-${pad(await next(db, 'CSP', ''), 6)}`,
   collaborationLaunch: async (db: Queryable) => `CLD-${pad(await next(db, 'CLD', ''), 6)}`,
   collaborationImportRow: async (db: Queryable) => `CIR-${pad(await next(db, 'CIR', ''), 6)}`,
+  collaborationAssignment: async (db: Queryable) => `CAS-${pad(await next(db, 'CAS', ''), 6)}`,
+  collaborationHold: async (db: Queryable) => `CRH-${pad(await next(db, 'CRH', ''), 6)}`,
 };

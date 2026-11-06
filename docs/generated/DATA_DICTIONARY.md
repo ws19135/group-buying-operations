@@ -296,6 +296,26 @@
 
 索引：`collab_app_campaign_idx`、`collab_app_dedupe_uq`（唯一）、`collab_app_host_idx`、`collab_app_org_status_idx`、`collab_app_owner_idx`、`collab_app_product_idx`、`collab_app_trial_idx`、`collab_app_vendor_idx`、`collaboration_applications_pkey`（唯一）
 
+## `collaboration_assignments`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| application_id | text | 否 |  | collaboration_applications.id |
+| user_id | text | 否 |  | users.id |
+| role | text | 否 |  |  |
+| assigned_at | timestamp with time zone | 否 | `now()` |  |
+| assigned_by | text | 是 |  |  |
+| ended_at | timestamp with time zone | 是 |  |  |
+| ended_by | text | 是 |  |  |
+| end_reason | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+| updated_at | timestamp with time zone | 否 | `now()` |  |
+| version | integer | 否 | `1` |  |
+
+索引：`collab_assign_primary_uq`（唯一）、`collab_assign_user_idx`、`collab_assign_user_uq`（唯一）、`collaboration_assignments_pkey`（唯一）
+
 ## `collaboration_events`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -314,6 +334,23 @@
 | created_at | timestamp with time zone | 否 | `now()` |  |
 
 索引：`collab_event_app_idx`、`collaboration_events_pkey`（唯一）
+
+## `collaboration_handovers`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | bigint | 否 | `nextval('collaboration_handovers_id_seq'::regclass)` |  |
+| organization_id | text | 否 |  | organizations.id |
+| application_id | text | 否 |  | collaboration_applications.id |
+| handover_type | text | 否 |  |  |
+| from_user_id | text | 是 |  | users.id |
+| to_user_id | text | 是 |  | users.id |
+| reason | text | 是 |  |  |
+| actor_user_id | text | 是 |  |  |
+| actor_role | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+
+索引：`collab_handover_app_idx`、`collaboration_handovers_pkey`（唯一）
 
 ## `collaboration_import_rows`
 
@@ -346,6 +383,7 @@
 | updated_by | text | 是 |  |  |
 | version | integer | 否 | `1` |  |
 | deleted_at | timestamp with time zone | 是 |  |  |
+| pii_scrubbed_at | timestamp with time zone | 是 |  |  |
 
 索引：`collab_import_batch_idx`、`collab_import_dedupe_uq`（唯一）、`collab_import_row_uq`（唯一）、`collaboration_import_rows_pkey`（唯一）
 
@@ -378,6 +416,44 @@
 
 索引：`collab_launch_intent_idx`、`collab_launch_uq`（唯一）、`collaboration_launch_details_pkey`（唯一）
 
+## `collaboration_purge_items`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | bigint | 否 | `nextval('collaboration_purge_items_id_seq'::regclass)` |  |
+| run_id | bigint | 否 |  | collaboration_purge_runs.id |
+| organization_id | text | 否 |  | organizations.id |
+| recipient_id | text | 否 |  | collaboration_recipients.id |
+| application_id | text | 否 |  | collaboration_applications.id |
+| outcome | text | 否 |  |  |
+| detail | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+
+索引：`collab_purge_item_run_idx`、`collaboration_purge_items_pkey`（唯一）
+
+## `collaboration_purge_runs`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | bigint | 否 | `nextval('collaboration_purge_runs_id_seq'::regclass)` |  |
+| organization_id | text | 否 |  | organizations.id |
+| trigger_source | text | 否 |  |  |
+| dry_run | boolean | 否 | `false` |  |
+| status | text | 否 | `'RUNNING'::text` |  |
+| actor_user_id | text | 是 |  |  |
+| candidates | integer | 否 | `0` |  |
+| purged | integer | 否 | `0` |  |
+| skipped_hold | integer | 否 | `0` |  |
+| skipped_fulfilment | integer | 否 | `0` |  |
+| forced_by_cap | integer | 否 | `0` |  |
+| failed | integer | 否 | `0` |  |
+| staging_scrubbed | integer | 否 | `0` |  |
+| error_summary | text | 是 |  |  |
+| started_at | timestamp with time zone | 否 | `now()` |  |
+| finished_at | timestamp with time zone | 是 |  |  |
+
+索引：`collab_purge_run_org_idx`、`collaboration_purge_runs_pkey`（唯一）
+
 ## `collaboration_recipients`
 
 | 欄位 | 型別 | 可空 | 預設 | 參照 |
@@ -403,6 +479,25 @@
 | deleted_at | timestamp with time zone | 是 |  |  |
 
 索引：`collab_recipient_retention_idx`、`collab_recipient_uq`（唯一）、`collaboration_recipients_pkey`（唯一）
+
+## `collaboration_retention_holds`
+
+| 欄位 | 型別 | 可空 | 預設 | 參照 |
+|---|---|:-:|---|---|
+| id | text | 否 |  |  |
+| organization_id | text | 否 |  | organizations.id |
+| application_id | text | 否 |  | collaboration_applications.id |
+| reason_code | text | 否 |  |  |
+| basis | text | 否 |  |  |
+| placed_on | date | 否 |  |  |
+| hold_until | date | 否 |  |  |
+| placed_by | text | 否 |  |  |
+| released_at | timestamp with time zone | 是 |  |  |
+| released_by | text | 是 |  |  |
+| release_reason | text | 是 |  |  |
+| created_at | timestamp with time zone | 否 | `now()` |  |
+
+索引：`collab_hold_app_idx`、`collaboration_retention_holds_pkey`（唯一）
 
 ## `collaboration_shipments`
 

@@ -313,3 +313,73 @@
 1. **收件個資保留期算得比政策久**：保留期只在建立收件資料時寫入，樣品送達後沒有改以「最後寄送日 +30 天」重算。修法：`refreshRetention()` 掛在核准、廠商確認、新增寄送、修改寄送、確認收件共 5 個呼叫點。
 2. **廠商／團主工作台 HTTP 500**：對外欄位白名單 `EXTERNAL_APP_FIELDS` 漏掉工作台要用的衍生欄位（`sample`、`sampleBucket`、`itemCount`、`recipientConfirmed`、意願與日期）。修法：加寬白名單，並加 `VENDOR_EXTRA_APP_FIELDS`（只有廠商看得到 `backendSetupStatus`）。
 3. **團主永遠無法從畫面存開團意願**：開團合作資訊表單對團主顯示了 `adsIntent`／`adsNote`／`collaborationNote`，但後端 `HOST_LAUNCH_FIELDS` 不放行，送出就 403。修法：那三個欄位只給內部顯示，並加 RBAC 測試把欄位契約釘住。
+
+
+## 19. 合作申請：Owner 決策 D-37～D-44 加固與驗收（2026-11-06，PR #26 第二輪，分支 `feat/collaboration-applications`）
+
+| 檢查 | 結果（本次實際執行） |
+|---|---|
+| 基準線（動手前先驗 PR 宣稱） | 在 `af4bfcb` 上實跑：`tsc` exit 0；`vitest` **60 檔／1039 項通過**——PR 報告屬實 |
+| `npx tsc --noEmit`／`npm run lint` | exit 0；Lint 無告警 |
+| `npm test`（Vitest，真實 PostgreSQL 16） | **62 個檔案、1153 項通過**（基準 60／1039；新增 `collaboration-hardening` 60 項、`unit/collaboration-security-rules` 48 項，`unit/collaboration-rules` +6 項；既有 `collaboration`、`collaboration-rbac`、`security-fuzz` 為配合 D-39 調整測試資料，見 §19.3） |
+| `npm run build` | exit 0（新增 `/collaboration/retention`） |
+| `npm run db:rehearsal` | **31/31 通過**（原 20 項 ＋ 029 專屬 11 項）：029 套在「028 時代」資料上，舊資料每一欄升級前後完全相同；既有承辦人回填為正式指派；沒有承辦人的案件落入待指派佇列；小編只看得到自己承辦的案件；新表約束與保護有效；升級不會自動建立保留例外或清除任何資料 |
+| `npm run e2e`（煙霧） | **181/181 通過**（原 170；新增 11 項：待指派佇列、承辦區塊、保留與清除頁與試跑、小編只看得到自己承辦、小編被拒指派；廠商匯出斷言改為「欄位不存在」） |
+| `npm run e2e:flow`（全流程 UI） | **71/71 通過**（維持） |
+| `npm run docs:gen` | 81 張表（+5）、266 個端點（+13）；`DATA_DICTIONARY／API_ENDPOINTS／ERD` 由腳本重新產生，未手改 |
+| 權限 | 新增 2 項（`collaboration.assign`、`collaboration.retention.manage`，僅管理者與營運主管）；全系統 65 項；各角色持有數：管理者 65／主管 57／小編 41／團主 13／廠商 12／財務 23 |
+| 突變驗證 | **20 項全部變紅**，明細見 §19.2 |
+| 沒有執行／限制 | 未部署、未碰正式資料庫、未匯入真實個資、未開放廠商正式入口、未啟用任何排程、未更改 repo 設定、未合併 PR。限流為單程序記憶體；沒有真實主機上的 HTTPS／反向代理驗證 |
+
+### 19.1 D-37～D-44 對應測試
+
+| 決策 | 驗證內容 | 測試 |
+|---|---|---|
+| D-37 個資權限 | 獨立 `collaboration.pii.read`；團主只讀自己；廠商履約例外（履約視窗開著才給、寄出／暫緩／結案／未確認／超過硬性上限都拒絕、補寄重新開啟、別家 404）；每次讀取寫稽核（含用途） | `collaboration-hardening`「D-37／D-44」、`collaboration-rbac`、`unit/collaboration-security-rules`「履約視窗」 |
+| D-38 廠商匯出 | 兩種表單都沒有個資欄位（標題與內容）；19 條讀取端點哨兵掃描；以個資內容搜尋找不到案件；稽核與事件不含個資 | `collaboration-hardening`「D-38」 |
+| D-39 小編範圍 | 小編看不到別人承辦的案件（列表／詳情／收件資料／匯出）；待指派佇列、認領、指派、交接（必填原因）、共同承辦、釋出、整批交接、承辦人停用後回佇列、交接紀錄 append-only；`campaignScope` 不變；不產生通知 | `collaboration-hardening`「D-39」、db:rehearsal、E2E |
+| D-40 保留與清除 | 履約未結束延後；保留例外（依據、365 天上限、資料庫 CHECK、到期失效、解除）；硬性上限強制清除；試跑；單筆失敗記 FAILED 不回滾；舊地址立即清空；歷史遺留清掉；匯入暫存清理；監控警示；沒有排程；production 閘門 | `collaboration-hardening`「D-40」、`unit/collaboration-security-rules`「清除決策」 |
+| D-41 後台設定 Mail | 只有 `backend_setup_email／status／note` 欄位；更新不產生通知 | `collaboration-hardening`「D-41／D-42」 |
+| D-42 無檔期任務 | `tasks.campaign_id` 仍 NOT NULL；合作模組沒有任何 `task_id` | 同上 |
+| D-43 Repo 安全 | 見 `docs/phase2/REPO_SECURITY_REPORT.md`（歷史密鑰掃描、截圖、artifact、越權測試） | 掃描輸出＋`collaboration-hardening` 跨組織測試 |
+| D-44 入口 Gate | 401／403／404、CSRF Origin、Session、IDOR、公式注入（兩邊）、匯入重複、URL 安全、限流、稽核、權限變更立即失效 | `collaboration-hardening`「D-44」、`security-fuzz`（6 角色 × 全路由） |
+
+### 19.2 突變驗證（修正後把程式還原成「舊的錯誤版本」，新測試必須變紅）
+
+做法：暫時改回舊行為 → 跑對應測試 → 確認失敗 → 還原（`git status` 確認只剩預期變更）。下表「實際錯誤訊息」為該次執行的第一個失敗斷言。
+
+| # | 還原成的舊版（錯誤）行為 | 紅燈 | 實際錯誤訊息（節錄） |
+|---|---|:-:|---|
+| M1 | 小編範圍回到全組織 | 9 項 | `expected [ 'CLB-000001' ] to not include 'CLB-000001'` |
+| M2 | 廠商匯出改回「遮罩」而非移除欄位 | 2 項 | `expected '網紅名稱,收件人,聯繫電話,地址,申請樣品,…' not to contain '收件人'` |
+| M3 | 匯出不做公式注入防護 | 2 項 | 匯出行含 `=HYPERLINK(` 未補單引號；`toCsv` 單元測試失敗 |
+| M4 | 廠商看收件資料不檢查履約視窗 | 4 項 | 寄出後仍讀得到（期望 403）；單元測試 `FULFILMENT_CLOSED` 不成立 |
+| M5 | 廠商看收件資料不檢查硬性上限 | 2 項 | 超過 180 天仍讀得到；單元測試 `RETENTION_EXPIRED` 不成立 |
+| M6 | 清除不看履約是否結束（到期就清） | 6 項 | 補寄待寄的案件被清除（期望 `SKIPPED_FULFILMENT`） |
+| M7 | 清除沒有硬性上限 | 2 項 | 期望 `PURGED_HARD_CAP`，實際延後 |
+| M8 | 保留例外不阻止清除 | 3 項 | 期望 `SKIPPED_HOLD`，實際被清除 |
+| M9 | 建立申請單後不清匯入暫存個資 | 1 項 | `expected '[{"raw":{"note":"","hostName":"團主甲HAR…' not to contain 'SENTINEL-暫存姓名'` |
+| M10 | 匯入錯誤紀錄寫入原始列 | 1 項 | `expected '[{"code":"HOST_NOT_FOUND","raw_row":{…' not to contain 'SENTINEL-匯入錯誤姓名'` |
+| M11 | 改地址時舊地址只軟刪除（內容還在） | 1 項 | 舊列內容含原始個資 |
+| M12 | 移除敏感端點限流 | 1 項 | `連續讀取個資 70 次應該被限流: expected false to be true` |
+| M13 | `vendorSummary` 不加組織與範圍條件（舊版跨組織統計洩漏） | 1 項 | `expected { vendorId: 'VEN-0001', …(5) } to match object { hostCount: +0, … }`——別組織管理者**實際讀到非零統計** |
+| M14 | 匯入不偵測公式 | 7 項 | 公式列未被標為 `FORMULA_INJECTION` |
+| M15 | 承辦人停用後案件不回待指派佇列 | 1 項 | `承辦人停用後案件必須出現在待指派佇列: expected undefined to be truthy` |
+| M16 | 小編可以指派（權限給小編） | 5 項 | `expected [ Array(42) ] to not include 'collaboration.assign'` |
+| M17 | URL 檢查退回舊版（允許內嵌帳密） | 3 項 | `https://user:pw@…` 被接受 |
+| M18 | PATCH 又允許直接改承辦人 | 1 項 | `expected [ 400, 403, 409, 412, 422 ] to include 200` |
+| M19 | 清除腳本移除 production 閘門 | 1 項 | `expected 1 to be 2`（應直接拒絕，exit 2） |
+| M20 | migration 029 移除回填 | 4 項 | db:rehearsal：`❌ 既有承辦人被回填成正式的主要承辦指派…`、`❌ 沒有承辦人的案件落入待指派佇列`、`❌ 小編甲只看得到自己承辦的 CLB-P1…`、`❌ 約束與保護有效…`（27/31） |
+
+另有兩個「不是突變」的紅燈曾出現並已排除：M13 第一次嘗試只拿掉 SQL 條件而沒拿掉參數，得到 `bind message supplies 3 parameters, but prepared statement requires 2`（是我的突變寫錯，不是測試抓到缺陷；改成兩者一起還原後才得到上表的真正紅燈）；M18 第一次只拿掉防護仍被欄位白名單擋下（403 也在容許範圍），改成連白名單一起還原後才轉紅。
+
+### 19.3 為配合 D-39／D-37／D-38 而調整的既有測試（行為刻意改變，不是放寬）
+
+| 檔案 | 調整 | 原因 |
+|---|---|---|
+| `collaboration`、`collaboration-rbac`、`security-fuzz` | 主管建立案件時帶 `ownerUserId: w.editor.userId` | 小編不再是全組織範圍；沒有承辦人的案件小編本來就看不到（D-39） |
+| `collaboration-rbac` | 廠商讀收件資料改用「還沒寄出」的案件驗證 200，寄出後驗證 403 | 履約視窗（D-37／D-44） |
+| `collaboration-rbac` | 廠商匯出斷言由「含［無權限］遮罩」改為「標題沒有三個個資欄位」 | D-38：欄位不存在而非遮罩 |
+| `unit/collaboration-rules` | 廠商可見性測試增加履約事實與硬性上限案例 | 同上 |
+| `e2e-smoke` | 廠商匯出斷言同上；新增 11 項 | 同上 |
+| `prod-readiness` | 測試用管理者信箱由疑似真實公司網域改為保留的 `.test` 網域 | D-43 清查發現（REPO_SECURITY_REPORT E2） |

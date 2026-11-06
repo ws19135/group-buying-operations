@@ -8,11 +8,14 @@ import { audit, emitEvent } from '../lib/audit';
 import { ids, todayTaipei } from '../lib/ids';
 import { camelize } from '../lib/case';
 import { isIsoDate } from '../lib/dates';
-import { isHttpUrl, nonEmpty } from '../lib/text';
+import { nonEmpty } from '../lib/text';
 import { idempotent } from '../lib/idempotency';
 import { campaignScope, collaborationScope } from '../lib/scope';
 import { likePattern, listPaged, pageParams, patchEntity, applyClears, type ListResult } from '../lib/repo';
 import { assertNoPii } from './selection';
+import { isoDateOf, loadApp, logEvent, shipmentFacts, type AppRow } from './collaboration-shared';
+import { startAssignment, assertAssignable, assigneesOf, countUnassigned } from './collaboration-assignment';
+import { runRecipientPurge } from './collaboration-retention';
 import {
   APPLICATION_PATCH_FIELDS, APPLICATION_SOURCES, APPLICATION_STATUSES, ADS_CONFIRM_STATUSES, ADS_INTENTS,
   BACKEND_SETUP_STATUSES, COLLABORATION_STATUSES, COLLAB_SHIPMENT_STATUSES, HOST_LAUNCH_FIELDS, LAUNCH_FIELDS,
@@ -20,8 +23,9 @@ import {
   VENDOR_LAUNCH_FIELDS, canTransitionApplication, canTransitionCollaboration, canTransitionShipment,
   computeRetentionUntil, isTerminalApplication, shipmentBucket, summarizeShipments, supplyStatusFor,
   toCsv, toForm1Row, toForm2Row, vendorMaySeeRecipient, vendorReviewComplete, allUnavailable,
-  FORM1_EXPORT_HEADERS, FORM2_EXPORT_HEADERS, RECIPIENT_DENY_MESSAGE,
-  type ApplicationStatus, type CollabShipmentStatus, type CollaborationStatus, type EventDimension, type ExportRow, type ShipmentFact,
+  FORM1_EXPORT_HEADERS, FORM2_EXPORT_HEADERS, FORM2_VENDOR_EXPORT_HEADERS, RECIPIENT_DENY_MESSAGE, fulfilmentOpen, isSafeHttpUrl,
+  type ExportPiiMode,
+  type ApplicationStatus, type CollabShipmentStatus, type CollaborationStatus, type ExportRow, type ShipmentFact,
 } from '../lib/collaboration-rules';
 
 /**
@@ -43,7 +47,7 @@ import {
 const optDate = z.string().refine(isIsoDate, '日期格式需為 YYYY-MM-DD').nullable().optional().or(z.literal('').transform(() => null));
 const reqDate = z.string().refine(isIsoDate, '日期格式需為 YYYY-MM-DD');
 const txt = (n: number) => z.string().trim().max(n).nullable().optional().or(z.literal('').transform(() => null));
-const optUrl = (n = 500) => z.string().trim().max(n).refine(isHttpUrl, '連結需為 http:// 或 https:// 開頭的網址').nullable().optional().or(z.literal('').transform(() => null));
+const optUrl = (n = 500) => z.string().trim().max(n).refine(isSafeHttpUrl, '連結需為 http:// 或 https:// 開頭的網址，且不可內嵌帳號密碼').nullable().optional().or(z.literal('').transform(() => null));
 const refId = z.string().trim().max(40);
 
 export const applicationCreateSchema = z.object({
@@ -146,16 +150,6 @@ export const vendorLaunchSchema = z.object({
   adsConfirmStatus: z.enum(ADS_CONFIRM_STATUSES).optional(),
 }).strict();
 
-// ---------------------------------------------------------------- 讀取輔助
-interface AppRow {
-  id: string; organization_id: string; vendor_id: string; host_id: string; product_id: string | null;
-  source: string; applied_on: string; owner_user_id: string | null; status: ApplicationStatus;
-  collaboration_status: CollaborationStatus; campaign_id: string | null; trial_id: string | null;
-  status_reason: string | null; hold_reason: string | null; note: string | null; internal_note: string | null;
-  decided_at: string | null; version: number; deleted_at: string | null;
-  [k: string]: unknown;
-}
-
 /** 外部角色（團主／廠商）看得到的主檔欄位白名單 */
 /**
  * 團主與廠商在自己的工作台看得到的欄位。
@@ -183,46 +177,15 @@ function projectApp(actor: Actor, row: Record<string, unknown>): Record<string, 
   return out;
 }
 
-async function loadApp(db: Queryable, actor: Actor, id: string, forUpdate = false): Promise<AppRow> {
-  const sc = collaborationScope(actor, 2, 'a');
-  if (sc.sql === 'FALSE') throw notFound('合作申請');
-  const r = await db.query<AppRow>(
-    `SELECT a.* FROM collaboration_applications a WHERE a.id=$1 AND (${sc.sql})${forUpdate ? ' FOR UPDATE' : ''}`,
-    [id, ...sc.params]);
-  if (!r.rowCount) throw notFound('合作申請');
-  return r.rows[0];
-}
-
 /** 內部角色才能看的操作一律經過這裡，避免各處各寫一次 */
 function assertWritableApp(app: AppRow): void {
   if (isTerminalApplication(app.status)) throw precondition(`申請已${app.status === 'REJECTED' ? '退回' : app.status === 'CANCELLED' ? '取消' : '結案'}，不可再修改`);
-}
-
-/** timestamptz 欄位轉成 YYYY-MM-DD；pg 回傳 Date 物件，直接 String() 並不是 ISO 格式 */
-function isoDateOf(v: unknown): string | null {
-  if (!v) return null;
-  const d = v instanceof Date ? v : new Date(String(v));
-  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
-}
-
-async function logEvent(tx: Tx, actor: Actor, appId: string, dimension: EventDimension, eventType: string,
-  opts: { from?: string | null; to?: string | null; note?: string | null; internal?: boolean } = {}): Promise<void> {
-  await tx.query(
-    `INSERT INTO collaboration_events (organization_id, application_id, dimension, event_type, from_status, to_status, note, is_internal, actor_user_id, actor_role)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-    [actor.orgId, appId, dimension, eventType, opts.from ?? null, opts.to ?? null, opts.note ?? null, opts.internal ?? false, actor.userId, actor.role]);
 }
 
 async function itemFacts(db: Queryable, appId: string) {
   const r = await db.query<{ requested_qty: number; approved_qty: number | null; supply_status: string }>(
     `SELECT requested_qty, approved_qty, supply_status FROM collaboration_application_items WHERE application_id=$1 AND deleted_at IS NULL`, [appId]);
   return r.rows.map((x) => ({ requestedQty: x.requested_qty, approvedQty: x.approved_qty, supplyStatus: x.supply_status }));
-}
-
-async function shipmentFacts(db: Queryable, appId: string): Promise<ShipmentFact[]> {
-  const r = await db.query<{ shipment_type: 'INITIAL' | 'RESEND'; status: CollabShipmentStatus; ship_date: string | null }>(
-    `SELECT shipment_type, status, ship_date FROM collaboration_shipments WHERE application_id=$1`, [appId]);
-  return r.rows.map((x) => ({ shipmentType: x.shipment_type, status: x.status, shipDate: x.ship_date }));
 }
 
 async function ensureLaunch(tx: Tx, actor: Actor, appId: string): Promise<string> {
@@ -305,9 +268,13 @@ export async function createApplication(actor: Actor, raw: z.input<typeof applic
   const items = input.items ?? (input.productId ? [{ productId: input.productId, skuId: null, requestedQty: 1, requestReason: null }] : []);
   if (!items.length) throw validation('請至少選擇一項申請樣品');
   await assertVendorHostProduct(pool(), actor, input.vendorId, input.hostId, [...new Set(items.map((i) => i.productId))]);
-  if (input.ownerUserId) {
-    const u = await query(`SELECT 1 FROM users WHERE id=$1 AND organization_id=$2 AND status='ACTIVE' AND deleted_at IS NULL AND role_key IN ('SYSTEM_ADMIN','OPS_MANAGER','OPS_EDITOR')`, [input.ownerUserId, actor.orgId]);
-    if (!u.length) throw validation('內部負責人必須是啟用中的營運人員');
+  // D-39：承辦人。營運小編建立的案件預設由自己承辦（否則建完自己就看不到）；只有具指派權限者可以指定別人；
+  // 團主／廠商建立、或主管未指定承辦人的案件，進「待指派佇列」
+  let ownerId: string | null = input.ownerUserId ?? null;
+  if (isInternal(actor)) {
+    if (ownerId && ownerId !== actor.userId && !can(actor, 'collaboration.assign')) throw forbidden();
+    if (!ownerId && actor.role === 'OPS_EDITOR') ownerId = actor.userId;
+    if (ownerId) await assertAssignable(pool(), actor.orgId, ownerId);
   }
   const appliedOn = input.appliedOn ?? todayTaipei();
 
@@ -317,9 +284,13 @@ export async function createApplication(actor: Actor, raw: z.input<typeof applic
       await tx.query(
         `INSERT INTO collaboration_applications (id, organization_id, vendor_id, host_id, product_id, source, applied_on,
            owner_user_id, status, note, internal_note, created_by, updated_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'DRAFT',$9,$10,$11,$11)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,NULL,'DRAFT',$8,$9,$10,$10)`,
         [id, actor.orgId, input.vendorId, input.hostId, input.productId ?? items[0].productId, source, appliedOn,
-          input.ownerUserId ?? null, input.note ?? null, input.internalNote ?? null, actor.userId]);
+          input.note ?? null, input.internalNote ?? null, actor.userId]);
+      if (ownerId) {
+        await startAssignment(tx, actor, id, ownerId, 'PRIMARY');
+        await logEvent(tx, actor, id, 'DATA', 'HANDOVER_ASSIGN', { note: '建立時指定承辦人', internal: true });
+      }
       for (const it of items) {
         await tx.query(
           `INSERT INTO collaboration_application_items (id, organization_id, application_id, product_id, sku_id, requested_qty, request_reason, created_by, updated_by)
@@ -331,7 +302,7 @@ export async function createApplication(actor: Actor, raw: z.input<typeof applic
       await logEvent(tx, actor, id, 'APPLICATION', 'CREATED', { to: 'DRAFT' });
       await audit(tx, actor, {
         action: 'collaboration.application.create', entityType: 'collaboration_application', entityId: id,
-        after: { vendorId: input.vendorId, hostId: input.hostId, source, items: items.length },
+        after: { vendorId: input.vendorId, hostId: input.hostId, source, items: items.length, ownerUserId: ownerId },
       });
       return { id };
     }, { ...input, items });
@@ -495,6 +466,8 @@ export async function getApplication(actor: Actor, id: string): Promise<Record<s
       ? { present: true, confirmed: !!recipientMeta[0].confirmed_at, purged: !!recipientMeta[0].purged_at, retentionUntil: recipientMeta[0].retention_until }
       : { present: false, confirmed: false, purged: false, retentionUntil: null },
     nextActions: nextActions(row as unknown as AppRow, summary, launchOut),
+    /** 承辦人與共同承辦（僅內部） */
+    ...(internal ? { assignees: await assigneesOf(actor, id) } : {}),
   };
 }
 
@@ -520,6 +493,9 @@ export async function updateApplication(actor: Actor, id: string, raw: z.input<t
   const input = applyClears(parsed, raw, ['productId', 'ownerUserId', 'note', 'internalNote']);
   assertNoPii({ 備註: input.note, 內部備註: input.internalNote });
 
+  if (raw && typeof raw === 'object' && 'ownerUserId' in (raw as object)) {
+    throw precondition('承辦人請使用「指派／交接」功能變更，不能直接修改欄位');
+  }
   const allowed: readonly string[] = isInternal(actor)
     ? (can(actor, 'collaboration.update') ? APPLICATION_PATCH_FIELDS.INTERNAL : [])
     : actor.role === 'HOST' ? APPLICATION_PATCH_FIELDS.HOST : APPLICATION_PATCH_FIELDS.VENDOR;
@@ -805,7 +781,10 @@ export async function putRecipient(actor: Actor, appId: string, raw: z.input<typ
     const prev = await tx.query<{ id: string; recipient_name: string; address_line: string }>(
       'SELECT id, recipient_name, address_line FROM collaboration_recipients WHERE application_id=$1 AND deleted_at IS NULL FOR UPDATE', [appId]);
     if (prev.rowCount) {
-      await tx.query('UPDATE collaboration_recipients SET deleted_at=now(), updated_by=$2 WHERE id=$1', [prev.rows[0].id, actor.userId]);
+      // 舊地址不能「只軟刪除」：內容還在表裡就會永遠不被清除。被取代的舊資料立即清空內容，只留下「曾被取代」的紀錄
+      await tx.query(
+        `UPDATE collaboration_recipients SET deleted_at=now(), recipient_name='［已清除］', recipient_phone='［已清除］', address_line='［已清除］',
+           postal_code=NULL, delivery_note=NULL, purged_at=now(), purge_reason='已被新的收件資料取代', updated_by=$2 WHERE id=$1`, [prev.rows[0].id, actor.userId]);
     }
     const id = await ids.collaborationRecipient(tx);
     const summary = summarizeShipments(await shipmentFacts(tx, appId));
@@ -849,7 +828,11 @@ export async function getRecipient(actor: Actor, appId: string) {
     if (r.purged_at) reason = RECIPIENT_DENY_MESSAGE.PURGED;
   } else if (actor.role === 'VENDOR') {
     const v = vendorMaySeeRecipient(
-      { applicationStatus: app.status, confirmedAt: r.confirmed_at, purgedAt: r.purged_at, retentionUntil: r.retention_until },
+      {
+        applicationStatus: app.status, confirmedAt: r.confirmed_at, purgedAt: r.purged_at, retentionUntil: isoDateOf(r.retention_until),
+        fulfilmentOpen: fulfilmentOpen(await shipmentFacts(pool(), appId)),
+        baseOn: isoDateOf(app.decided_at) ?? isoDateOf(app.created_at),
+      },
       todayTaipei());
     if (!v.allowed) reason = RECIPIENT_DENY_MESSAGE[v.reason!];
   } else throw forbidden();
@@ -862,7 +845,8 @@ export async function getRecipient(actor: Actor, appId: string) {
   await withTx(async (tx) => {
     await audit(tx, actor, {
       action: 'collaboration.recipient.read', entityType: 'collaboration_recipient', entityId: r.id,
-      campaignId: app.campaign_id, after: { applicationId: appId, purpose: 'FULFILLMENT' },
+      campaignId: app.campaign_id,
+      after: { applicationId: appId, purpose: actor.role === 'VENDOR' ? 'VENDOR_FULFILMENT_EXCEPTION' : actor.role === 'HOST' ? 'OWN_DATA' : 'OPS_FULFILMENT', scope: actor.role },
     });
   });
   return {
@@ -872,25 +856,12 @@ export async function getRecipient(actor: Actor, appId: string) {
   };
 }
 
-/** 資料最小化：清空超過保留期的收件內容（軟刪除不夠，個資要真的不見）。只有管理者可執行 */
-export async function purgeExpiredRecipients(actor: Actor, today: string = todayTaipei()) {
-  requirePerm(actor, 'collaboration.pii.read');
-  if (actor.role !== 'SYSTEM_ADMIN') throw forbidden();
-  return withTx(async (tx) => {
-    const rows = await tx.query<{ id: string; application_id: string }>(
-      `SELECT id, application_id FROM collaboration_recipients
-        WHERE organization_id=$1 AND purged_at IS NULL AND retention_until IS NOT NULL AND retention_until < $2 FOR UPDATE`,
-      [actor.orgId, today]);
-    for (const r of rows.rows) {
-      await tx.query(
-        `UPDATE collaboration_recipients SET recipient_name='［已清除］', recipient_phone='［已清除］', address_line='［已清除］',
-           postal_code=NULL, delivery_note=NULL, purged_at=now(), purge_reason='超過保留期自動清除', updated_by=$2 WHERE id=$1`,
-        [r.id, actor.userId]);
-      await logEvent(tx, actor, r.application_id, 'DATA', 'RECIPIENT_PURGED', { note: '超過保留期', internal: true });
-      await audit(tx, actor, { action: 'collaboration.recipient.purge', entityType: 'collaboration_recipient', entityId: r.id, after: { applicationId: r.application_id } });
-    }
-    return { purged: rows.rows.length };
-  });
+/**
+ * 資料最小化：清空到期的收件內容（軟刪除不夠，個資要真的不見）。只有管理者可執行。
+ * 實際邏輯（保留例外、履約未結束延後、硬性上限、逐筆結果與失敗紀錄）在 collaboration-retention.ts。
+ */
+export async function purgeExpiredRecipients(actor: Actor, today: string = todayTaipei(), opts: { dryRun?: boolean } = {}) {
+  return runRecipientPurge(actor, { today, dryRun: opts.dryRun, source: 'MANUAL' });
 }
 
 // ---------------------------------------------------------------- 樣品寄送
@@ -1213,7 +1184,8 @@ export async function linkTrial(actor: Actor, appId: string, trialId: string) {
 export async function overview(actor: Actor) {
   if (!can(actor, 'collaboration.read') && !can(actor, 'collaboration.self')) throw forbidden();
   const sc = collaborationScope(actor, 1, 'a');
-  if (sc.sql === 'FALSE') return { buckets: [], total: 0 };
+  const unassigned = await countUnassigned(actor);
+  if (sc.sql === 'FALSE') return { buckets: [], total: 0, unassigned };
   const rows = await query<{ bucket: string; n: number }>(
     `WITH x AS (
        SELECT a.id, a.status, a.collaboration_status, a.campaign_id,
@@ -1239,7 +1211,7 @@ export async function overview(actor: Actor) {
          WHEN status IN ('REJECTED','CANCELLED','CLOSED') OR collaboration_status = 'DECLINED' THEN 'CLOSED'
          ELSE 'OTHER' END AS bucket
        FROM x) y GROUP BY bucket ORDER BY bucket`, sc.params);
-  return { buckets: rows.map((r) => ({ bucket: r.bucket, count: Number(r.n) })), total: rows.reduce((a, r) => a + Number(r.n), 0) };
+  return { buckets: rows.map((r) => ({ bucket: r.bucket, count: Number(r.n) })), total: rows.reduce((a, r) => a + Number(r.n), 0), unassigned };
 }
 
 // ---------------------------------------------------------------- 主檔串接
@@ -1261,14 +1233,15 @@ export async function vendorSummary(actor: Actor, vendorId: string) {
   if (!can(actor, 'collaboration.read') && !(can(actor, 'collaboration.self') && actor.vendorIds.includes(vendorId))) throw forbidden();
   const sc = collaborationScope(actor, 2, 'a');
   if (sc.sql === 'FALSE') return { vendorId, hostCount: 0, pendingReview: 0, shippedSamples: 0, confirmedCollaborations: 0, awaitingIntent: 0 };
+  const sc2 = collaborationScope(actor, sc.params.length + 2, 'a2');
   const r = await query<{ host_count: number; pending_review: number; shipped_samples: number; confirmed_collaborations: number; awaiting_intent: number }>(
     `SELECT count(DISTINCT a.host_id)::int AS host_count,
             count(*) FILTER (WHERE a.status IN ('SUBMITTED','INTERNAL_REVIEW','VENDOR_REVIEW'))::int AS pending_review,
             (SELECT count(*)::int FROM collaboration_shipments s JOIN collaboration_applications a2 ON a2.id = s.application_id
-              WHERE a2.vendor_id=$1 AND s.status IN ('SHIPPED','DELIVERED')) AS shipped_samples,
+              WHERE a2.vendor_id=$1 AND (${sc2.sql}) AND s.status IN ('SHIPPED','DELIVERED')) AS shipped_samples,
             count(*) FILTER (WHERE a.collaboration_status IN ('COLLABORATION_CONFIRMED','CAMPAIGN_LINKED'))::int AS confirmed_collaborations,
             count(*) FILTER (WHERE a.collaboration_status = 'AWAITING_INTENT')::int AS awaiting_intent
-       FROM collaboration_applications a WHERE a.vendor_id=$1 AND (${sc.sql})`, [vendorId, ...sc.params]);
+       FROM collaboration_applications a WHERE a.vendor_id=$1 AND (${sc.sql})`, [vendorId, ...sc.params, ...sc2.params]);
   const row = r[0];
   return {
     vendorId, hostCount: Number(row?.host_count ?? 0), pendingReview: Number(row?.pending_review ?? 0),
@@ -1279,14 +1252,19 @@ export async function vendorSummary(actor: Actor, vendorId: string) {
 
 // ---------------------------------------------------------------- 匯出
 /**
- * 匯出成使用者原本的兩種表單格式。
- * 沒有 collaboration.pii.read 的人匯出表單二時，收件人／電話／地址一律是遮罩字，
- * 不讓沒有權限的人把個資帶走。
+ * 匯出成使用者原本的兩種表單格式（D-38）。
+ *  - 內部且具 collaboration.pii.read：表單二含收件人／電話／地址（每次匯出寫稽核）。
+ *  - 內部但沒有 pii.read：這三欄輸出遮罩字。
+ *  - 廠商：匯出自己廠商範圍內的申請紀錄，但表單二「沒有」這三欄（欄位直接不存在，不是遮罩），
+ *    不含任何收件人電話與地址；廠商取得地址的唯一途徑是履約期間內的收件資料端點（每次讀取留稽核）。
+ *  - 所有儲存格都經過公式注入防護（開頭是 = + - @ 的內容會被當成純文字）。
  */
 export async function exportApplications(actor: Actor, q: URLSearchParams): Promise<{ filename: string; csv: string }> {
   requirePerm(actor, 'collaboration.export');
   const form = q.get('form') === 'form1' ? 'form1' : 'form2';
-  const pii = can(actor, 'collaboration.pii.read');
+  // 廠商永遠不含個資欄位；內部角色依 pii.read 決定完整或遮罩。以角色判斷在前，避免日後有人誤給廠商 pii.read 就洩漏
+  const mode: ExportPiiMode = actor.role === 'VENDOR' ? 'OMIT' : can(actor, 'collaboration.pii.read') ? 'FULL' : 'MASKED';
+  const pii = mode === 'FULL';
   const sc = collaborationScope(actor, 1, 'a');
   if (sc.sql === 'FALSE') throw forbidden();
 
@@ -1300,12 +1278,12 @@ export async function exportApplications(actor: Actor, q: URLSearchParams): Prom
     for (const it of res.items) rows.push(await toExportRow(actor, it as Record<string, unknown>, pii));
     if (rows.length >= res.total || !res.items.length) break;
   }
-  const header = form === 'form1' ? FORM1_EXPORT_HEADERS : FORM2_EXPORT_HEADERS;
-  const body = rows.map((r) => (form === 'form1' ? toForm1Row(r) : toForm2Row(r, pii)));
+  const header = form === 'form1' ? FORM1_EXPORT_HEADERS : mode === 'OMIT' ? FORM2_VENDOR_EXPORT_HEADERS : FORM2_EXPORT_HEADERS;
+  const body = rows.map((r) => (form === 'form1' ? toForm1Row(r) : toForm2Row(r, mode)));
   await withTx(async (tx) => {
     await audit(tx, actor, {
       action: 'collaboration.export', entityType: 'collaboration_application', entityId: `export:${form}`,
-      after: { form, rows: rows.length, piiIncluded: pii && form === 'form2' },
+      after: { form, rows: rows.length, piiIncluded: pii && form === 'form2', piiMode: form === 'form2' ? mode : 'N/A' },
     });
   });
   return { filename: `collaboration-${form}-${todayTaipei()}.csv`, csv: '\uFEFF' + toCsv([header, ...body]) };   // BOM：讓 Excel 正確辨識繁體中文
@@ -1331,6 +1309,8 @@ async function toExportRow(actor: Actor, it: Record<string, unknown>, pii: boole
       WHERE i.application_id=$1 AND i.deleted_at IS NULL ORDER BY i.id`, [id]);
   const resend = await query<{ ship_date: string | null }>(
     `SELECT ship_date FROM collaboration_shipments WHERE application_id=$1 AND shipment_type='RESEND' AND status <> 'CANCELLED' ORDER BY ship_date DESC NULLS LAST LIMIT 1`, [id]);
+  const launch = await query<{ backend_setup_email: string | null; vendor_portal_url: string | null }>(
+    `SELECT backend_setup_email, vendor_portal_url FROM collaboration_launch_details WHERE application_id=$1`, [id]);
   void actor;
   return {
     id,
@@ -1340,7 +1320,7 @@ async function toExportRow(actor: Actor, it: Record<string, unknown>, pii: boole
     resendDate: resend.length ? resend[0].ship_date : null,
     launchUrl: (it.launchUrl as string | null) ?? null,
     adsIntent: String(it.adsIntent ?? 'PENDING'),
-    backendSetupEmail: (it.backendSetupEmail as string | null) ?? null,
+    backendSetupEmail: launch[0]?.backend_setup_email ?? null,
     backendSetupStatus: String(it.backendSetupStatus ?? 'NOT_REQUIRED'),
     recipientName, recipientPhone, addressLine,
     productSummary: prods.map((p) => p.label).join('；'),
@@ -1348,7 +1328,7 @@ async function toExportRow(actor: Actor, it: Record<string, unknown>, pii: boole
     intent: String(it.intent ?? 'PENDING'),
     openDate: (it.confirmedOpenDate as string | null) ?? (it.plannedOpenDate as string | null) ?? null,
     note: (it.note as string | null) ?? null,
-    vendorPortalUrl: (it.vendorPortalUrl as string | null) ?? null,
+    vendorPortalUrl: launch[0]?.vendor_portal_url ?? null,
   };
 }
 

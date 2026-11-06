@@ -189,7 +189,7 @@ export function allUnavailable(items: ItemFact[]): boolean {
  * HOST 只能動自己案件的備註（收件資料、意願另有專用端點）；VENDOR 不能動任何主檔欄位。
  */
 export const APPLICATION_PATCH_FIELDS = {
-  INTERNAL: ['productId', 'appliedOn', 'ownerUserId', 'note', 'internalNote'] as const,
+  INTERNAL: ['productId', 'appliedOn', 'note', 'internalNote'] as const,   // 承辦人不在這裡：只能經指派／交接端點變更（D-39）
   HOST: ['note'] as const,
   VENDOR: [] as const,
 };
@@ -213,20 +213,45 @@ export interface RecipientVisibilityInput {
   confirmedAt: string | Date | null;
   purgedAt: string | Date | null;
   retentionUntil: string | null;
+  /** 履約是否仍需要地址（見 fulfilmentOpen）；未提供視為不需要（fail-closed） */
+  fulfilmentOpen?: boolean;
+  /** 核准日（沒有則用建立日），用來判斷硬性上限；未提供則不檢查上限 */
+  baseOn?: string | null;
 }
 
-export type RecipientDenyReason = 'PURGED' | 'RETENTION_EXPIRED' | 'NOT_CONFIRMED' | 'NOT_APPROVED';
+export type RecipientDenyReason = 'PURGED' | 'RETENTION_EXPIRED' | 'NOT_CONFIRMED' | 'NOT_APPROVED' | 'FULFILMENT_CLOSED';
+
+/**
+ * 履約是否仍需要收件地址（D-37「受控的履約例外」、D-44「仍在履約期限內」）：
+ *  - 還沒有任何有效寄送紀錄、或有尚未寄出（PENDING）的寄送／補寄 → 廠商還要寄，需要地址
+ *  - 已寄出但尚未送達、已送達、已退回但沒有待寄的補寄 → 廠商手上不需要地址了（要補寄時會先建立補寄紀錄，這時又會重新開啟）
+ * 這是從寄送紀錄推導的事實，不是旗標；廠商的地址存取窗口因此會隨履約進度自動關閉。
+ */
+export function fulfilmentOpen(rows: ShipmentFact[]): boolean {
+  const active = rows.filter((r) => r.status !== 'CANCELLED');
+  if (!active.some((r) => r.shipmentType === 'INITIAL')) return true;
+  return active.some((r) => r.status === 'PENDING');
+}
 
 /**
  * 廠商看得到收件個資的條件（「只在履約所必需的期間內提供給廠商」）：
- * 申請已核准、收件資料已確認、未被清除、且還在保留期內。四個條件缺一不可。
+ * 申請處於已核准（暫緩、結案、退回一律不給）、收件資料已由團主確認、未被清除、未超過硬性上限，
+ * 而且履約仍需要這份地址（fulfilmentOpen）。
+ * 保留期（核准後 90 天）已過但履約還沒結束（例如補寄還沒寄出）時，廠商仍可取得地址直到硬性上限——
+ * 否則清除政策會讓廠商在履約中途「沒有地址可寄」。
  * 內部角色另由 collaboration.pii.read 控管，不走這個函式。
  */
 export function vendorMaySeeRecipient(input: RecipientVisibilityInput, today: string): { allowed: boolean; reason?: RecipientDenyReason } {
   if (input.purgedAt) return { allowed: false, reason: 'PURGED' };
-  if (!['APPROVED', 'ON_HOLD', 'CLOSED'].includes(input.applicationStatus)) return { allowed: false, reason: 'NOT_APPROVED' };
+  if (input.applicationStatus !== 'APPROVED') return { allowed: false, reason: 'NOT_APPROVED' };
   if (!input.confirmedAt) return { allowed: false, reason: 'NOT_CONFIRMED' };
-  if (input.retentionUntil && input.retentionUntil < today) return { allowed: false, reason: 'RETENTION_EXPIRED' };
+  // 硬性上限不依賴清除排程有沒有跑：超過就一律拒絕
+  if (input.baseOn && addDaysIso(input.baseOn, RECIPIENT_HARD_CAP_DAYS_AFTER_APPROVAL) < today) return { allowed: false, reason: 'RETENTION_EXPIRED' };
+  if (!input.fulfilmentOpen) {
+    // 履約已不需要地址：保留期已過就說「已過期」，否則說「寄送已完成」
+    if (input.retentionUntil && input.retentionUntil < today) return { allowed: false, reason: 'RETENTION_EXPIRED' };
+    return { allowed: false, reason: 'FULFILMENT_CLOSED' };
+  }
   return { allowed: true };
 }
 
@@ -234,7 +259,8 @@ export const RECIPIENT_DENY_MESSAGE: Record<RecipientDenyReason, string> = {
   PURGED: '收件資料已依保留政策清除',
   RETENTION_EXPIRED: '收件資料已超過提供給廠商的保留期',
   NOT_CONFIRMED: '收件資料尚未由團主確認',
-  NOT_APPROVED: '申請尚未核准，還不能取得收件資料',
+  NOT_APPROVED: '申請尚未核准（或已暫緩、結案），不提供收件資料',
+  FULFILMENT_CLOSED: '這筆申請的寄送已完成或已寄出，履約不再需要收件資料',
 };
 
 /** 收件個資的預設保留期：核准後 90 天；一旦全部送達，改為最後一次寄送日 + 30 天（取較早者） */
@@ -256,6 +282,60 @@ export function computeRetentionUntil(approvedOn: string | null, summary: Sample
     return byDelivery < byApproval ? byDelivery : byApproval;
   }
   return byApproval;
+}
+
+/**
+ * 個資保留政策的「硬性上限」：不論履約是否還沒結束，核准後超過這個天數一律清除（除非有有效的保留例外）。
+ * 沒有上限的「履約未結束就延後清除」會變成無限期保留，所以必須有一個明確的終點。
+ */
+export const RECIPIENT_HARD_CAP_DAYS_AFTER_APPROVAL = 180;
+/** 保留例外的最長天數（與資料庫 CHECK 一致）；要延長必須重新申請並留下稽核 */
+export const RETENTION_HOLD_MAX_DAYS = 365;
+/** 匯入暫存列（含原始個資）最長保留天數 */
+export const IMPORT_STAGING_MAX_DAYS = 30;
+
+export const RETENTION_HOLD_REASONS = ['DISPUTE', 'LEGAL_OBLIGATION', 'RETURN_OR_REFUND', 'OWNER_APPROVED'] as const;
+export type RetentionHoldReason = (typeof RETENTION_HOLD_REASONS)[number];
+
+export type PurgeDecision =
+  | { action: 'NOT_DUE' }
+  | { action: 'SKIP_HOLD'; detail: string }
+  | { action: 'SKIP_FULFILMENT'; detail: string }
+  | { action: 'PURGE'; hardCap: boolean; detail: string };
+
+export interface PurgeFacts {
+  retentionUntil: string | null;
+  /** 申請核准日（沒有核准日的案件用建立日） */
+  baseOn: string;
+  applicationStatus: ApplicationStatus;
+  shipments: ShipmentFact[];
+  /** 有效（未解除、未過期）的保留例外到期日；沒有則 null */
+  activeHoldUntil: string | null;
+}
+
+/**
+ * 清除決策（D-40）。先回答「政策有沒有計算衝突、會不會在履約沒結束時就清掉」：
+ *  1. 有效的保留例外 → 不清除（有期限，到期自動失效）。
+ *  2. 超過硬性上限（核准後 180 天）→ 強制清除，不再因履約未結束而延後。
+ *  3. 還沒到保留期 → 不處理。
+ *  4. 到期了，但履約尚未結束（有待寄／待送達／補寄進行中／退回後未補寄，或申請暫緩中）→ 延後，等下一輪。
+ *  5. 其餘 → 清除。
+ */
+export function evaluatePurge(f: PurgeFacts, today: string): PurgeDecision {
+  if (f.activeHoldUntil && f.activeHoldUntil >= today) return { action: 'SKIP_HOLD', detail: `保留例外至 ${f.activeHoldUntil}` };
+  const hardCapOn = addDaysIso(f.baseOn, RECIPIENT_HARD_CAP_DAYS_AFTER_APPROVAL);
+  if (hardCapOn < today) return { action: 'PURGE', hardCap: true, detail: `超過硬性上限 ${hardCapOn}` };
+  if (!f.retentionUntil || f.retentionUntil >= today) return { action: 'NOT_DUE' };
+  const sum = summarizeShipments(f.shipments);
+  const unfinished =
+    f.applicationStatus === 'ON_HOLD' ? '申請暫緩中'
+      : sum.resendPending ? '補寄尚未寄出'
+        : (sum.progress === 'NOT_REQUESTED' || sum.progress === 'PREPARING') && ['APPROVED', 'VENDOR_REVIEW', 'INTERNAL_REVIEW', 'SUBMITTED'].includes(f.applicationStatus) ? '尚未寄出首次樣品'
+          : sum.progress === 'SHIPPED' || sum.progress === 'RESENT' ? '已寄出但團主尚未確認收件'
+            : sum.progress === 'RETURNED' ? '樣品退回，尚未決定是否補寄'
+              : null;
+  if (unfinished) return { action: 'SKIP_FULFILMENT', detail: unfinished };
+  return { action: 'PURGE', hardCap: false, detail: '超過保留期' };
 }
 
 // ---------------------------------------------------------------- 匯入
@@ -344,6 +424,8 @@ export function parseLooseDate(v: string | null | undefined): string | null {
 
 // ---------------------------------------------------------------- 匯出（兩種表單格式，依角色遮罩個資）
 export const FORM1_EXPORT_HEADERS = ['團購主', '檔期', '是否已補寄', '補寄日期', '開團連結', '是否投廣', '後台設定 Mail', '後台設定狀態', '申請單'] as const;
+/** 廠商匯出（D-38）：欄位直接不存在，不是遮罩——廠商不能從匯出檔取得收件人、電話、地址 */
+export const FORM2_VENDOR_EXPORT_HEADERS = ['網紅名稱', '申請樣品', '配送日期', '開團意願', '開團日期', '備註', '開團連結', '後台連結', '申請單'] as const;
 export const FORM2_EXPORT_HEADERS = ['網紅名稱', '收件人', '聯繫電話', '地址', '申請樣品', '配送日期', '開團意願', '開團日期', '備註', '開團連結', '後台連結', '申請單'] as const;
 
 export const MASKED = '［無權限］';
@@ -383,14 +465,64 @@ export function toForm1Row(r: ExportRow): string[] {
     ADS_LABEL[r.adsIntent] ?? r.adsIntent, r.backendSetupEmail ?? '', BACKEND_LABEL[r.backendSetupStatus] ?? r.backendSetupStatus, r.id];
 }
 
-export function toForm2Row(r: ExportRow, pii: boolean): string[] {
+export type ExportPiiMode = 'FULL' | 'MASKED' | 'OMIT';
+
+export function toForm2Row(r: ExportRow, mode: boolean | ExportPiiMode): string[] {
+  const m: ExportPiiMode = mode === true ? 'FULL' : mode === false ? 'MASKED' : mode;
+  if (m === 'OMIT') {
+    return [r.hostName, r.productSummary, r.shipDate ?? '', INTENT_LABEL[r.intent] ?? r.intent, r.openDate ?? '', r.note ?? '',
+      r.launchUrl ?? '', r.vendorPortalUrl ?? '', r.id];
+  }
+  const pii = m === 'FULL';
   const p = (v: string | null) => (pii ? (v ?? '') : (v ? MASKED : ''));
   return [r.hostName, p(r.recipientName), p(r.recipientPhone), p(r.addressLine), r.productSummary,
     r.shipDate ?? '', INTENT_LABEL[r.intent] ?? r.intent, r.openDate ?? '', r.note ?? '', r.launchUrl ?? '', r.vendorPortalUrl ?? '', r.id];
 }
 
-/** CSV 序列化（RFC 4180；Excel 開啟中文需要 BOM，由呼叫端加） */
+/**
+ * CSV 公式注入防護（匯出端）：儲存格開頭是 = + - @ 或 Tab／CR 時，試算表會把它當公式執行。
+ * 一律在前面補單引號，讓它被當成純文字（OWASP 建議做法）。
+ */
+export function neutralizeCsvCell(v: string): string {
+  return /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
+}
+
+/** 匯入端的公式偵測：開頭是 = @ Tab CR，或 + - 後面接的不是數字（電話 +886… 與負數不算） */
+export function looksLikeFormula(v: string | null | undefined): boolean {
+  const raw = (v ?? '').normalize('NFKC');
+  if (/^[\t\r]/.test(raw)) return true;      // 開頭是 Tab／CR 本身就是注入手法
+  const s = raw.trimStart();
+  if (!s) return false;
+  if (/^[=@]/.test(s)) return true;
+  return /^[+-]/.test(s) && !/^[+-][\s]*[0-9(]/.test(s);
+}
+
+/** URL 安全：只允許 http／https，不允許內嵌帳密（user:pass@host），長度上限 500 */
+export function isSafeHttpUrl(s: string): boolean {
+  if (s.length > 500) return false;
+  try {
+    const u = new URL(s);
+    return (u.protocol === 'http:' || u.protocol === 'https:') && !u.username && !u.password;
+  } catch {
+    return false;
+  }
+}
+
+/** 匯入暫存列中屬於個資的欄位（表單二的收件人、電話、地址） */
+export const IMPORT_PII_FIELDS = ['recipientName', 'recipientPhone', 'addressLine'] as const;
+
+/** 去除暫存資料中的個資欄位（寫進錯誤紀錄、建立申請單後清掉暫存列時使用） */
+export function scrubImportPii<T extends Record<string, string>>(raw: T): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) out[k] = (IMPORT_PII_FIELDS as readonly string[]).includes(k) ? '［已清除］' : v;
+  return out;
+}
+
+/** CSV 序列化（RFC 4180；Excel 開啟中文需要 BOM，由呼叫端加）。每個儲存格都經過公式注入防護 */
 export function toCsv(rows: (readonly string[])[]): string {
-  const cell = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const cell = (raw: string) => {
+    const v = neutralizeCsvCell(raw);
+    return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  };
   return rows.map((r) => r.map((c) => cell(c ?? '')).join(',')).join('\r\n');
 }

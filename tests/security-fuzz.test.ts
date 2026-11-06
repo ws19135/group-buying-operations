@@ -39,7 +39,7 @@ beforeAll(async () => {
   D.inv = (await fin.createInvoice(w.finance, { invoiceNo: 'FUZZ-1', invoiceDate: dayOffset(-1), amount: 1 })).id;
   D.exp = (await fin.createExpense(w.finance, { category: 'OTHER', amount: 1, incurredOn: dayOffset(-1) })).id;
   // 合作申請與樣品管理：要有真的 id 才能模糊測到真正的路徑
-  D.collabApp = (await collab.createApplication(w.manager, { vendorId: v, hostId: h, items: [{ productId: p.id, skuId: p.skuIds[0], requestedQty: 2 }] })).id;
+  D.collabApp = (await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: v, hostId: h, items: [{ productId: p.id, skuId: p.skuIds[0], requestedQty: 2 }] })).id;
   D.collabItem = (await query<{ id: string }>('SELECT id FROM collaboration_application_items WHERE application_id=$1', [D.collabApp]))[0].id;
   await collab.submitApplication(w.manager, D.collabApp);
   await collab.internalReview(w.manager, D.collabApp, { decision: 'APPROVE' });

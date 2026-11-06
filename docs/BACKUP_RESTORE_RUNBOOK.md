@@ -26,3 +26,20 @@
 | `host-restore-drill.sh <備份檔>` | 還原到同一個 PostgreSQL 內的暫存資料庫並移除；判讀規則：資料表集合必須一致、還原筆數不可多於現行（備份之後新增的資料只列出參考）、損毀備份會失敗；**不修改正式資料庫** |
 | `deploy-remote.sh` | 每次部署前自動呼叫備份（`pre-deploy-*.dump`） |
 **驗證狀態**：以替身 `docker` 對真實 PostgreSQL 測過（含備份後新增資料仍通過、損毀備份失敗、資料表集合不同失敗）；尚未在真實主機執行。
+
+## 還原之後：先清除過期個資，才能開放使用（合作申請模組，D-40）
+
+備份是某個時間點的完整資料庫快照，**含合作申請的收件人姓名、電話與地址**（`collaboration_recipients`）。清除作業只改「現行資料庫」，**不會回溯到備份**；所以任何一次還原（災難復原，或還原演練之後想沿用該資料庫）都會把已經依政策清除的個資帶回來。
+
+還原完成後、**開放任何人使用之前**，必須在隔離環境（資料庫尚未對外）依序執行：
+
+```bash
+# 1. 試跑：只列出會清除、延後、被保留例外擋下的項目，不改資料
+npm run collab:purge
+# 2. 確認結果合理後，真正清除
+npm run collab:purge -- --execute
+```
+
+再用管理者登入 `/collaboration/retention` 確認沒有警示（`NEVER_RUN`、`LAST_RUN_FAILED`、`OVERDUE_BACKLOG`），才把資料庫交付使用。腳本在 `APP_ENV=production` 時預設拒絕；若這是 Owner 書面授權的正式還原，才可設定 `COLLABORATION_PURGE_PRODUCTION_AUTHORIZED=yes`。
+
+備份檔本身保存期見 `KEEP_DAYS`（預設 30 天）：個資在資料庫清除後，最多還會在備份中留存這麼久。評估與建議見 `docs/phase2/SECURITY_REVIEW.md` §7.4。**還原演練（`host-restore-drill.sh`）還原到暫存資料庫並立即移除，不需要執行這個步驟。**

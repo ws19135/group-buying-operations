@@ -522,3 +522,22 @@ Owner 要求：不重建 SOP 02／03；把 1～5 分主觀評分升級成「可�
 8. 廠商入口要完成對外存取安全驗證後才可開放。
 
 **下一步**：等 Owner 裁決上列 8 項（第 7 項是放正式資料的前提，建議先處理）；之後才談部署與廠商入口對外開放，兩者目前都未進行。
+
+
+## 2026-11-06（第二輪）：PR #26 驗收、Owner 決策 D-37～D-44 落地與個資安全加固（分支 `feat/collaboration-applications`）
+
+**起點**：Owner 針對 Draft PR #26 下了 D-37～D-44 八項決策，要求在同一分支做最後一輪安全與權限加固。雲端全新 session，只用 DEMO／虛構資料。先在 `af4bfcb` 實跑驗證 PR 宣稱（tsc 0、60 檔 1039 項全綠），再開始查證。
+
+**查證到的缺口（PR 原狀態，詳見 `phase2/SECURITY_REVIEW.md` §7.1）**：匯入暫存列與錯誤紀錄永久保留個資（SF-1）、改地址的舊列內容永不清除（SF-2）、`vendorSummary` 跨組織統計洩漏（SF-3）、匯出無公式注入防護（SF-4）、匯入不驗證 URL／Email／備註（SF-5）、廠商讀地址不看履約進度（SF-6）、清除機制不看履約且無上限／例外／紀錄／監控（SF-7）、小編範圍為全組織（SF-8）、PATCH 可直接改承辦人（SF-9）、無限流（SF-10）。
+
+**做了什麼**
+- **D-39**：migration 029（`collaboration_assignments`、`collaboration_handovers`，回填 028 的 `owner_user_id`）；`collaborationScope` 對小編改為承辦範圍；承辦／交接／認領／釋出／共同承辦／整批交接端點；待指派佇列（含承辦人停用的孤兒案件）；新權限 `collaboration.assign`；UI 承辦區塊與佇列卡片。`campaignScope` 等其他模組未動。
+- **D-40**：分析政策衝突（C1～C8）；`evaluatePurge` 純函式（履約未結束延後、硬性上限 180 天、保留例外）；`collaboration_retention_holds`、`collaboration_purge_runs／items`；試跑、失敗不回滾、監控頁 `/collaboration/retention`；`npm run collab:purge`（production 預設拒絕）；**沒有排程**；備份評估與還原後清除步驟寫入手冊。
+- **D-37／D-38／D-44**：廠商履約視窗 `fulfilmentOpen`；廠商匯出移除個資欄位；匯出公式注入防護、匯入公式偵測、`isSafeHttpUrl`、匯入暫存去個資；敏感端點限流；新權限 `collaboration.retention.manage`。
+- **D-41／D-42**：維持原設計並加測試固定（兩個後台設定欄位、無通知、`tasks.campaign_id` NOT NULL）。
+- **D-43**：Git 歷史（100 commit）密鑰樣式掃描、個資掃描、64＋17 張截圖產生方式與目視、artifact 與 workflow 檢視、越權測試；產出 `phase2/REPO_SECURITY_REPORT.md` 與 Owner 操作步驟；**未更改 repo 可見性**。
+- 測試：+114 項（共 62 檔／1153 項）、db:rehearsal 31/31、E2E 181／71；20 項突變驗證全部變紅（TEST_REPORT §19.2）。
+
+**沒做／不能做**：未合併 PR、未部署、未碰正式資料庫與備份、未匯入真實個資、未開放廠商正式入口、未啟用排程、未改 repo 設定、未改寫 git 歷史。待 Owner 決策與授權事項見 `KNOWN_ISSUES.md` W-41～W-48。
+
+**判斷與取捨**：①履約視窗定義為「還有待寄出的寄送／補寄」，寄出即關閉（需 Owner 確認，W-45）；②保留期已過但履約未結束時延後清除，以 180 天硬性上限收尾，避免「延後」變成無限期保留；③被拒絕／取消申請的保留政策原文沒有規定，**未擅自改動**（W-44）；④把 owner 欄位改成只能經交接端點變更，換取每次異動都有紀錄。

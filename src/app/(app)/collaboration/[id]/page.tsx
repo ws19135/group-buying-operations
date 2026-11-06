@@ -5,7 +5,6 @@ import { can, isInternal } from '@/server/lib/permissions';
 import { getApplication } from '@/server/modules/collaboration';
 import { campaignScope } from '@/server/lib/scope';
 import { productSkuOptions } from '@/server/ui/options';
-import { listAssignableUsers } from '@/server/ui/lookups';
 import { ActionButton } from '@/ui/ActionButton';
 import { ApiForm } from '@/ui/ApiForm';
 import { Modal } from '@/ui/Modal';
@@ -13,6 +12,7 @@ import { Badge, Banner, Card, EmptyState, Kv, PageHeader, StatusBadge, Table, da
 import { fmtDate, fmtDateTime } from '@/ui/format';
 import { as } from '@/ui/types';
 import { RevealRecipient } from '../RevealRecipient';
+import { AssignmentBlock } from '../AssignmentBlock';
 import { AddItemForm, VendorReviewForm } from '../CollaborationForms';
 import {
   ADS_CONFIRM, ADS_INTENT, APP_STATUS, BACKEND_SETUP, COLLAB_STATUS, INTENT, SAMPLE_PROGRESS,
@@ -53,6 +53,7 @@ interface DetailV {
   sampleBucket: string;
   recipient: { present: boolean; confirmed: boolean; purged: boolean; retentionUntil: string | null };
   nextActions: string[];
+  assignees?: { userId: string; role: 'PRIMARY' | 'CO_OWNER'; name: string; status: string }[];
 }
 
 const DIMENSION: Record<string, string> = {
@@ -75,7 +76,6 @@ export default withActor(async (actor, props: { params: Params }) => {
   const canSeeRecipient = can(actor, 'collaboration.pii.read') || isHost || isVendor;
 
   const skuOpts = canUpdate ? await productSkuOptions(actor, d.vendorId).catch(() => []) : [];
-  const owners = internal && canUpdate ? await listAssignableUsers(actor).catch(() => []) : [];
   const campaignOpts = canLink && d.collaborationStatus === 'COLLABORATION_CONFIRMED'
     ? await confirmedCampaignOptions(actor, d.vendorId) : [];
 
@@ -125,7 +125,6 @@ export default withActor(async (actor, props: { params: Params }) => {
           <ApiForm endpoint={`/api/collaboration/applications/${d.id}`} method="PATCH" submitLabel="儲存" testid="form-edit-basic" extra={{ version: d.version }}
             fields={[
               { name: 'appliedOn', label: '申請日期', type: 'date', defaultValue: d.appliedOn },
-              { name: 'ownerUserId', label: '內部負責人', type: 'select', defaultValue: d.ownerUserId ?? '', options: [{ value: '', label: '未指派' }, ...owners] },
               { name: 'note', label: '備註（團主與廠商看得到）', type: 'textarea', defaultValue: d.note ?? '' },
               { name: 'internalNote', label: '內部備註', type: 'textarea', defaultValue: d.internalNote ?? '', help: '團主與廠商看不到' },
             ]} />
@@ -137,7 +136,7 @@ export default withActor(async (actor, props: { params: Params }) => {
           ['團主', <Link key="h" href={`/hosts/${d.hostId}`}>{d.hostName}</Link>],
           ['廠商', <Link key="v" href={`/vendors/${d.vendorId}`}>{d.vendorName}</Link>],
           ['代表商品', d.productId ? <Link key="p" href={`/products/${d.productId}`}>{d.productName}</Link> : '—'],
-          ...(internal ? [['內部負責人', dashIfNull(d.ownerName)] as [string, string]] : []),
+          ...(internal ? [['主要承辦人', dashIfNull(d.ownerName)] as [string, string]] : []),
           ['備註', dashIfNull(d.note)],
           ...(internal ? [['內部備註', dashIfNull(d.internalNote)] as [string, string]] : []),
           ['關聯檔期', d.campaignId ? <Link key="c" href={`/campaigns/${d.campaignId}`}>{d.campaignTitle ?? d.campaignId}</Link> : '尚未關聯'],
@@ -145,6 +144,8 @@ export default withActor(async (actor, props: { params: Params }) => {
         ]} />
         <p className="small muted">樣品申請不等於已完成 SOP 03 的正式試用資格評估；關聯只是引用，不會改變試用結論。</p>
       </Card>
+
+      {internal ? <AssignmentBlock actor={actor} applicationId={d.id} assignees={d.assignees ?? []} terminal={terminal} /> : null}
 
       {/* ── 區塊二：申請樣品明細 ───────────────────────────── */}
       <Card flush title="申請樣品明細" testid="block-items" actions={canUpdate && ['DRAFT', 'SUBMITTED'].includes(d.status) ? (

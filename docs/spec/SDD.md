@@ -4,7 +4,7 @@
 > 狀態：對**已實作系統**的逆向整理（Phase 1 MVP ＋ Phase 2 切片），逐項與 `src/`、`migrations/`、`tests/` 核對；不是事前設計。系統層面的架構、部署與安全見 [SAD](SAD.md)，索引與約定見 [README](README.md)。
 > 基準版本：已提交程式 HEAD `3be9a94`；撰寫期間另有未提交的安全強化變更未納入，會影響的項目見 [README §4](README.md)。
 > 標記：✅ 已對照程式確認；❓ 列於 §20「核對未決」。所有金額口徑一律「**待 Owner 確認**」。
-> 不重貼的內容：資料表逐欄定義 → [DATA_DICTIONARY](../generated/DATA_DICTIONARY.md)；253 個端點完整清單 → [API_ENDPOINTS](../generated/API_ENDPOINTS.md)；請求格式範例 → [API.md](../API.md)。本文件只寫「設計上重要的欄位、約束與規則」。
+> 不重貼的內容：資料表逐欄定義 → [DATA_DICTIONARY](../generated/DATA_DICTIONARY.md)；266 個端點完整清單 → [API_ENDPOINTS](../generated/API_ENDPOINTS.md)；請求格式範例 → [API.md](../API.md)。本文件只寫「設計上重要的欄位、約束與規則」。
 
 ---
 
@@ -79,7 +79,7 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 
 ## 1. 角色與權限矩陣
 
-> **本節矩陣由 `src/server/lib/permissions.ts` 直接產生**（腳本 `import ROLE_PERMISSIONS` 後輸出，非手抄）。63 項權限（SOP 01 新增 6 項：`segment.read／write`、`fit.read／assess／review／config`；SOP 02／03 新增 3 項：`selection.read／write／config`；合作申請與樣品管理新增 11 項 `collaboration.*`）；各角色持有數：管理者 63、主管 55、小編 41、團主 13、廠商 12、財務 23。
+> **本節矩陣由 `src/server/lib/permissions.ts` 直接產生**（腳本 `import ROLE_PERMISSIONS` 後輸出，非手抄）。65 項權限（SOP 01 新增 6 項：`segment.read／write`、`fit.read／assess／review／config`；SOP 02／03 新增 3 項：`selection.read／write／config`；合作申請與樣品管理新增 11 項 `collaboration.*`）；各角色持有數：管理者 63、主管 55、小編 41、團主 13、廠商 12、財務 23。
 
 | 權限 | 管理者 | 主管 | 小編 | 團主 | 廠商 | 財務 |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
@@ -94,12 +94,14 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 | `campaign.sensitive.read` | ● | ● |  |  |  | ● |
 | `campaign.transition` | ● | ● | ● |  |  |  |
 | `campaign.write` | ● | ● | ● |  |  |  |
+| `collaboration.assign` | ● | ● |  |  |  |  |
 | `collaboration.campaign.link` | ● | ● | ● |  |  |  |
 | `collaboration.create` | ● | ● | ● | ● | ● |  |
 | `collaboration.export` | ● | ● | ● |  | ● |  |
 | `collaboration.intent.write` | ● | ● | ● | ● |  |  |
 | `collaboration.pii.read` | ● | ● | ● |  |  |  |
 | `collaboration.read` | ● | ● | ● |  |  |  |
+| `collaboration.retention.manage` | ● | ● |  |  |  |  |
 | `collaboration.review` | ● | ● |  |  |  |  |
 | `collaboration.self` | ● |  |  | ● | ● |  |
 | `collaboration.shipping.write` | ● | ● | ● |  | ● |  |
@@ -153,7 +155,7 @@ PostgreSQL 錯誤對應（`pgToApp`）：`23505`→409、`23503`→422、`23514`
 - `OPS_MANAGER` ＝ 全部權限，**扣除** `user.manage`、`commission.write`、`host.self`、`vendor.self`、`refund.complete`、`finance.write`、`settlement.confirm`（程式用 `ALL.filter(…)`）。
 - SOP 01 的 6 項權限只給管理者、主管與（部分）營運小編：小編有 `segment.read／write`、`fit.read／assess`，**沒有** `fit.review`、`fit.config`；財務、團主、廠商一項都沒有（客群分析與適配評估無外部入口）。矩陣中這 6 列依 `permissions.ts` 補入；其餘列未重新產生，沿用原基準。
 - SOP 02／03 的 3 項權限：`selection.read`（管理者、主管、小編、財務）、`selection.write`（管理者、主管、小編）、`selection.config`（管理者、主管）；團主、廠商一項都沒有。**覆核評估與試用、核准調查、確認法務無虞、覆寫試用建議沿用既有 `product.review`；成本、分潤與利潤欄位沿用既有 `product.cost.read`**，不另立新權限。矩陣中這 3 列依 `permissions.ts` 補入。
-- 合作申請與樣品管理的 11 項權限刻意分三種維度：①**動作**（`read／create／update／review／vendor.review／shipping.write／intent.write／campaign.link／export`）②**資料範圍**（`collaboration.self`＝團主與廠商只看自己的案件；內部靠 `collaboration.read`，資料範圍由新的 `collaborationScope` 決定，營運小編為全組織，與 `campaignScope` 不同，見 D-39）③**個資**（`collaboration.pii.read` 把「讀案件」與「讀收件人姓名／電話／地址」分開；案件詳情 API 完全不回傳個資內容，必須走專用端點且每次讀取寫稽核）。營運小編**刻意沒有** `collaboration.review`（需要核准權限的決策留給主管，註解寫在 `permissions.ts`）；財務 11 項全無，**不會因為是財務就取得收件人電話與地址**；廠商有 `collaboration.export` 但沒有 `collaboration.pii.read`，所以匯出時收件三欄是「［無權限］」。這 12 列依 `permissions.ts` 補入。
+- 合作申請與樣品管理的 13 項權限（第二輪新增 `collaboration.assign`、`collaboration.retention.manage`，僅管理者與主管）刻意分三種維度：①**動作**（`read／create／update／review／vendor.review／shipping.write／intent.write／campaign.link／export`）②**資料範圍**（`collaboration.self`＝團主與廠商只看自己的案件；內部靠 `collaboration.read`，資料範圍由新的 `collaborationScope` 決定，營運小編**只看自己承辦或被指派的申請**（D-39，第二輪由全組織改為承辦範圍；待指派佇列另有查詢），`campaignScope` 完全不變）③**個資**（`collaboration.pii.read` 把「讀案件」與「讀收件人姓名／電話／地址」分開；案件詳情 API 完全不回傳個資內容，必須走專用端點且每次讀取寫稽核）。營運小編**刻意沒有** `collaboration.review`（需要核准權限的決策留給主管，註解寫在 `permissions.ts`）；財務 11 項全無，**不會因為是財務就取得收件人電話與地址**；廠商有 `collaboration.export` 但沒有 `collaboration.pii.read`，且廠商匯出的表單二**沒有**收件三欄（D-38；內部無 `pii.read` 者才是「［無權限］」遮罩）。這 12 列依 `permissions.ts` 補入。
 - 核准關卡的決定者另有一張表（`GATE_APPROVER_ROLES`），**不用** `approval.*` 權限判斷：G1／G2／G5 ＝ 管理者、主管；G3 ＝ 管理者、主管、財務；G4 ＝ 管理者、財務。
 - 測試鎖定：`tests/unit/misc.test.ts`「權限矩陣（不可被默默放寬）」、`tests/aftersales.test.ts`「權限矩陣（定義）」、`tests/rbac.test.ts`。
 
@@ -1494,14 +1496,15 @@ NSV            = GMV − 退款
 收件個資 GET /collaboration/applications/:id/recipient      ← 唯一入口
   ├── 內部：需 collaboration.pii.read
   ├── 團主：只能讀自己的案件
-  └── 廠商：必須同時滿足 ① 未清除 ② 申請已核准 ③ 團主已確認可用 ④ 未過保留期
+  └── 廠商（D-37 履約例外）：必須同時滿足 ① 未清除 ② 申請處於 APPROVED（暫緩、結案不給）③ 團主已確認可用
+        ④ 未超過核准後 180 天硬性上限 ⑤ 履約仍需要地址（fulfilmentOpen：尚無首次寄送，或有待寄出的寄送／補寄）
         成功 → 寫 audit_logs action='collaboration.recipient.read'
         被拒 → 寫 collaboration_events 'RECIPIENT_READ_DENIED'
 ```
 
 欄位投影：對外角色走白名單 `EXTERNAL_APP_FIELDS`（含工作台需要的衍生欄位 `sample`、`sampleBucket`、`itemCount`、`shipmentCount`、`recipientConfirmed`、`intent`、兩個開團日期、`launchUrl`、`adsIntent`），廠商另加 `VENDOR_EXTRA_APP_FIELDS`（`backendSetupStatus`）；刻意不含 `internalNote`、`ownerName`、`dedupeKey`、`backendSetupEmail`、`vendorPortalUrl`。改地址＝軟刪除舊列、新建一列（保留歷史，不覆寫）。到期清除 `POST /collaboration/recipients/purge-expired`（僅管理者）把三個欄位覆寫成「［已清除］」並記 `purged_at`，**需人工或排程觸發**。自由備註欄（意願備註、投廣備註、廠商備註、收件備註）一律過 `assertNoPii()`。
 
-### 18C.6 API（41 條，完整清單見 `docs/generated/API_ENDPOINTS.md`）
+### 18C.6 API（第一輪 41 條；第二輪再加 13 條，見 18C.9；完整清單見 `docs/generated/API_ENDPOINTS.md`）
 
 | 群組 | 代表端點 | 權限 |
 |---|---|---|
@@ -1545,6 +1548,33 @@ NSV            = GMV − 退款
 
 團主、廠商、商品三個主檔詳情頁各加一個面板（`collaboration/Blocks.tsx`，共用同一張表格，所以同一份資料在不同頁長得一樣）。
 
+
+### 18C.9 承辦、交接、保留與清除（第二輪，migration 029；D-37～D-44）
+
+**資料表（5 張新表＋1 欄）**
+
+| 表 | 用途 | 關鍵約束 |
+|---|---|---|
+| `collaboration_assignments`（`CAS-`） | 目前承辦：`PRIMARY`、`CO_OWNER`；結束用 `ended_at` | 一案一位有效 `PRIMARY`（部分唯一索引）、同人同案一個有效身分；`forbid_delete` |
+| `collaboration_handovers` | append-only 交接紀錄（`ASSIGN／CLAIM／TRANSFER／RELEASE／ADD_CO_OWNER／REMOVE_CO_OWNER／BULK_REASSIGN`） | `TRANSFER／RELEASE／BULK_REASSIGN` 必須有原因（CHECK）；`forbid_modify` |
+| `collaboration_retention_holds`（`CRH-`） | 保留例外 | `basis` ≥10 字；`hold_until` > 建立日且 ≤ 建立日＋365（CHECK）；`forbid_delete` |
+| `collaboration_purge_runs` | 清除執行紀錄（狀態、各項計數、錯誤摘要） | `forbid_delete` |
+| `collaboration_purge_items` | 逐筆結果（含失敗與略過原因，不含個資） | `forbid_modify` |
+| `collaboration_import_rows.pii_scrubbed_at` | 匯入暫存列個資清除時間 | — |
+
+migration 把 028 已有的 `owner_user_id` 回填成 `PRIMARY`；沒有承辦人的不猜。`owner_user_id` 只是顯示用的反正規化欄位，**資料範圍以 `collaboration_assignments` 為準**。
+
+**資料範圍（`lib/scope.ts`）**：`collaborationScope`——管理者／主管＝全組織；小編＝`EXISTS 有效指派（PRIMARY 或 CO_OWNER）`；團主、廠商不變；財務 `FALSE`。`collaborationUnassignedSql`＝沒有進行中的 `PRIMARY`，或該 `PRIMARY` 的使用者已停用／刪除。
+
+**模組切分**：`collaboration-shared`（`loadApp／logEvent／shipmentFacts／isoDateOf`，避免循環相依）、`collaboration-assignment`（指派、交接、佇列）、`collaboration-retention`（清除、保留例外、監控）；主流程仍在 `collaboration`。
+
+**純規則（`lib/collaboration-rules.ts`）新增**：`fulfilmentOpen`、`vendorMaySeeRecipient`（五條件＋硬性上限）、`evaluatePurge`、`neutralizeCsvCell`、`looksLikeFormula`、`isSafeHttpUrl`、`scrubImportPii`、`toForm2Row(row, 'FULL'｜'MASKED'｜'OMIT')`。
+
+**新增端點（13 條）**：`GET /collaboration/unassigned`、`POST …/applications/:id/{assign,claim,release,co-owners}`、`POST …/co-owners/:userId/remove`、`GET …/handovers`、`POST /collaboration/assignments/reassign`、`GET|POST …/applications/:id/retention-holds`、`POST /collaboration/retention-holds/:id/release`、`GET /collaboration/retention/{status,runs}`；`POST …/recipients/purge-expired` 接受 `{ dryRun }`。
+
+**限流**（`routes.ts` 的 `limit()`，單程序記憶體）：個資讀取 60／分、匯出 10／分、匯入 10／分、清除 5／分，超過 429。
+
+**清除流程**：`runRecipientPurge` → 寫 run → 逐筆 `evaluatePurge`（每筆獨立交易，失敗記 `FAILED` 不回滾他筆）→ 清匯入暫存 → 更新 run 狀態與稽核。**無排程**；`scripts/collaboration-purge.ts` 預設試跑、`APP_ENV=production` 預設拒絕。
 
 ## 19. 橫切設計
 
@@ -1684,7 +1714,8 @@ NSV            = GMV − 退款
 
 ## 22. 文件自檢
 
-- **合作申請與樣品管理更新**：資料表 76（028 新增 7 張）、端點 253（`routes.ts` 的 `R(`／`P(` 行數；合作申請區塊 41 條，與 `npm run docs:gen` 印出的 253 一致）、權限 63（各角色持有數：管理者 63、主管 55、小編 41、團主 13、廠商 12、財務 23，由腳本 `import ROLE_PERMISSIONS` 實際印出，非手抄）、有 `forbid_delete` 的表 60、append-only 的表 5（新增 `collaboration_events`）、`touch_row` 的表 44、冪等範圍 21、測試 1039（**以 `vitest run` 實跑為準，不是 `grep` 估算**：60 檔，本模組 3 檔 102 項）、E2E 煙霧 170、全流程 UI 71、migration 升級演練 20/20。§18C 的狀態機、推導函式、約束與 API 逐項對照 `lib/collaboration-rules.ts`、`modules/{collaboration,collaboration-import}.ts`、`routes.ts` 與 `migrations/028`（觸發器以 `CREATE TRIGGER` 逐行核對）。**未做的核對**：§18C 的狀態圖與 §19.1／§21 的增補**尚未**以 mermaid 重新 render（只目視核對語法）；沒有在正式環境執行任何驗證（未部署）。
+- **合作申請第二輪（D-37～D-44）更新後的數字**：資料表 81（029 新增 5 張）、端點 266（+13）、權限 65（+2）、migration 29 支、測試 62 檔／1153 項（+114）、E2E 煙霧 181、全流程 71、db:rehearsal 31/31。
+- **合作申請與樣品管理更新（第一輪）**：資料表 76（028 新增 7 張）、端點 253（`routes.ts` 的 `R(`／`P(` 行數；合作申請區塊 41 條，與 `npm run docs:gen` 印出的 253 一致）、權限 63（各角色持有數：管理者 63、主管 55、小編 41、團主 13、廠商 12、財務 23，由腳本 `import ROLE_PERMISSIONS` 實際印出，非手抄）、有 `forbid_delete` 的表 60、append-only 的表 5（新增 `collaboration_events`）、`touch_row` 的表 44、冪等範圍 21、測試 1039（**以 `vitest run` 實跑為準，不是 `grep` 估算**：60 檔，本模組 3 檔 102 項）、E2E 煙霧 170、全流程 UI 71、migration 升級演練 20/20。§18C 的狀態機、推導函式、約束與 API 逐項對照 `lib/collaboration-rules.ts`、`modules/{collaboration,collaboration-import}.ts`、`routes.ts` 與 `migrations/028`（觸發器以 `CREATE TRIGGER` 逐行核對）。**未做的核對**：§18C 的狀態圖與 §19.1／§21 的增補**尚未**以 mermaid 重新 render（只目視核對語法）；沒有在正式環境執行任何驗證（未部署）。
 - **SOP 02／03 更新**：資料表 65（014 新增 7 張）、端點 185（`routes.ts` 的 `R(`／`P(` 行數；SOP 02／03 區塊 33 條）、權限 52（各角色持有數：管理者 52、主管 45、小編 32、團主 10、廠商 7、財務 23，依 `permissions.ts` 規則推算）、有 `forbid_delete` 的表 54、`touch_row` 的表 38、冪等範圍 18、測試 592（以 `it(` 計數：既有 405＋新增 187，30 檔）。§18B 的演算法、目錄與 API 逐項對照 `lib/{selection-score,dd-catalog,trial-catalog,feasibility-calc,decision-risk}.ts`、`modules/{selection,evidence,diligence,trials,feasibility,decision-summary}.ts`、`routes.ts` 與 `migrations/014`；§18B.4 的狀態圖與 SAD §4.5 的流程圖及 §4.2／§7.2 圖的增補**尚未**以 mermaid 重新 render（只目視核對語法）。E2E 項數以 `docs/uat/e2e-results.json` 為準，本文件未重新引用。
 - **SOP 01 更新**：資料表 58、端點 152（`routes.ts` 的 `R(`／`P(` 行數）、權限 49（各角色持有數：管理者 49、主管 42、小編 30、團主 10、廠商 7、財務 22，依 `permissions.ts` 規則推算）、有 `forbid_delete` 的表 47、`touch_row` 的表 31、冪等範圍 16、全套測試 405（20 檔）、E2E 86。§18A 的演算法與 API 逐項對照 `lib/fit-score.ts`、`modules/fit.ts`、`modules/segments.ts`、`routes.ts` 與 `migrations/013`；§18A.4 的序列圖與其餘增補**尚未**以 mermaid 重新 render（只目視核對語法）。其餘計數沿用原基準：
 - **計數類**（以指令重新計算，非引用舊文件）：資料表 53（`CREATE TABLE`）、端點 130（`routes.ts` 的 `R(`／`P(` 與 `API_ENDPOINTS.md` 一致）、權限 43 與各角色持有數（匯入 `permissions.ts` 計算）、測試 245（14 個檔案逐檔 `it(` 計數；`vitest run` 同為 245）、有 `forbid_delete` 的表 42、append-only 的表 4、無刪除保護的表 7、`touch_row` 的表 26、冪等範圍 14、自動化工作 8、事件類型 6、模板步驟 15／階段 8／檔期狀態 14／關卡 5。
