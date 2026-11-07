@@ -14,6 +14,8 @@ import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { Client } from 'pg';
 import { loadEnv } from './load-env';
+import { collaborationScope, collaborationUnassignedSql } from '../src/server/lib/scope';
+import type { Actor } from '../src/server/lib/permissions';
 
 loadEnv();
 const base = process.env.DATABASE_URL as string;
@@ -33,6 +35,75 @@ async function applyFiles(c: Client, names: string[]) {
     await c.query('BEGIN');
     try { await c.query(sql); await c.query('INSERT INTO schema_migrations (name, checksum) VALUES ($1,$2)', [f, crypto.createHash('sha256').update(sql).digest('hex')]); await c.query('COMMIT'); }
     catch (e) { await c.query('ROLLBACK'); throw new Error(`套用 ${f} 失敗：${(e as Error).message}`); }
+  }
+}
+
+/**
+ * 029（合作申請承辦／交接、保留例外、清除紀錄）專用升級演練：
+ * 在另一個全新暫存資料庫套用 001～028，灌入「028 時代」的合作申請資料（含收件個資與匯入暫存列），
+ * 再套用 029，驗證：舊資料每一欄不變、既有承辦人被回填成正式指派、沒有承辦人的案件落入待指派佇列、
+ * 營運小編的資料範圍只剩自己承辦的案件、新資料表的約束與保護機制有效。
+ */
+async function rehearse029(admin: Client) {
+  const DB = 'erp_rehearsal_029';
+  await admin.query(`DROP DATABASE IF EXISTS ${DB}`); await admin.query(`CREATE DATABASE ${DB}`);
+  const url = (() => { const x = new URL(base); x.pathname = `/${DB}`; return x.toString(); })();
+  const c = new Client({ connectionString: url }); await c.connect();
+  try {
+    await c.query(`CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now())`);
+    await applyFiles(c, files.filter((f) => f <= '028_zzz'));
+    record('029 演練：028 版資料庫建立成功', (await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n === 28);
+    await c.query(`INSERT INTO organizations (id, name) VALUES ('ORG-P1','[DEMO] 029 演練組織')`);
+    await c.query(`INSERT INTO users (id, organization_id, email, name, role_key, password_hash) VALUES
+      ('USR-P1','ORG-P1','p1@example.invalid','[DEMO] 小編甲','OPS_EDITOR','x'),('USR-P2','ORG-P1','p2@example.invalid','[DEMO] 小編乙','OPS_EDITOR','x'),('USR-P3','ORG-P1','p3@example.invalid','[DEMO] 主管','OPS_MANAGER','x')`);
+    await c.query(`INSERT INTO hosts (id, organization_id, display_name, normalized_name) VALUES ('OWN-P1','ORG-P1','[DEMO] 團主','團主')`);
+    await c.query(`INSERT INTO vendors (id, organization_id, name, normalized_name) VALUES ('VEN-P1','ORG-P1','[DEMO] 廠商','廠商')`);
+    await c.query(`INSERT INTO products (id, organization_id, vendor_id, name, normalized_name) VALUES ('PRD-P1','ORG-P1','VEN-P1','[DEMO] 商品','商品')`);
+    await c.query(`INSERT INTO collaboration_applications (id, organization_id, vendor_id, host_id, product_id, applied_on, owner_user_id, status, collaboration_status, decided_at) VALUES
+      ('CLB-P1','ORG-P1','VEN-P1','OWN-P1','PRD-P1', current_date - 5, 'USR-P1','APPROVED','SAMPLE_IN_PROGRESS', now() - interval '5 day'),
+      ('CLB-P2','ORG-P1','VEN-P1','OWN-P1','PRD-P1', current_date - 4, NULL,'SUBMITTED','NOT_STARTED', NULL),
+      ('CLB-P3','ORG-P1','VEN-P1','OWN-P1','PRD-P1', current_date - 3, 'USR-P2','DRAFT','NOT_STARTED', NULL)`);
+    await c.query(`UPDATE collaboration_applications SET deleted_at = now() WHERE id='CLB-P3'`);
+    await c.query(`INSERT INTO collaboration_recipients (id, organization_id, application_id, recipient_name, recipient_phone, address_line, confirmed_at, retention_until) VALUES
+      ('CRP-P1','ORG-P1','CLB-P1','[DEMO] 收件人','0900000000','[DEMO] 地址', now(), current_date + 60)`);
+    await c.query(`INSERT INTO import_batches (id, organization_id, source_system, data_origin, file_name, checksum, created_by, total_rows) VALUES ('IMP-P1','ORG-P1','COLLABORATION_FORM2_SAMPLE','IMPORT','x.csv','chk','USR-P3',1)`);
+    await c.query(`INSERT INTO collaboration_import_rows (id, organization_id, batch_id, row_no, form_kind, raw, resolved_vendor_id, dedupe_key) VALUES ('CIR-P1','ORG-P1','IMP-P1',2,'FORM2_SAMPLE', '{"recipientName":"[DEMO] 暫存姓名","hostName":"團主"}'::jsonb,'VEN-P1','k1')`);
+    const snap = async () => (await c.query(`SELECT md5(string_agg(t, '|' ORDER BY t)) AS h FROM (
+      SELECT row_to_json(a)::jsonb::text AS t FROM collaboration_applications a UNION ALL SELECT row_to_json(r)::jsonb::text FROM collaboration_recipients r
+      UNION ALL SELECT row_to_json(i)::jsonb::text FROM collaboration_import_rows i) x`)).rows[0].h;
+    const before = await snap();
+    await applyFiles(c, files.filter((f) => f.startsWith('029_')));
+    record('029 演練：套用 029 成功（只新增，不改 028）', (await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n === 29);
+    // 029 只對 collaboration_import_rows 新增一個欄位；既有資料每一欄不變（新欄位 pii_scrubbed_at 預設 NULL）
+    const after = await snap();
+    const stripped = (await c.query(`SELECT md5(string_agg(t, '|' ORDER BY t)) AS h FROM (
+      SELECT row_to_json(a)::jsonb::text AS t FROM collaboration_applications a UNION ALL SELECT row_to_json(r)::jsonb::text FROM collaboration_recipients r
+      UNION ALL SELECT (row_to_json(i)::jsonb - 'pii_scrubbed_at')::text FROM collaboration_import_rows i) x`)).rows[0].h;
+    record('029 演練：舊資料每一欄升級前後完全相同（申請單、收件資料、匯入暫存列）', stripped === before && after !== before, 'pii_scrubbed_at 為唯一新增欄位且預設 NULL');
+    record('029 演練：舊收件資料與匯入暫存列內容未被改動，也沒有被自動清除', (await c.query(`SELECT 1 FROM collaboration_recipients WHERE id='CRP-P1' AND recipient_name='[DEMO] 收件人' AND purged_at IS NULL`)).rowCount === 1
+      && (await c.query(`SELECT 1 FROM collaboration_import_rows WHERE id='CIR-P1' AND raw->>'recipientName'='[DEMO] 暫存姓名' AND pii_scrubbed_at IS NULL`)).rowCount === 1);
+    const asg = (await c.query(`SELECT application_id, user_id, role FROM collaboration_assignments WHERE ended_at IS NULL ORDER BY application_id`)).rows;
+    record('029 演練：既有承辦人被回填成正式的主要承辦指派；沒有承辦人的案件沒有被猜測指派；已刪除案件不回填', JSON.stringify(asg) === JSON.stringify([{ application_id: 'CLB-P1', user_id: 'USR-P1', role: 'PRIMARY' }]));
+    const queue = (await c.query(`SELECT a.id FROM collaboration_applications a WHERE a.deleted_at IS NULL AND ${collaborationUnassignedSql('a')} ORDER BY a.id`)).rows.map((r) => r.id);
+    record('029 演練：沒有承辦人的案件落入待指派佇列（不會消失）', JSON.stringify(queue) === JSON.stringify(['CLB-P2']));
+    const mk = (userId: string, role: Actor['role']): Actor => ({ type: 'USER', userId, orgId: 'ORG-P1', role, name: 'x', hostIds: [], vendorIds: [], requestId: 'r', source: 'TEST' });
+    const seen = async (a: Actor) => { const sc = collaborationScope(a, 1, 'a'); return (await c.query(`SELECT a.id FROM collaboration_applications a WHERE (${sc.sql}) ORDER BY a.id`, sc.params)).rows.map((r) => r.id); };
+    record('029 演練：小編甲只看得到自己承辦的 CLB-P1；小編乙看不到任何一筆；主管看得到全部未刪除案件', JSON.stringify(await seen(mk('USR-P1', 'OPS_EDITOR'))) === '["CLB-P1"]' && (await seen(mk('USR-P2', 'OPS_EDITOR'))).length === 0 && JSON.stringify(await seen(mk('USR-P3', 'OPS_MANAGER'))) === '["CLB-P1","CLB-P2"]');
+    const bad2 = async (sql: string) => { try { await c.query('BEGIN'); await c.query(sql); await c.query('ROLLBACK'); return false; } catch { await c.query('ROLLBACK'); return true; } };
+    record('029 演練：約束與保護有效（同案件只能一位主要承辦、保留例外最長 365 天、交接與清除明細不可修改、不可實體刪除）',
+      await bad2(`INSERT INTO collaboration_assignments (id, organization_id, application_id, user_id, role) VALUES ('CAS-X','ORG-P1','CLB-P1','USR-P2','PRIMARY')`)
+      && await bad2(`INSERT INTO collaboration_retention_holds (id, organization_id, application_id, reason_code, basis, placed_on, hold_until, placed_by) VALUES ('CRH-X','ORG-P1','CLB-P1','DISPUTE','依據文字十個字以上', current_date, current_date + 400, 'x')`)
+      && await bad2(`INSERT INTO collaboration_handovers (organization_id, application_id, handover_type, reason) VALUES ('ORG-P1','CLB-P1','TRANSFER', '')`)
+      && await bad2(`DELETE FROM collaboration_assignments`)
+      && await bad2(`INSERT INTO collaboration_retention_holds (id, organization_id, application_id, reason_code, basis, placed_on, hold_until, placed_by) VALUES ('CRH-Y','ORG-P1','CLB-P1','DISPUTE','依據文字十個字以上', current_date, current_date + 30, 'x'); DELETE FROM collaboration_retention_holds`));
+    await c.query(`INSERT INTO collaboration_handovers (organization_id, application_id, handover_type, to_user_id, reason) VALUES ('ORG-P1','CLB-P1','ASSIGN','USR-P1', NULL)`);
+    record('029 演練：交接紀錄 append-only', await bad2(`UPDATE collaboration_handovers SET reason='x'`) && await bad2(`DELETE FROM collaboration_handovers`));
+    const cnt = async (t: string) => (await c.query(`SELECT count(*)::int AS n FROM ${t}`)).rows[0].n;
+    record('029 演練：新增的保留例外與清除紀錄資料表為空（升級不會自動建立保留例外，也不會自動清除任何資料）', (await cnt('collaboration_retention_holds')) === 0 && (await cnt('collaboration_purge_runs')) === 0 && (await cnt('collaboration_purge_items')) === 0);
+    record('029 演練：重複執行不再套用', (await c.query(`SELECT count(*)::int AS n FROM schema_migrations`)).rows[0].n === 29);
+  } finally {
+    try { await c.end(); } catch { /* 已結束 */ }
+    await admin.query(`DROP DATABASE IF EXISTS ${DB}`).catch(() => undefined);
   }
 }
 
@@ -146,6 +217,7 @@ async function main() {
     record('升級後成本分攤分析可運作（唯讀）', allocOk);
     record('升級後結算佣金計算仍依既有財務規則（舊規則 8% 未被改動）', (await pool().query(`SELECT rate_percent FROM commission_rules WHERE id='CRL-R1'`)).rows[0].rate_percent === '8.000' || Number((await pool().query(`SELECT rate_percent FROM commission_rules WHERE id='CRL-R1'`)).rows[0].rate_percent) === 8);
     await closePool();
+    await rehearse029(admin);
   } finally {
     try { await c.end(); } catch { /* 已結束 */ }
     await admin.query(`DROP DATABASE IF EXISTS ${REH}`).catch(() => undefined);

@@ -36,6 +36,11 @@ import * as evidence from '../modules/evidence';
 import * as diligence from '../modules/diligence';
 import * as trials from '../modules/trials';
 import * as feasibility from '../modules/feasibility';
+import * as collaboration from '../modules/collaboration';
+import * as collabImport from '../modules/collaboration-import';
+import * as collabAssign from '../modules/collaboration-assignment';
+import * as collabRetention from '../modules/collaboration-retention';
+import { APPLICATION_STATUSES as COLLAB_APP_STATUSES } from '../lib/collaboration-rules';
 import { g1Summary } from '../modules/decision-summary';
 import { listAudit, listCampaignAudit } from '../modules/audit-read';
 import { loadActiveTemplate } from '../workflow/templates';
@@ -46,6 +51,13 @@ const body = <T extends z.ZodTypeAny>(c: { body: unknown }, schema: T): z.infer<
 const R = (method: string, path: string, handler: Handler): RouteDef => ({ method, path, handler });
 const P = (method: string, path: string, handler: PublicHandler): RouteDef => ({ method, path, handler, public: true });
 const created = (data: unknown) => ({ status: 201, data });
+/**
+ * 敏感端點的使用者層級限流（D-44）：以登入者 id 為 key，單機記憶體滑動視窗（多實例部署需改共用儲存，見 docs/DEPLOYMENT.md）。
+ * 超過上限回 429，不寫入任何資料。
+ */
+function limit(actor: { userId: string | null; orgId: string }, name: string, max: number, windowMs = 60_000): void {
+  if (!rateLimit(`collab:${name}:${actor.orgId}:${actor.userId ?? 'system'}`, max, windowMs)) throw new AppError('RATE_LIMITED', '操作過於頻繁，請稍後再試');
+}
 
 const cookieHeader = (token: string, maxAgeSec: number) =>
   `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${appEnv() === 'production' ? '; Secure' : ''}`;
@@ -334,6 +346,81 @@ export const routes: RouteDef[] = [
   R('GET', '/aftersales/refunds', async (c) => aftersales.listRefunds(c.actor, c.query)),
   R('POST', '/aftersales/refunds/:id/decision', async (c) => aftersales.decideRefund(c.actor, c.params.id, c.body as never)),
   R('POST', '/aftersales/refunds/:id/complete', async (c) => aftersales.completeRefund(c.actor, c.params.id, c.body as never)),
+
+  // ---------- 合作申請與樣品管理（COLLABORATION_APPLICATIONS） ----------
+  // 同一筆案件、不同授權視角：營運總覽、廠商工作台、團主「我的樣品申請」都走這組 API，不另開資料副本
+  R('GET', '/collaboration/overview', async (c) => collaboration.overview(c.actor)),
+  // 匯出要排在 /applications/:id 之前，否則 export 會被當成 id
+  R('GET', '/collaboration/applications/export', async (c) => {
+    limit(c.actor, 'export', 10);
+    const r = await collaboration.exportApplications(c.actor, c.query);
+    return { raw: r.csv, contentType: 'text/csv; charset=utf-8', filename: r.filename };
+  }),
+  R('GET', '/collaboration/applications', async (c) => collaboration.listApplications(c.actor, c.query)),
+  R('POST', '/collaboration/applications', async (c) => created(await collaboration.createApplication(c.actor, c.body as never, c.idemKey))),
+  R('GET', '/collaboration/applications/:id', async (c) => collaboration.getApplication(c.actor, c.params.id)),
+  R('PATCH', '/collaboration/applications/:id', async (c) => collaboration.updateApplication(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/applications/:id/submit', async (c) => collaboration.submitApplication(c.actor, c.params.id)),
+  R('POST', '/collaboration/applications/:id/internal-review', async (c) => collaboration.internalReview(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/applications/:id/vendor-review', async (c) => collaboration.vendorReview(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/applications/:id/hold', async (c) => collaboration.holdApplication(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
+  R('POST', '/collaboration/applications/:id/resume', async (c) => collaboration.resumeApplication(c.actor, c.params.id, body(c, z.object({ to: z.enum(COLLAB_APP_STATUSES) })).to)),
+  R('POST', '/collaboration/applications/:id/cancel', async (c) => collaboration.cancelApplication(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
+  R('POST', '/collaboration/applications/:id/close', async (c) => collaboration.closeApplication(c.actor, c.params.id, body(c, z.object({ reason: z.string().nullable().optional() })).reason ?? null)),
+  // 申請樣品明細（可多商品、多規格）
+  R('POST', '/collaboration/applications/:id/items', async (c) => created(await collaboration.addItem(c.actor, c.params.id, c.body as never, c.idemKey))),
+  R('PATCH', '/collaboration/items/:id', async (c) => collaboration.updateItem(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/items/:id/remove', async (c) => collaboration.removeItem(c.actor, c.params.id, body(c, z.object({ reason: z.string().nullable().optional() })).reason ?? null)),
+  // 收件資訊（個資）：讀取走專用端點，每次成功讀取都寫稽核
+  R('PUT', '/collaboration/applications/:id/recipient', async (c) => collaboration.putRecipient(c.actor, c.params.id, c.body as never)),
+  R('PATCH', '/collaboration/applications/:id/recipient', async (c) => collaboration.putRecipient(c.actor, c.params.id, c.body as never)),
+  R('GET', '/collaboration/applications/:id/recipient', async (c) => { limit(c.actor, 'recipient-read', 60); return collaboration.getRecipient(c.actor, c.params.id); }),
+  R('POST', '/collaboration/recipients/purge-expired', async (c) => {
+    limit(c.actor, 'purge', 5);
+    const b = body(c, z.object({ dryRun: z.boolean().optional() }).strict().default({}));
+    return collaboration.purgeExpiredRecipients(c.actor, undefined, { dryRun: b.dryRun });
+  }),
+  // 個資保留與清除（D-40）：保留例外、清除執行紀錄、健康狀態
+  R('GET', '/collaboration/retention/status', async (c) => collabRetention.retentionStatus(c.actor)),
+  R('GET', '/collaboration/retention/runs', async (c) => collabRetention.listPurgeRuns(c.actor)),
+  R('GET', '/collaboration/applications/:id/retention-holds', async (c) => collabRetention.listRetentionHolds(c.actor, c.params.id)),
+  R('POST', '/collaboration/applications/:id/retention-holds', async (c) => created(await collabRetention.placeRetentionHold(c.actor, c.params.id, c.body as never))),
+  R('POST', '/collaboration/retention-holds/:id/release', async (c) => collabRetention.releaseRetentionHold(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
+  // 承辦與交接（D-39）：待指派佇列、指派／交接、認領、釋出、共同承辦、整批交接
+  R('GET', '/collaboration/unassigned', async (c) => collabAssign.listUnassigned(c.actor, c.query)),
+  R('GET', '/collaboration/applications/:id/handovers', async (c) => collabAssign.listHandovers(c.actor, c.params.id)),
+  R('POST', '/collaboration/applications/:id/assign', async (c) => collabAssign.assignApplication(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/applications/:id/claim', async (c) => collabAssign.claimApplication(c.actor, c.params.id)),
+  R('POST', '/collaboration/applications/:id/release', async (c) => collabAssign.releaseApplication(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/applications/:id/co-owners', async (c) => created(await collabAssign.addCoOwner(c.actor, c.params.id, c.body as never))),
+  R('POST', '/collaboration/applications/:id/co-owners/:userId/remove', async (c) => collabAssign.removeCoOwner(c.actor, c.params.id, c.params.userId, body(c, z.object({ reason: z.string().nullable().optional() })).reason ?? null)),
+  R('POST', '/collaboration/assignments/reassign', async (c) => collabAssign.bulkReassign(c.actor, c.body as never)),
+  // 樣品寄送（首次／補寄各自一列；「是否已補寄」由紀錄推導）
+  R('POST', '/collaboration/applications/:id/shipments', async (c) => created(await collaboration.addShipment(c.actor, c.params.id, c.body as never, c.idemKey))),
+  R('PATCH', '/collaboration/shipments/:id', async (c) => collaboration.updateShipment(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/shipments/:id/receipt', async (c) => collaboration.confirmReceipt(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/shipments/:id/cancel', async (c) => collaboration.cancelShipment(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
+  // 開團合作資訊：團主／營運與廠商各自可寫的欄位分開
+  R('PUT', '/collaboration/applications/:id/launch', async (c) => collaboration.putLaunch(c.actor, c.params.id, c.body as never)),
+  R('PATCH', '/collaboration/applications/:id/launch', async (c) => collaboration.putLaunch(c.actor, c.params.id, c.body as never)),
+  R('PUT', '/collaboration/applications/:id/vendor-launch', async (c) => collaboration.putVendorLaunch(c.actor, c.params.id, c.body as never)),
+  R('PATCH', '/collaboration/applications/:id/vendor-launch', async (c) => collaboration.putVendorLaunch(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/applications/:id/confirm-collaboration', async (c) => collaboration.confirmCollaboration(c.actor, c.params.id, c.body as never)),
+  R('POST', '/collaboration/applications/:id/decline-collaboration', async (c) => collaboration.declineCollaboration(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
+  // 關聯既有檔期／SOP 03 試用紀錄：只建立關聯，不建檔期、不碰 G1～G5
+  R('POST', '/collaboration/applications/:id/link-campaign', async (c) => collaboration.linkCampaign(c.actor, c.params.id, body(c, z.object({ campaignId: z.string() })).campaignId)),
+  R('POST', '/collaboration/applications/:id/unlink-campaign', async (c) => collaboration.unlinkCampaign(c.actor, c.params.id, body(c, z.object({ reason: z.string() })).reason)),
+  R('POST', '/collaboration/applications/:id/link-trial', async (c) => collaboration.linkTrial(c.actor, c.params.id, body(c, z.object({ trialId: z.string() })).trialId)),
+  // 匯入廠商現有的兩種表單：預覽 → 人工確認對應 → 正式建立（不自动猜主檔對應）
+  R('POST', '/collaboration/imports/preview', async (c) => { limit(c.actor, 'import', 10); return created(await collabImport.previewImport(c.actor, c.body as never)); }),
+  R('GET', '/collaboration/imports', async (c) => collabImport.listImportBatches(c.actor, c.query)),
+  R('POST', '/collaboration/imports/:id/commit', async (c) => collabImport.commitImport(c.actor, c.params.id)),
+  R('GET', '/collaboration/import-rows', async (c) => collabImport.listImportRows(c.actor, c.query)),
+  R('PATCH', '/collaboration/import-rows/:id', async (c) => collabImport.resolveImportRow(c.actor, c.params.id, c.body as never)),
+  // 主檔串接：團主／廠商／商品詳情頁的合作申請區塊
+  R('GET', '/hosts/:id/collaboration-applications', async (c) => collaboration.hostApplications(c.actor, c.params.id)),
+  R('GET', '/vendors/:id/collaboration-summary', async (c) => collaboration.vendorSummary(c.actor, c.params.id)),
+  R('GET', '/products/:id/collaboration-applications', async (c) => collaboration.productApplications(c.actor, c.params.id)),
 
   // ---------- 例外／自動化／進件／通知／稽核 ----------
   R('GET', '/exceptions', async (c) => automation.listExceptions(c.actor, c.query)),

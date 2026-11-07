@@ -90,4 +90,13 @@ export const ids = {
   reconItem: async (db: Queryable) => `RCI-${pad(await next(db, 'RCI', ''), 6)}`,
   reachRecord: async (db: Queryable) => `RCH-${pad(await next(db, 'RCH', ''), 6)}`,
   fitAssessment: async (db: Queryable) => `FIT-${pad(await next(db, 'FIT', ''), 6)}`,
+  // 合作申請與樣品管理（COLLABORATION_APPLICATIONS）
+  collaborationApplication: async (db: Queryable) => `CLB-${pad(await next(db, 'CLB', ''), 6)}`,
+  collaborationItem: async (db: Queryable) => `CLI-${pad(await next(db, 'CLI', ''), 6)}`,
+  collaborationRecipient: async (db: Queryable) => `CRP-${pad(await next(db, 'CRP', ''), 6)}`,
+  collaborationShipment: async (db: Queryable) => `CSP-${pad(await next(db, 'CSP', ''), 6)}`,
+  collaborationLaunch: async (db: Queryable) => `CLD-${pad(await next(db, 'CLD', ''), 6)}`,
+  collaborationImportRow: async (db: Queryable) => `CIR-${pad(await next(db, 'CIR', ''), 6)}`,
+  collaborationAssignment: async (db: Queryable) => `CAS-${pad(await next(db, 'CAS', ''), 6)}`,
+  collaborationHold: async (db: Queryable) => `CRH-${pad(await next(db, 'CRH', ''), 6)}`,
 };

@@ -127,7 +127,7 @@ describe('正式環境建置腳本 prod:bootstrap 的安全保證（在暫存資
   const urlFor = (name: string) => { const u = new URL(base); u.pathname = `/${name}`; return u.toString(); };
   const run = (env: Record<string, string>, args: string[] = []) => spawnSync('npx', ['tsx', 'scripts/prod-bootstrap.ts', ...args], { env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', NODE_ENV: 'production', DATABASE_URL: urlFor(DB), BOOTSTRAP_CONFIRM: 'yes', ...env } as NodeJS.ProcessEnv, encoding: 'utf8', timeout: 120_000 });
   const admin = async () => { const c = new PgClient({ connectionString: base }); await c.connect(); return c; };
-  const good = { APP_ENV: 'production', ORG_NAME: '[測試] 正式環境演練', ADMIN_EMAIL: 'owner@sdh-company.tw', ADMIN_INITIAL_PASSWORD: 'Init-Strong-Pass-5530' };
+  const good = { APP_ENV: 'production', ORG_NAME: '[測試] 正式環境演練', ADMIN_EMAIL: 'owner@company-ci.test', ADMIN_INITIAL_PASSWORD: 'Init-Strong-Pass-5530' };
 
   it('拒絕：非 production、示範旗標、範例信箱、弱密碼、缺少必要值；成功時建立空組織與一位須變更密碼的管理者；密碼不出現在輸出；重跑冪等且不重設既有帳號；唯讀檢查可用；有 DEMO 資料就拒絕', async () => {
     const a = await admin();
@@ -147,12 +147,12 @@ describe('正式環境建置腳本 prod:bootstrap 的安全保證（在暫存資
       expect(ok.status, text(ok)).toBe(0);
       expect(text(ok)).not.toContain(good.ADMIN_INITIAL_PASSWORD);
       const u = (await conn.query(`SELECT email, role_key, must_change_password, password_hash FROM users`)).rows;
-      expect(u).toHaveLength(1); expect(u[0]).toMatchObject({ email: 'owner@sdh-company.tw', role_key: 'SYSTEM_ADMIN', must_change_password: true });
+      expect(u).toHaveLength(1); expect(u[0]).toMatchObject({ email: 'owner@company-ci.test', role_key: 'SYSTEM_ADMIN', must_change_password: true });
       expect(u[0].password_hash).not.toContain(good.ADMIN_INITIAL_PASSWORD);
       expect((await conn.query(`SELECT count(*)::int AS n FROM orders`)).rows[0].n).toBe(0);
       expect((await conn.query(`SELECT count(*)::int AS n FROM vendors`)).rows[0].n).toBe(0);
       expect((await conn.query(`SELECT count(*)::int AS n FROM organizations`)).rows[0].n).toBe(1);
-      const again = run({ ...good, ADMIN_EMAIL: 'someone-else@sdh-company.tw' });
+      const again = run({ ...good, ADMIN_EMAIL: 'someone-else@company-ci.test' });
       expect(again.status).toBe(0); expect(text(again)).toContain('已有系統管理者');
       expect((await conn.query(`SELECT count(*)::int AS n FROM users`)).rows[0].n).toBe(1);        // 不新增、不重設
       const chk = run({ APP_ENV: 'production' }, ['--check']);

@@ -21,6 +21,8 @@ export interface PublicCtx extends Omit<Ctx, 'actor'> { actor: Actor | null }
 const MAX_BODY_BYTES = 4_000_000;
 
 export type Handled = { status?: number; data: unknown; headers?: Record<string, string> };
+/** 原始內容回應（目前只用於 CSV 匯出）：仍走同一個路由器，權限與遮罩都在處理函式內完成 */
+export type RawHandled = { raw: string; contentType: string; filename?: string; status?: number };
 export type Handler = (ctx: Ctx) => Promise<unknown | Handled>;
 export type PublicHandler = (ctx: PublicCtx) => Promise<unknown | Handled>;
 
@@ -42,6 +44,11 @@ function compile(defs: RouteDef[]) {
 export function isHandled(x: unknown): x is Handled {
   return !!x && typeof x === 'object' && 'data' in x && ('status' in x || 'headers' in x) && Object.keys(x).every((k) => ['status', 'data', 'headers'].includes(k));
 }
+
+export function isRawHandled(x: unknown): x is RawHandled {
+  return !!x && typeof x === 'object' && 'raw' in x && 'contentType' in x && Object.keys(x).every((k) => ['raw', 'contentType', 'filename', 'status'].includes(k));
+}
+
 
 function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers } });
@@ -129,6 +136,10 @@ export async function dispatch(req: Request, pathSegments: string[]): Promise<Re
     if (actor?.mustChangePassword && !PASSWORD_CHANGE_ALLOWED.has(`${method} ${path}`)) return json(403, { error: { code: 'PASSWORD_CHANGE_REQUIRED', message: '請先變更密碼才能繼續使用系統', requestId } });
     const ctx = { req, actor, params: hit.params, query: url.searchParams, body, idemKey: req.headers.get('idempotency-key'), requestId } as Ctx;
     const out = await (hit.def.handler as (c: Ctx) => Promise<unknown>)(ctx);
+    if (isRawHandled(out)) {
+      const safeName = (out.filename ?? 'export.csv').replace(/[^A-Za-z0-9._-]/g, '_');
+      return new Response(out.raw, { status: out.status ?? 200, headers: { 'content-type': out.contentType, 'cache-control': 'no-store', 'content-disposition': `attachment; filename="${safeName}"` } });
+    }
     if (isHandled(out)) return json(out.status ?? 200, { data: out.data }, out.headers);
     return json(200, { data: out });
   } catch (e) {

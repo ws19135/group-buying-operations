@@ -552,11 +552,127 @@ async function main() {
       await ctx.close();
     }
 
+    // ---- 合作申請與樣品管理（COLLABORATION_APPLICATIONS）----
+    {
+      const ctx = await browser.newContext(); const page = await ctx.newPage(); const w = new Watch(page);
+      await login(ctx, page, 'demo-manager@example.invalid');
+
+      const ov = await visit(page, w, '/collaboration', '合作申請總覽', { shot: '40-collaboration.png', expectText: /網紅合作申請/ });
+      record('總覽有分桶 KPI、並把「預計開團日」與「已確認開團日」分開顯示',
+        (await page.locator('div.kpi[data-testid^="kpi-collab-"]').count()) >= 4 && /預計/.test(ov) && /已確認/.test(ov));
+      record('總覽不顯示收件人電話或地址（個資不在列表上）', !/0200000001|示範路/.test(ov));
+
+      // 進到有補寄紀錄的那一筆
+      await page.goto(`${BASE}/collaboration?shipment=RESEND_PENDING`, { waitUntil: 'networkidle' });
+      await page.goto(`${BASE}/collaboration?q=${encodeURIComponent('米粒')}`, { waitUntil: 'networkidle' });
+      const rows = page.locator('[data-testid^="collab-row-"]');
+      record('依團主搜尋找得到申請單', (await rows.count()) > 0, `${await rows.count()} 列`);
+
+      const firstId = await page.locator('[data-testid^="collab-row-"]').first().getAttribute('data-testid');
+      const appId = (firstId ?? '').replace('collab-row-', '');
+      if (appId) {
+        const det = await visit(page, w, `/collaboration/${appId}`, '合作申請詳情', { shot: '41-collaboration-detail.png' });
+        record('詳情頁分區塊呈現（申請資料／樣品明細／收件資訊／寄送紀錄／開團合作／處理歷程）',
+          ['申請資料', '申請樣品明細', '收件資訊', '樣品寄送紀錄', '開團合作資訊', '處理歷程'].every((t) => det.includes(t)));
+        record('「是否已補寄」由寄送紀錄推導，畫面上看得到補寄那一列', /補寄/.test(det));
+        record('收件個資預設不顯示，要按一下才讀取', (await page.getByTestId('btn-reveal-recipient').count()) === 1 && !/0200000003/.test(det));
+
+        // 詳情 API 本身不回傳收件內容
+        const detApi = await (await ctx.request.get(`${BASE}/api/collaboration/applications/${appId}`)).text();
+        record('詳情 API 不含收件人電話或地址', !/0200000003|示範路/.test(detApi));
+
+        const piiAudit = async (): Promise<number> => {
+          const r = await (await ctx.request.get(`${BASE}/api/audit?action=collaboration.recipient.read&limit=500`)).json();
+          return Array.isArray(r?.data) ? r.data.length : 0;
+        };
+        const auditBefore = await piiAudit();
+        await page.getByTestId('btn-reveal-recipient').click();
+        await page.getByTestId('recipient-revealed').waitFor({ timeout: 10_000 });
+        record('按下後才顯示收件人、電話、地址，並提示已記入稽核',
+          /0200000003/.test(await page.getByTestId('recipient-phone').innerText()) && /本次讀取已記入稽核/.test(await page.getByTestId('recipient-revealed').innerText()));
+        const auditAfter = await piiAudit();
+        record('每一次讀取都真的寫進稽核（筆數增加）', auditAfter > auditBefore, `${auditBefore} → ${auditAfter}`);
+      }
+
+      // 匯出：有權限者拿得到個資
+      const csvMgr = await ctx.request.get(`${BASE}/api/collaboration/applications/export?form=form2`);
+      const csvMgrText = await csvMgr.text();
+      record('營運主管匯出表單二：含收件人與電話欄位，檔名為附件',
+        csvMgr.ok() && /收件人/.test(csvMgrText) && /0200000001/.test(csvMgrText) && /attachment; filename=/.test(csvMgr.headers()['content-disposition'] ?? ''),
+        `HTTP ${csvMgr.status()}`);
+
+      await visit(page, w, '/collaboration/import', '合作申請匯入', { shot: '42-collaboration-import.png', expectText: /待確認/ });
+
+      // D-39：待指派佇列與承辦區塊（團主自己從手機填的那筆沒有承辦人）
+      await page.goto(`${BASE}/collaboration`, { waitUntil: 'networkidle' });
+      const queueRows = await page.locator('[data-testid^="unassigned-row-"]').count();
+      record('營運主管看得到待指派佇列（沒有承辦人的案件不會消失）', (await page.getByTestId('unassigned-queue').count()) === 1 && queueRows >= 1, `${queueRows} 筆`);
+      const qid = ((await page.locator('[data-testid^="unassigned-row-"]').first().getAttribute('data-testid')) ?? '').replace('unassigned-row-', '');
+      await visit(page, w, `/collaboration/${qid}`, '待指派案件詳情', { expectText: /承辦與交接/ });
+      record('待指派案件的詳情頁有指派承辦人按鈕與承辦區塊', (await page.getByTestId('block-assignment').count()) === 1 && (await page.getByTestId('btn-assign').count()) === 1);
+      const retentionPage = await visit(page, w, '/collaboration/retention', '個資保留與清除', { expectText: /個資保留與清除/ });
+      record('保留與清除頁：明講沒有排程、顯示健康狀態指標', /沒有排程/.test(retentionPage) && (await page.locator('div.kpi[data-testid^="kpi-ret-"]').count()) === 4);
+      const dry = await ctx.request.post(`${BASE}/api/collaboration/recipients/purge-expired`, { data: { dryRun: true } });
+      const dryJson = await dry.json().catch(() => ({}));
+      record('清除試跑（dry run）可執行並寫入執行紀錄，不改任何資料', dry.ok() && dryJson?.data?.dryRun === true && dryJson?.data?.purged === 0, `HTTP ${dry.status()}`);
+      await ctx.close();
+    }
+
+    // ---- 合作申請：營運小編只看得到自己承辦的案件（D-39）----
+    {
+      const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } }); const page = await ctx.newPage(); const w = new Watch(page);
+      await login(ctx, page, 'demo-editor@example.invalid');
+      await visit(page, w, '/collaboration', '營運小編：合作申請總覽', { expectText: /網紅合作申請/ });
+      const own = await page.locator('[data-testid^="collab-row-"]').count();
+      const queue = await page.locator('[data-testid^="unassigned-row-"]').count();
+      record('營運小編看得到自己承辦的案件，也看得到待指派佇列', own >= 1 && queue >= 1, `承辦 ${own} 筆、待指派 ${queue} 筆`);
+      const qid = ((await page.locator('[data-testid^="unassigned-row-"]').first().getAttribute('data-testid')) ?? '').replace('unassigned-row-', '');
+      const peek = await ctx.request.get(`${BASE}/api/collaboration/applications/${qid}`);
+      const peekRecipient = await ctx.request.get(`${BASE}/api/collaboration/applications/${qid}/recipient`);
+      record('小編在認領前讀不到待指派案件的內容與收件資料（404）', peek.status() === 404 && peekRecipient.status() === 404, `${peek.status()}／${peekRecipient.status()}`);
+      record('待指派佇列對小編只有「認領」，沒有指派', (await page.getByTestId(`btn-claim-${qid}`).count()) === 1);
+      const noAssign = await ctx.request.post(`${BASE}/api/collaboration/applications/${qid}/assign`, { data: { userId: 'USR-0001' } });
+      record('小編呼叫指派 API 被拒（403）', noAssign.status() === 403, `HTTP ${noAssign.status()}`);
+      await ctx.close();
+    }
+
+    // ---- 合作申請：廠商工作台 ----
+    {
+      const ctx = await browser.newContext(); const page = await ctx.newPage(); const w = new Watch(page);
+      await login(ctx, page, 'demo-vendor@example.invalid');
+      const vb = await visit(page, w, '/collaboration/vendor', '廠商工作台：網紅申請與樣品寄送', { shot: '43-collaboration-vendor.png' });
+      const vBuckets = await page.locator('div.kpi[data-testid^="kpi-vendor-bucket-"]').count();
+      record('廠商工作台有七個分桶', vBuckets === 7, `${vBuckets} 個`);
+      record('廠商工作台明講確認供樣不等於 G1～G5 核准、也不會自動建檔期', /G1～G5/.test(vb) && /不會自動建立檔期/.test(vb));
+      record('廠商看不到別家廠商的申請（清單只有自己的廠商）', !/暖食堂/.test(vb));
+
+      const csvVendor = await ctx.request.get(`${BASE}/api/collaboration/applications/export?form=form2`);
+      const csvVendorText = await csvVendor.text();
+      const vendorHeader = csvVendorText.replace('\uFEFF', '').split(/\r?\n/)[0];
+      record('廠商匯出（D-38）：表單二根本沒有收件人／電話／地址欄位，內容也沒有個資',
+        csvVendor.ok() && !/收件人|聯繫電話|地址/.test(vendorHeader) && !/0200000001|示範路|［無權限］/.test(csvVendorText) && /申請單/.test(vendorHeader),
+        `HTTP ${csvVendor.status()}`);
+
+      const noPii = await ctx.request.get(`${BASE}/api/audit?limit=1`);
+      record('廠商不能讀稽核紀錄', noPii.status() === 403, `HTTP ${noPii.status()}`);
+      await ctx.close();
+    }
+
+    // ---- 合作申請：團主的「我的樣品申請」----
+    {
+      const ctx = await browser.newContext(); const page = await ctx.newPage(); const w = new Watch(page);
+      await login(ctx, page, 'demo-host1@example.invalid');
+      const mine = await visit(page, w, '/collaboration/mine', '團主：我的樣品申請', { shot: '44-collaboration-mine.png' });
+      record('團主看得到自己的申請卡片與開團意願欄位', (await page.locator('[data-testid^="mine-card-"]').count()) > 0 && /開團意願/.test(mine));
+      record('團主看不到別的團主的申請', !/米粒|阿凱/.test(mine));
+      await ctx.close();
+    }
+
     // ---- 手機寬度 ----
     {
       const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true }); const page = await ctx.newPage(); const w = new Watch(page);
       await login(ctx, page, 'demo-manager@example.invalid');
-      for (const [url, shot] of [['/dashboard', '14-mobile-dashboard.png'], ['/campaigns', '15-mobile-campaigns.png'], ['/tasks', ''], ['/fit', '25-mobile-fit.png'], ['/segments', ''], ['/selection', '33-mobile-selection.png']] as const) {
+      for (const [url, shot] of [['/dashboard', '14-mobile-dashboard.png'], ['/campaigns', '15-mobile-campaigns.png'], ['/tasks', ''], ['/fit', '25-mobile-fit.png'], ['/segments', ''], ['/selection', '33-mobile-selection.png'], ['/collaboration', '45-mobile-collaboration.png']] as const) {
         await visit(page, w, url, `手機版 ${url}`, { shot: shot || undefined });
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         record(`手機版 ${url} 無水平溢出`, overflow <= 1, `溢出 ${overflow}px`);

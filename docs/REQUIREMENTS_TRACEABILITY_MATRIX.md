@@ -174,3 +174,28 @@
 | 權限：六角色不變；PM 可填報；成本與分潤沿用既有權限，不給營運小編或外部團主；後端強制資料範圍 | 3 個新權限（共 52）；`product.cost.read` 欄位投影；`campaignScope`；404／403 | 各測試檔的權限隔離案例、`security-fuzz`（自動涵蓋新路由）、`unit/misc` | IMPLEMENTED_NEW |
 | 附件使用合法安全的儲存方式；GitHub 不放真實客戶、廠商機密、金鑰或未授權素材 | 證據只存連結（http／https，拒絕內嵌帳密、可設網域白名單）；DEMO 連結為 `docs.example.invalid` | `selection`（scheme、帳密、PII、白名單、素材引用） | IMPLEMENTED_NEW（存放位置與網域**待 Owner 指定**，D-32） |
 | 版本、操作人、稽核 | `audit()`；稽核不記敏感數值 | `diligence`、`feasibility`（稽核不含成本與分潤數值） | IMPLEMENTED_NEW |
+
+## L. 合作申請與樣品管理（Owner 任務指示 T-COLLAB）
+
+| 需求 | 實作 | 測試 | 狀態 |
+|---|---|---|---|
+| 不重複建立團主／廠商／商品主檔 | 重用 `hosts`／`vendors`／`products`／`skus`；`collaboration_applications` 只存外鍵；匯入對應不到唯一主檔即阻斷，不自動建團主 | `collaboration`（6）、`unit/collaboration-rules`（32） | IMPLEMENTED_NEW |
+| 不改 G1～G5 核准語意 | `approvals` 表完全不寫入；未修改 `modules/gates.ts`；`linkCampaign` 回傳與稽核明寫 `gateImpact: 'NONE'` | `collaboration-rbac`（44，G1～G5 不受影響群組） | IMPLEMENTED_NEW |
+| 樣品申請不強迫變成檔期 | 模組可在沒有 `campaign_id` 的狀態下完整運作；`collab_app_campaign_requires_confirm` 約束擋住未確認合作就塞檔期 | `collaboration`（26）、`unit/collaboration-rules`（32） | IMPLEMENTED_NEW |
+| 不扣庫存、不產生財務或結算紀錄 | 模組不寫入庫存與財務相關表 | `collaboration`（26，固定 `inventory_movements`／`settlements`／`settlement_items`／`payments` 筆數前後不變） | IMPLEMENTED_NEW |
+| 優先重用既有物流／試用／任務能力 | 物流：`fulfillment_batches`＋`shipments` 的 `campaign_id` 為 NOT NULL，無法在沒有檔期時寄樣，故自建 `collaboration_shipments` 並以 `fulfillment_shipment_id` 選填關聯回去；試用：只以 `trial_id` 選填引用；任務：`tasks.campaign_id` NOT NULL 且只由流程模板產生，改以衍生分桶呈現，不另建平行任務引擎 | `collaboration`（26，固定 `tasks` 筆數不變）、`unit/collaboration-rules`（32） | IMPLEMENTED_NEW（物流與任務無法重用的理由見 `docs/phase2/INFLUENCER_SAMPLE_APPLICATION.md` §八；任務是否擴充＝Owner 待確認第 6 項） |
+| 不與 SOP 03 試用評估狀態機混為一談 | 只有 `trial_id` 選填引用；不改試用結論／覆核／有效期；一般樣品申請不等於已完成試用資格評估 | `collaboration`（26）、`collaboration-rbac`（44） | IMPLEMENTED_NEW（兩邊各有紀錄＝KNOWN_ISSUES W-38） |
+| 五個核心概念：合作申請單、申請樣品明細、收件資訊、樣品寄送紀錄、開團合作資訊 | migration 028 的 `collaboration_applications`（CLB-）、`collaboration_application_items`（CLI-）、`collaboration_recipients`（CRP-）、`collaboration_shipments`（CSP-）、`collaboration_launch_details`（CLD-）；另有 `collaboration_events`（append-only）與 `collaboration_import_rows`（CIR-） | `collaboration`（26）、`unit/collaboration-rules`（32） | IMPLEMENTED_NEW |
+| 「是否已補寄」必須由補寄紀錄推導 | 不存欄位；`summarizeShipments()` 從 `collaboration_shipments` 推導；只有真的填了寄出日期才算已補寄，取消的補寄不算 | `unit/collaboration-rules`（32）、`collaboration`（26） | IMPLEMENTED_NEW |
+| 收件資訊視為個資：限授權角色、不覆寫團主主檔、只在履約所需期間提供給廠商、有存取稽核與保留政策 | 獨立表 `collaboration_recipients`＋獨立端點 `GET /api/collaboration/applications/:id/recipient`（詳情 API 完全不回傳收件內容）；內部需 `collaboration.pii.read`；廠商需同時滿足未清除、已核准、團主已確認可用、未過保留期；`hosts` 全表無任何地址欄位，改地址＝軟刪除舊列新建一列；每次成功讀取寫 `collaboration.recipient.read`，被拒寫 `RECIPIENT_READ_DENIED`；保留期核准起算 90 天／送達後以最後寄送日起算 30 天取較早者，`refreshRetention()` 掛在 5 個呼叫點 | `collaboration-rbac`（44，含哨兵字串掃描）、`collaboration`（26） | IMPLEMENTED_NEW（保留期數字＝Owner 待確認第 4 項；到期清除需人工或排程觸發＝W-36） |
+| 四個維度各自獨立的狀態機 | 申請狀態、合作狀態、物流狀態（每列寄送紀錄各走一次）、開團意願分成四個欄位，不做單一狀態欄位；樣品進度為推導值 | `unit/collaboration-rules`（32）、`collaboration`（26） | IMPLEMENTED_NEW |
+| 沿用既有六種角色、不新增第七種；權限一律後端強制 | 11 項新權限（全系統 63）掛在既有 `ROLE_PERMISSIONS`；欄位層級白名單 `HOST_LAUNCH_FIELDS`／`VENDOR_LAUNCH_FIELDS`／`EXTERNAL_APP_FIELDS`，範圍外欄位 403；團主只看 `host_id`、廠商只看 `vendor_id`、跨組織 404；財務 11 項全無，呼叫列表得 403 | `collaboration-rbac`（44）、`unit/collaboration-rules`（32） | IMPLEMENTED_NEW（第 11 項 `collaboration.pii.read` 超出指令列的 10 項＝Owner 待確認第 1 項；小編資料範圍為全組織＝第 3 項） |
+| 營運總覽：篩選、排序、分頁與匯出 | `/collaboration`＋分桶 KPI；篩選含月份、廠商、團主、商品、申請狀態、合作狀態、寄送進度、開團意願、是否投廣、後台設定狀態、承辦人、預計開團日區間與已確認開團日區間（分開兩組）；收件個資不在列表上 | `collaboration`（26）、`collaboration-rbac`（44） | IMPLEMENTED_NEW |
+| 詳情頁分區塊 | `/collaboration/[id]` 六個區塊：申請資料／申請樣品明細／收件資訊／樣品寄送紀錄／開團合作資訊／處理歷程 | `collaboration`（26） | IMPLEMENTED_NEW |
+| 手機可用的團主表單 | `/collaboration/mine` 卡片式版面，實測 390px 寬無水平溢出；可申請樣品、確認／更新收件資訊、確認收件、回覆意願與預計開團日；看不到廠商後台連結、後台設定、內部備註 | `collaboration-rbac`（44）；E2E 煙霧 `45-mobile-collaboration.png` | IMPLEMENTED_NEW |
+| 廠商七個分桶 | `/collaboration/vendor`：待審核樣品、待寄出、已寄出、待補寄、團主待回覆、確認開團、已建立檔期；廠商不能代團主簽收、寫收件資料、寫意願、改申請主檔、讀稽核、看別家廠商 | `collaboration-rbac`（44）、`collaboration`（26） | IMPLEMENTED_NEW（入口未對外開放＝W-35） |
+| 匯入支援廠商現有兩張表單並處理 8 種髒資料狀況 | `/collaboration/import` 三步（上傳預覽→逐列確認→建立申請）；依標題列自動對應；阻斷性問題標 `NEEDS_REVIEW` 並寫 `import_errors`；8 種狀況對應 `HOST_AMBIGUOUS`／`HOST_NOT_FOUND`／`SKU_UNRESOLVED`／`SHIP_DATE_UNREADABLE`／`INTENT_UNREADABLE`／`CAMPAIGN_NOT_LINKED`／`RECIPIENT_INCOMPLETE`／`RESENT_UNREADABLE`；待確認不自動猜 | `collaboration`（26）、`unit/collaboration-rules`（32） | IMPLEMENTED_NEW（待人工確認＝W-37） |
+| 匯入要有預覽、驗證、冪等鍵、錯誤報告、稽核 | `import_batches.checksum`（同檔案第二次回 409）＋`collaboration_import_rows.dedupe_key` 唯一索引＋建立前再查 `collaboration_applications.dedupe_key`；冪等鍵只取來源列欄位，事後人工修正對應不改鍵值；沿用既有 `IMP-YYYYMMDD-0001` 批次編號與 `audit_logs` | `collaboration`（26，冪等鍵與唯一索引）、`unit/collaboration-rules`（32） | IMPLEMENTED_NEW |
+| 匯出依角色遮罩個資 | `?form=form1`／`?form=form2` 兩種格式，欄位順序與來源表單一致，含 UTF-8 BOM；沒有 `collaboration.pii.read` 者的收件人／電話／地址為 `［無權限］`（欄位保留、內容不給） | `collaboration-rbac`（44，匯出遮罩群組，哨兵字串） | IMPLEMENTED_NEW（廠商是否保留匯出＝Owner 待確認第 2 項） |
+| 指令第十節 20 項測試案例 | 逐項對照見 `docs/phase2/INFLUENCER_SAMPLE_APPLICATION.md` §十 | `collaboration`（26）、`collaboration-rbac`（44）、`unit/collaboration-rules`（32） | IMPLEMENTED_NEW |
+| 指令第十三節完整流程走真實 API 與 PostgreSQL | 整合測試全部對真實 PostgreSQL 執行並透過與正式相同的 `dispatch()` 路由；全流程另以瀏覽器只操作畫面跑完（三角色各自登入，記錄 17 筆事件） | `collaboration`（26）；E2E 煙霧 170/170（本模組 17）、全流程 UI 71/71；結果見 TEST_REPORT §18 | IMPLEMENTED_NEW（未部署、未碰真實資料＝W-34） |

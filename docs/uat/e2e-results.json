@@ -1,19 +1,19 @@
 {
-  "ranAt": "2026-11-04T09:38:58.107Z",
-  "base": "http://127.0.0.1:3100",
-  "total": 146,
-  "passed": 146,
+  "ranAt": "2026-11-06T09:56:28.907Z",
+  "base": "http://127.0.0.1:3101",
+  "total": 181,
+  "passed": 181,
   "failed": 0,
   "checks": [
     {
       "name": "健康檢查含資料庫連線",
       "ok": true,
-      "detail": "{\"ok\":true,\"db\":\"up\",\"latencyMs\":1,\"env\":\"development\",\"time\":\"2026-11-04T09:37:46.363Z\"}"
+      "detail": "{\"ok\":true,\"db\":\"up\",\"latencyMs\":1,\"env\":\"development\",\"version\":\"dev\",\"commit\":null,\"time\":\"2026-11-06T09:55:06.084Z\"}"
     },
     {
       "name": "未登入造訪 /dashboard 會被導到登入頁",
       "ok": true,
-      "detail": "http://127.0.0.1:3100/login"
+      "detail": "http://127.0.0.1:3101/login"
     },
     {
       "name": "錯誤密碼顯示錯誤訊息，不洩漏帳號是否存在",
@@ -197,7 +197,7 @@
     {
       "name": "預覽沒有改動資料（結團日不變）",
       "ok": true,
-      "detail": "closeDate=2026-11-11"
+      "detail": "closeDate=2026-11-13"
     },
     {
       "name": "團主列表顯示客群分析欄（/hosts）",
@@ -205,7 +205,7 @@
       "detail": "HTTP 200"
     },
     {
-      "name": "以名稱篩出新團主（/hosts?q=%5BE2E%5D%20%E6%96%B0%E5%9C%98%E4%B8%BB%20mw1xbsbm）",
+      "name": "以名稱篩出新團主（/hosts?q=%5BE2E%5D%20%E6%96%B0%E5%9C%98%E4%B8%BB%20mw4strvb）",
       "ok": true,
       "detail": "HTTP 200"
     },
@@ -554,7 +554,7 @@
     {
       "name": "兩週進程標示日期範圍與「今天／明天／N 天後」",
       "ok": true,
-      "detail": "接下來兩週的進程（11-04 ～ 11-17） 📝 0 要我做 📣 1 曝光 🚀 0 開團 🏁 3 結團 11/10（二） 6 天後 📣 催單 夏日防"
+      "detail": "接下來兩週的進程（11-06 ～ 11-19） 📝 0 要我做 📣 1 曝光 🚀 0 開團 🏁 3 結團 11/12（四） 6 天後 📣 催單 夏日防"
     },
     {
       "name": "兩週進程裡的曝光類型是中文，不是英文代碼",
@@ -599,6 +599,157 @@
       "name": "廠商不可看訂單匯入（/imports）",
       "ok": true,
       "detail": "HTTP 200"
+    },
+    {
+      "name": "合作申請總覽（/collaboration）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "總覽有分桶 KPI、並把「預計開團日」與「已確認開團日」分開顯示",
+      "ok": true
+    },
+    {
+      "name": "總覽不顯示收件人電話或地址（個資不在列表上）",
+      "ok": true
+    },
+    {
+      "name": "依團主搜尋找得到申請單",
+      "ok": true,
+      "detail": "1 列"
+    },
+    {
+      "name": "合作申請詳情（/collaboration/CLB-000002）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "詳情頁分區塊呈現（申請資料／樣品明細／收件資訊／寄送紀錄／開團合作／處理歷程）",
+      "ok": true
+    },
+    {
+      "name": "「是否已補寄」由寄送紀錄推導，畫面上看得到補寄那一列",
+      "ok": true
+    },
+    {
+      "name": "收件個資預設不顯示，要按一下才讀取",
+      "ok": true
+    },
+    {
+      "name": "詳情 API 不含收件人電話或地址",
+      "ok": true
+    },
+    {
+      "name": "按下後才顯示收件人、電話、地址，並提示已記入稽核",
+      "ok": true
+    },
+    {
+      "name": "每一次讀取都真的寫進稽核（筆數增加）",
+      "ok": true,
+      "detail": "0 → 1"
+    },
+    {
+      "name": "營運主管匯出表單二：含收件人與電話欄位，檔名為附件",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "合作申請匯入（/collaboration/import）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "營運主管看得到待指派佇列（沒有承辦人的案件不會消失）",
+      "ok": true,
+      "detail": "1 筆"
+    },
+    {
+      "name": "待指派案件詳情（/collaboration/CLB-000006）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "待指派案件的詳情頁有指派承辦人按鈕與承辦區塊",
+      "ok": true
+    },
+    {
+      "name": "個資保留與清除（/collaboration/retention）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "保留與清除頁：明講沒有排程、顯示健康狀態指標",
+      "ok": true
+    },
+    {
+      "name": "清除試跑（dry run）可執行並寫入執行紀錄，不改任何資料",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "營運小編：合作申請總覽（/collaboration）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "營運小編看得到自己承辦的案件，也看得到待指派佇列",
+      "ok": true,
+      "detail": "承辦 5 筆、待指派 1 筆"
+    },
+    {
+      "name": "小編在認領前讀不到待指派案件的內容與收件資料（404）",
+      "ok": true,
+      "detail": "404／404"
+    },
+    {
+      "name": "待指派佇列對小編只有「認領」，沒有指派",
+      "ok": true
+    },
+    {
+      "name": "小編呼叫指派 API 被拒（403）",
+      "ok": true,
+      "detail": "HTTP 403"
+    },
+    {
+      "name": "廠商工作台：網紅申請與樣品寄送（/collaboration/vendor）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "廠商工作台有七個分桶",
+      "ok": true,
+      "detail": "7 個"
+    },
+    {
+      "name": "廠商工作台明講確認供樣不等於 G1～G5 核准、也不會自動建檔期",
+      "ok": true
+    },
+    {
+      "name": "廠商看不到別家廠商的申請（清單只有自己的廠商）",
+      "ok": true
+    },
+    {
+      "name": "廠商匯出（D-38）：表單二根本沒有收件人／電話／地址欄位，內容也沒有個資",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "廠商不能讀稽核紀錄",
+      "ok": true,
+      "detail": "HTTP 403"
+    },
+    {
+      "name": "團主：我的樣品申請（/collaboration/mine）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "團主看得到自己的申請卡片與開團意願欄位",
+      "ok": true
+    },
+    {
+      "name": "團主看不到別的團主的申請",
+      "ok": true
     },
     {
       "name": "手機版 /dashboard（/dashboard）",
@@ -657,6 +808,16 @@
     },
     {
       "name": "手機版 /selection 無水平溢出",
+      "ok": true,
+      "detail": "溢出 0px"
+    },
+    {
+      "name": "手機版 /collaboration（/collaboration）",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "手機版 /collaboration 無水平溢出",
       "ok": true,
       "detail": "溢出 0px"
     },

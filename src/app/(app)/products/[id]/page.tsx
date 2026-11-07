@@ -12,6 +12,7 @@ import { listProductFit } from '@/server/modules/fit';
 import { FitTable } from '@/ui/FitTable';
 import { as, type FitItemV } from '@/ui/types';
 import { EvaluationCard, FeasibilityCard, TrialCard } from './SelectionCards';
+import { ProductCollaborationCard } from '../../collaboration/Blocks';
 
 export const dynamic = 'force-dynamic';
 interface P {
@@ -71,6 +72,7 @@ export default withActor(async (actor, props: { params: Params }) => {
           </Table>
         )}
       </Card>
+      {can(actor, 'collaboration.read') ? <ProductCollaborationCard actor={actor} productId={p.id} /> : null}
       {can(actor, 'selection.read') ? <EvaluationCard actor={actor} productId={p.id} /> : null}
       {can(actor, 'selection.read') ? <TrialCard actor={actor} productId={p.id} /> : null}
       {can(actor, 'selection.read') ? <FeasibilityCard actor={actor} productId={p.id} /> : null}

@@ -27,7 +27,7 @@
 
 ### 1.2 範圍
 
-**範圍內（已實作，僅在本機與隔離環境驗證）**：認證與 RBAC、廠商／團主／社群／商品主檔、客群分析與商品適配評估（SOP 01，決策支援，不改 G1–G5）、商品選品評估／廠商合作資格審查／商品試用／商業可行性試算與 G1 統一決策摘要（SOP 02／03，決策支援，不改 G1–G5 與商品審核流程）、檔期與 15 步流程排程、日期變更影響預覽、14 狀態機與 G1–G5 關卡、訂單 CSV 匯入、管理者與團主 Dashboard、預估佣金、8 個自動化工作與通知佇列（測試 Adapter）、廠商進件、例外管理、履約與出貨與庫存紀錄、退款／客訴／售後、結算試算與確認、入帳／發票／費用紀錄、稽核。
+**範圍內（已實作，僅在本機與隔離環境驗證）**：認證與 RBAC、廠商／團主／社群／商品主檔、客群分析與商品適配評估（SOP 01，決策支援，不改 G1–G5）、商品選品評估／廠商合作資格審查／商品試用／商業可行性試算與 G1 統一決策摘要（SOP 02／03，決策支援，不改 G1–G5 與商品審核流程）、檔期與 15 步流程排程、日期變更影響預覽、14 狀態機與 G1–G5 關卡、訂單 CSV 匯入、管理者與團主 Dashboard、預估佣金、8 個自動化工作與通知佇列（測試 Adapter）、廠商進件、例外管理、履約與出貨與庫存紀錄、退款／客訴／售後、結算試算與確認、入帳／發票／費用紀錄、合作申請與樣品管理（網紅合作申請、樣品寄送與補寄、收件個資治理、開團意願與檔期關聯，不改 G1–G5，不扣庫存、不產生財務結算）、稽核。
 
 **範圍外**：見第 8 節（電商 API、真實 LINE／Email、廠商入口、歷史資料遷移、SSO／MFA、Production 部署等）。
 
@@ -78,7 +78,7 @@
 | 稽核／唯讀 | 查看歷史與 Log | 未建立獨立角色；稽核讀取依角色過濾（FR-RBAC-07） |
 | 開發／維運 | 部署、備份、監控 | 尚未有維運責任人（待決策 #7） |
 
-### 2.2 角色與權限（程式現況，52 項權限）
+### 2.2 角色與權限（程式現況，65 項權限）
 
 一人一個角色（ADR-005）。下表由 `src/server/lib/permissions.ts` 的 `ROLE_PERMISSIONS` 直接匯出。「能不能做這類動作」由權限決定；「能碰哪些資料列」另由資料範圍決定（FR-RBAC-02～06）。
 
@@ -95,6 +95,19 @@
 | `campaign.sensitive.read` | ✅ | ✅ | — | — | — | ✅ |
 | `campaign.transition` | ✅ | ✅ | ✅ | — | — | — |
 | `campaign.write` | ✅ | ✅ | ✅ | — | — | — |
+| `collaboration.assign` | ✅ | ✅ | — | — | — | — |
+| `collaboration.campaign.link` | ✅ | ✅ | ✅ | — | — | — |
+| `collaboration.create` | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| `collaboration.export` | ✅ | ✅ | ✅ | — | ✅ | — |
+| `collaboration.intent.write` | ✅ | ✅ | ✅ | ✅ | — | — |
+| `collaboration.pii.read` | ✅ | ✅ | ✅ | — | — | — |
+| `collaboration.read` | ✅ | ✅ | ✅ | — | — | — |
+| `collaboration.retention.manage` | ✅ | ✅ | — | — | — | — |
+| `collaboration.review` | ✅ | ✅ | — | — | — | — |
+| `collaboration.self` | ✅ | — | — | ✅ | ✅ | — |
+| `collaboration.shipping.write` | ✅ | ✅ | ✅ | — | ✅ | — |
+| `collaboration.update` | ✅ | ✅ | ✅ | — | — | — |
+| `collaboration.vendor.review` | ✅ | ✅ | ✅ | — | ✅ | — |
 | `commission.read` | ✅ | ✅ | — | ✅ | — | ✅ |
 | `commission.write` | ✅ | — | — | — | — | ✅ |
 | `community.read` | ✅ | ✅ | ✅ | ✅ | — | ✅ |
@@ -136,7 +149,7 @@
 | `vendor.read` | ✅ | ✅ | ✅ | — | — | ✅ |
 | `vendor.self` | ✅ | — | — | — | ✅ | — |
 | `vendor.write` | ✅ | ✅ | ✅ | — | — | — |
-| **權限數** | 52 | 45 | 32 | 10 | 7 | 23 |
+| **權限數** | 63 | 55 | 41 | 13 | 12 | 23 |
 
 關卡核准者（`GATE_APPROVER_ROLES`）：
 
@@ -425,11 +438,33 @@
 | 事後條件 | `gateImpact` 恆為 `NONE`：G1 檢查項、核准者、狀態轉移、通知、任務都不變；摘要不寫任何資料 |
 | 對應 FR | FR-G1S-01～04、FR-GATE-09 |
 
+### UC-25 網紅合作申請與樣品寄送（從申請到開團）
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運小編／主管（建立、代寄、關聯檔期）；團主（自助申請、確認收件資料、確認收件、回覆開團意願）；廠商（確認供樣、建立寄送紀錄、回填後台連結與設定狀態） |
+| 前置條件 | 廠商、團主、商品已在主檔（不另建主檔）；**不需要先有檔期** |
+| 主要流程 | 1.「合作管理 → 網紅合作申請」建立申請，或團主從「我的樣品申請」自助申請、廠商從工作台代團主建立<br>2. 填申請樣品明細（可多商品、多規格）與收件資訊（收件資訊是獨立的個資紀錄，不寫回團主主檔）<br>3. 內部審核：核准，或轉給廠商確認供樣<br>4. 廠商逐項確認供樣（可用／部分／無法提供），建立首次寄送紀錄；之後若需補寄再加一列<br>5. 團主確認收件並留回饋；「是否已補寄」由補寄紀錄推導，不是打勾欄位<br>6. 團主回覆開團意願與預計開團日；內部確認合作後關聯既有檔期並填已確認開團日<br>7. 廠商與營運回填開團連結、廠商後台連結、後台設定 Mail 與設定狀態<br>8. 三方各自從自己的工作台追蹤同一筆案件（同一份資料、不同授權視角） |
+| 替代／例外流程 | • 同一廠商×團主×商品的進行中申請重複建立：以 `dedupe_key` 擋掉<br>• 廠商只能部分供樣：逐項標部分／無法提供，不強制整單退回<br>• 樣品還沒寄就先談好預計開團日：預計日可先填，已確認日仍為空<br>• 團主試用後暫不決定：意願「未決定」，合作狀態停在待回覆，不會被推進確認合作<br>• 團主不開團：意願「不開團」，合作狀態轉為婉拒<br>• 還沒確認合作就塞檔期：資料庫 CHECK 拒絕（直接下 UPDATE 也擋）<br>• 團主送出投廣或合作備註欄位：403（只有內部可寫）<br>• 廠商或團主讀別人的案件：404；財務讀任何合作資料：403 |
+| 事後條件 | 不扣庫存、不產生任何財務或結算紀錄、不寫入 `approvals`（廠商確認供樣不等於 G1–G5 任何核准）、不新建檔期、不自動寄送任何通知；每個動作寫 `collaboration_events`（append-only）與稽核 |
+| 對應 FR | FR-COLLAB-01～13、FR-COLLAB-16～19 |
+
+### UC-26 匯入廠商現有的兩張表單
+
+| 項目 | 內容 |
+|---|---|
+| 行為者 | 營運小編／主管（需同時有 `collaboration.create` 與 `collaboration.update`） |
+| 前置條件 | 廠商已在主檔；手上有表單一（開團與補寄追蹤）或表單二（樣品申請）的檔案或貼上內容 |
+| 主要流程 | 1. 上傳或貼上內容並選表單類型與廠商 → 每一列產生一筆匯入列與問題清單<br>2. 逐列人工指定團主／商品／規格，或跳過該列<br>3. 只把已確認的列建立成合作申請單 |
+| 替代／例外流程 | • 同一份檔案重複匯入：409（批次 checksum）<br>• 團主同名有多個候選或查無：阻斷性問題，列為待確認，**不自動建立團主主檔、不自動猜著合併不同的人**<br>• 缺配送日期：不建立寄送紀錄；缺開團意願：維持待回覆；有開團日期或連結但沒有正式檔期：只留日期與連結，不自動建檔期<br>• 收件資訊不完整：不建立收件資料 |
+| 事後條件 | 待確認與已跳過的列不會被建立；同一列即使重跑也只建立一張申請單（`dedupe_key` 唯一索引）；匯入問題留在匯入列並寫稽核 |
+| 對應 FR | FR-COLLAB-14 |
+
 ---
 
 ## 4 功能需求
 
-**統計**（程式現況，基準 `3be9a94`）：共 **204 條**功能需求（其中 SOP 01 新增 22 條：SEG 8、FIT 14；SOP 02／03 新增 40 條：SEL 11、EVI 3、DD 8、TRL 9、FEA 5、G1S 4）；IMPLEMENTED 161、PARTIAL 18、NOT_STARTED 18、BLOCKED 7。使用案例 24 個。SOP 02／03 部分的基準為 `feat/sop02-03-selection-trial`（migration 014）。SOP 01 部分的基準為 `feat/sop01-segment-fit`（migration 013）。
+**統計**（程式現況，基準 `3be9a94`）：共 **220 條**功能需求（其中 SOP 01 新增 22 條：SEG 8、FIT 14；SOP 02／03 新增 40 條：SEL 11、EVI 3、DD 8、TRL 9、FEA 5、G1S 4；合作申請與樣品管理新增 16 條：COLLAB 16）；IMPLEMENTED 177、PARTIAL 18、NOT_STARTED 18、BLOCKED 7。使用案例 26 個。合作申請與樣品管理部分的基準為 `feat/collaboration-applications`（migration 028）。SOP 02／03 部分的基準為 `feat/sop02-03-selection-trial`（migration 014）。SOP 01 部分的基準為 `feat/sop01-segment-fit`（migration 013）。
 
 | 模組 | FR 數 | IMPLEMENTED | PARTIAL | NOT_STARTED | BLOCKED |
 |---|--:|--:|--:|--:|--:|
@@ -456,7 +491,8 @@
 | TRL 商品試用（SOP 03） | 9 | 8 | 0 | 1 | 0 |
 | FEA 商業可行性試算（SOP 03） | 5 | 4 | 0 | 1 | 0 |
 | G1S G1 統一決策摘要（SOP 02／03） | 4 | 4 | 0 | 0 | 0 |
-| **合計** | **204** | **161** | **18** | **18** | **7** |
+| COLLAB 合作申請與樣品管理 | 16 | 16 | 0 | 0 | 0 |
+| **合計** | **220** | **177** | **18** | **18** | **7** |
 
 > 狀態判定：只要有一條驗收條件沒有自動化測試保護，或實作與需求有落差，就標 PARTIAL，並在該列說明；不為了好看而標 IMPLEMENTED。
 
@@ -863,6 +899,33 @@
 | FR-G1S-03 | G1–G5 與商品審核語意不變（回歸）：摘要的 `gateImpact` 恆為 `NONE`；有無評估／調查／試用／可行性（含紅燈）G1 檢查項清單與結果完全相同、不新增任何 G1 檢查項、不新增核准列、通知與任務、不改檔期狀態；紅燈時 G1 仍可申請並由核准者核准（營運小編仍不能核准）；商品審核 DRAFT→PENDING_REVIEW→APPROVED／REJECTED 與權限照舊，評估被退回不影響商品狀態 | MUST | Given 同一檔期建立並覆核全部資料 Then 前後 G1 檢查一致、核准／通知／任務列數與狀態不變；G1 檢查項鍵仍為 `deps_done`、`has_confirmed_host`、`has_products`、`vendor_info`、`vendor_ok`；紅燈下申請 G1 成功、小編核准被拒、主管核准後進入 PREPARING | selection-g1 ›「G1–G5 與商品審核語意不變（回歸）」（4 項）；selection-g1 ›「gateImpact 恆為 NONE…」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §8、D-26 | ✅ |
 | FR-G1S-04 | 權限與敏感資料：需 `selection.read` 且檔期在資料範圍內（他人負責的檔期 404；團主、廠商 403；財務可讀）；沒有成本檢視權限者摘要的可行性只有 GMV／NSV、利潤與成本為 null，風險訊息也不洩漏利潤正負，原始回應不含成本數字 | MUST | Given 虧損的可行性情境 When 主管讀摘要 Then 風險含「品牌利潤為負」；小編讀 Then 風險不含「為負」、`canSeeMoney:false`、回應不含成本數字；小編 B 讀小編 A 的檔期 404 | selection-g1 ›「G1 統一決策摘要」›「敏感資料…」「檔期資料範圍…」；unit/decision-risk ›「可行性：沒有成本權限時，不會透過風險訊息洩漏利潤正負」 | IMPLEMENTED | PRODUCT_SELECTION_TRIAL §9 | ✅ |
 
+### 4.24 COLLAB 合作申請與樣品管理
+
+模組：`collaboration.ts`、`collaboration-import.ts`、`lib/collaboration-rules.ts`（狀態與推導純函式）、`migrations/028`（7 張新表）。設計見 [`docs/phase2/INFLUENCER_SAMPLE_APPLICATION.md`](../phase2/INFLUENCER_SAMPLE_APPLICATION.md)。**需求來源是廠商現行的兩張 Excel／Sheets 表單**（表單一：團購主、檔期、是否已補寄、開團連結、是否投廣、後台設定 Mail；表單二：網紅名稱、收件人、聯繫電話、地址、申請樣品、配送日期、開團意願、開團日期、備註、開團連結、後台連結）。**不改既有主檔、不改 G1–G5 核准語意、不扣庫存、不產生財務或結算紀錄、不自動寄送任何通知**；保留期數字與第 11 項權限等待 Owner 確認（D-37～D-44）。41 條端點見 `docs/generated/API_ENDPOINTS.md`。
+
+| ID | 需求 | 優先 | 驗收條件（Given／When／Then） | 對應測試 | 狀態 | 來源 | 驗 |
+|---|---|:-:|---|---|:-:|---|:-:|
+| FR-COLLAB-01 | 建立合作申請（三種來源）：營運建立（`OPS`）、團主自助（`HOST_FORM`）、廠商代團主建立（`VENDOR_FORM`）；一筆申請＝一個團主 × 一家廠商 × 一次申請，沿用既有 `host_id`、`vendor_id`、`product_id`，**不另建團主、廠商或商品主檔**；**不需要先有檔期**；同一組合的進行中申請以 `dedupe_key` 唯一索引擋重複；支援 `Idempotency-Key`；狀態 `DRAFT／SUBMITTED／INTERNAL_REVIEW／VENDOR_REVIEW／APPROVED／ON_HOLD／REJECTED／CANCELLED／CLOSED`，暫緩必須填原因（資料庫 CHECK） | MUST | Given 營運、團主、廠商三種身分各建立一筆 Then 三筆都成立且 `source` 分別為 OPS／HOST_FORM／VENDOR_FORM；同一組合再建一次 Then 被 `dedupe_key` 擋掉；一人代表多家廠商 Then 只能用自己代理的廠商建立；暫緩不填原因 Then 資料庫拒絕 | collaboration ›「三種建立來源」；collaboration-rbac ›「資料範圍」 | IMPLEMENTED | Owner 指令 §4、§10（案例 1～4） | ✅ |
+| FR-COLLAB-02 | 申請樣品明細：可多商品、多規格（規格是同一商品底下的選項，**不得被當成另一個商品**）；每列記申請數量與核准數量、供應狀態；重複送出不長出重複列（`collab_item_uq`）；核准數量不得大於申請數量、`PARTIAL` 必須有數量、`UNAVAILABLE` 必須為 0（皆為資料庫 CHECK）；移除明細為軟刪除並留原因 | MUST | Given 一筆申請加入同一商品的兩個規格 Then 兩列並存且 `itemCount` 為 2；重送同一組合 Then 不新增列；核准數量 > 申請數量、`PARTIAL` 不給數量、`UNAVAILABLE` 給 3 Then 皆被資料庫拒絕 | collaboration ›「一筆申請多個規格」；unit/collaboration-rules ›`supplyStatusFor` | IMPLEMENTED | Owner 指令 §4、§10（案例 5） | ✅ |
+| FR-COLLAB-03 | 收件資訊視為個資：存於獨立的 `collaboration_recipients`，**不覆寫團主主檔**（`hosts` 全表沒有任何地址欄位）；改地址＝舊列立即清空內容並標記曾被取代、新建一列（只留下「曾被取代」的紀錄，不留舊個資）；案件詳情 API **完全不回傳**收件內容，必須走 `GET /collaboration/applications/:id/recipient`；內部需 `collaboration.pii.read`，團主只能讀自己的，廠商（D-37「受控的履約例外」）必須同時滿足「未清除、申請處於已核准（暫緩與結案不給）、團主已確認可用、未超過核准後 180 天硬性上限、履約仍需要這份地址（尚無首次寄送，或有待寄出的寄送／補寄）」五個條件，寄出後視窗關閉；每次成功讀取寫一筆 `collaboration.recipient.read` 稽核（含用途 `VENDOR_FULFILMENT_EXCEPTION／OWN_DATA／OPS_FULFILMENT`），被拒絕寫 `RECIPIENT_READ_DENIED` 事件；備註欄過 `assertNoPii()` | MUST | Given 灌入哨兵字串的收件資料 When 掃描列表、詳情、工作台、廠商與團主所有回應 Then 都不含哨兵字串；財務呼叫 Then 403；廠商在申請核准前呼叫 Then 403 並留事件；核准且團主確認後 Then 200；讀 3 次 Then 稽核多 3 筆；`hosts` 表欄位清單不含任何地址欄位 | collaboration-rbac ›「收件個資」（哨兵掃描、四條件、稽核筆數）；collaboration ›「不覆寫團主主檔」 | IMPLEMENTED | Owner 指令 §4（3）、§6、§10（案例 16） | ✅ |
+| FR-COLLAB-04 | 個資保留期與清除：`retention_until` 是衍生值——核准日起算 90 天；一旦樣品送達，改以**最後寄送日**起算 30 天，取較早者；核准、廠商確認、新增寄送（含補寄）、修改寄出日、確認收件五個時點都重算，每次重算寫 `RECIPIENT_RETENTION_UPDATE` 事件與 `collaboration.recipient.retention` 稽核；清除（`POST /collaboration/recipients/purge-expired`，僅系統管理者；`dryRun` 試跑需 `collaboration.retention.manage`）把姓名、電話、地址覆寫成「［已清除］」並記 `purged_at`，**不是只做軟刪除**；到期但履約未結束（待寄、未收件、補寄待寄、退回未決、暫緩）→ 延後；核准後 180 天硬性上限一律清除；有效的保留例外優先；細節見 FR-COLLAB-18。**沒有排程**（D-40） | MUST | Given 核准日 2026-11-06 Then 保留期為核准日 +90；送達後 Then 改為最後寄送日 +30 且嚴格早於前者；再補寄一次 Then 基準往後推；全程至少 2 筆保留期事件與 2 筆稽核；過期後清除 Then 三個欄位都是「［已清除］」且 `purged_at` 有值；非管理者呼叫清除 Then 403 | collaboration ›「收件個資保留期會隨『核准 → 寄出 → 送達 → 補寄』重算」；unit/collaboration-rules ›`computeRetentionUntil` | IMPLEMENTED | Owner 指令 §4（3） | ✅ |
+| FR-COLLAB-05 | 廠商確認供樣：`collaboration.vendor.review` 逐項標 `AVAILABLE／PARTIAL／UNAVAILABLE` 與核准數量，可只部分供樣，不強制整單退回；**廠商確認供樣不等於公司的 G1–G5 任何核准**，`approvals` 表完全不被寫入；內部核准決策需 `collaboration.review`（營運小編刻意沒有這項，D-39）；只有在狀態開放時才能確認（`internalReview` 的 `TO_VENDOR` 決策會把案件轉給廠商） | MUST | Given 三個明細 When 廠商分別標可用、部分、無法提供 Then 三種狀態並存且申請未被整單退回；呼叫前後 `approvals` 列數不變；營運小編呼叫內部核准 Then 403；廠商在狀態未開放時確認 Then 422 | collaboration ›「廠商部分供樣」；collaboration-rbac ›「廠商不能核准 G1～G5」 | IMPLEMENTED | Owner 指令 §2（紅線 3）、§6、§10（案例 7、17） | ✅ |
+| FR-COLLAB-06 | 樣品寄送紀錄：一筆申請可有多列（`INITIAL` 首次、`RESEND` 補寄）；每列各自走 `PENDING→SHIPPED→DELIVERED`／`RETURNED`／`CANCELLED`；標已寄出必須有寄出日、取消必須有原因、標送達必須走「確認收件」以保留簽收時間（皆為資料庫 CHECK）；同組織物流單號唯一；**「是否已補寄」是推導值**：只有真的存在一列補寄紀錄且填了寄出日期才算（取消的補寄不算），來源表單的勾選只當參考；樣品進度由 `summarizeShipments()` 推導為 `NOT_REQUESTED／PREPARING／SHIPPED／DELIVERED／RESEND_PENDING／RESENT／RETURNED`；可選填關聯既有履約出貨單 | MUST | Given 首次寄出並送達、再補寄一次 Then 兩列並存、`sample.resent` 為真、進度為 RESENT；補寄取消後 Then `sample.resent` 為假；標 SHIPPED 不給寄出日、取消不給原因、直接把狀態改 DELIVERED Then 皆被拒絕；重複物流單號 Then 409 | collaboration ›「樣品寄送」（首次＋補寄、取消）；unit/collaboration-rules ›`summarizeShipments` | IMPLEMENTED | Owner 指令 §4（4）、§5、§10（案例 6） | ✅ |
+| FR-COLLAB-07 | 團主確認收件與回饋：`POST /collaboration/shipments/:id/receipt` 記簽收時間與回饋；團主只能確認自己案件的寄送紀錄，**廠商不能代替團主簽收**；確認收件同時重算個資保留期（FR-COLLAB-04） | MUST | Given 團主甲的寄送紀錄 When 團主乙或廠商確認收件 Then 403／404；When 團主甲確認 Then 簽收時間寫入且保留期改以最後寄送日起算 | collaboration-rbac ›「越權寫入」；collaboration ›「保留期重算」 | IMPLEMENTED | Owner 指令 §13、§10（案例 18） | ✅ |
+| FR-COLLAB-08 | 開團意願與兩個日期：意願 `PENDING／WILLING／UNDECIDED／UNWILLING`，回覆了意願必須有回覆日期（資料庫 CHECK）；**預計開團日與已確認開團日是兩個不同欄位**，列表、篩選與匯出都必須分得開；樣品還沒寄就可以先填預計開團日；團主只能寫意願與開團日期（`HOST_LAUNCH_FIELDS`），投廣意願、投廣說明與合作備註是內部欄位，團主送出一律 403，**畫面也不得把這些欄位顯示給團主** | MUST | Given 團主寫意願與預計開團日 Then 成立；團主送出 `adsIntent`／`adsNote`／`collaborationNote` Then 各自 403 且已存的意願不被影響；樣品尚未寄出時填預計開團日 Then 成立且已確認開團日仍為空 | collaboration-rbac ›「團主只能寫意願與開團日期」；collaboration ›「平行情境」 | IMPLEMENTED | Owner 指令 §4（5）、§5、§7（A） | ✅ |
+| FR-COLLAB-09 | 開團連結與後台設定：記錄開團連結、廠商後台連結（可能含商業敏感資料，團主看不到）、後台設定 Mail 與後台設定狀態（兩者都記）；投廣意願（誰想投）與廠商投廣確認（誰出錢）分成兩欄，團主還沒表達意願前不能確認投廣（資料庫 CHECK）；**系統不自動寄送任何通知**，「後台設定 Mail」只是記錄聯絡信箱與處理狀態（D-41） | MUST | Given 廠商回填後台連結與設定狀態 Then 廠商看得到 `backendSetupStatus`、團主回應完全沒有這個屬性，兩者都拿不到 `backendSetupEmail`／`vendorPortalUrl`；意願為 PENDING 時確認投廣 Then 資料庫拒絕；全流程結束後 `notifications` 列數不變 | collaboration-rbac ›「廠商的後台設定狀態只給廠商看」；collaboration ›「不自動寄信」 | IMPLEMENTED | Owner 指令 §4（5）、§6 | ✅ |
+| FR-COLLAB-10 | 檔期關聯：只在合作確認後才可填 `campaign_id`（`collab_app_campaign_requires_confirm`，直接下 `UPDATE` 也會被擋）；只**關聯既有檔期**，不新建檔期、不改檔期狀態、不重複建檔期、不繞過 G1–G5；一個檔期可關聯多筆申請（多位團主同團）；`linkCampaign` 的回傳與稽核明寫 `gateImpact: 'NONE'`；可解除關聯並留原因；SOP 03 商品試用只以 `trial_id` 選填引用，**一般樣品申請不等於已完成 SOP 03 的試用資格評估**，不改試用結論、覆核或有效期 | MUST | Given 未確認合作就關聯檔期 Then 被拒（API 與資料庫各一次）；確認合作後關聯 Then 成功且 `gateImpact` 為 NONE；同一檔期關聯三筆申請 Then 三筆並存且 `campaigns` 列數不變；關聯前後 `approvals`、`campaign_products`、`campaign_hosts` 列數不變；關聯試用 Then `product_trials` 的結論、覆核與有效期欄位前後相同 | collaboration ›「檔期關聯」（4 項）、「與 SOP 03 試用只引用」 | IMPLEMENTED | Owner 指令 §2（紅線 3、4、7）、§8、§10（案例 11、12） | ✅ |
+| FR-COLLAB-11 | 四個維度各自獨立的狀態機（**不串成一條長鏈**）：①申請狀態 ②合作狀態（`NOT_STARTED／SAMPLE_IN_PROGRESS／TRIAL_IN_PROGRESS／AWAITING_INTENT／COLLABORATION_CONFIRMED／CAMPAIGN_LINKED／DECLINED`）③每一列寄送紀錄各自的物流狀態 ④開團意願；必須支援的平行情境：廠商分兩批寄、團主試用後暫不決定、寄樣前先談好預計開團日、一個檔期含多筆申請；每個動作寫 `collaboration_events`（append-only，維度為 `APPLICATION／COLLABORATION／SAMPLE／INTENT／CAMPAIGN／DATA`） | MUST | Given 四種平行情境各跑一次 Then 四個維度各自停在正確狀態、互不干擾（例：意願 UNDECIDED 時合作狀態停在 AWAITING_INTENT，不會被推進確認合作）；`collaboration_events` 直接 `UPDATE` 或 `DELETE` Then 資料庫拒絕；完整流程記 17 筆事件 | collaboration ›「平行情境」（4 項）、「稽核與事件 append-only」；unit/collaboration-rules（32 項） | IMPLEMENTED | Owner 指令 §5、§10（案例 8、9、10、12） | ✅ |
+| FR-COLLAB-12 | 權限與資料範圍：沿用既有六種角色，**不新增第七種**；13 項權限（`collaboration.read／create／update／review／self／vendor.review／shipping.write／intent.write／campaign.link／export／pii.read／assign／retention.manage`；`pii.read` 保留獨立（D-37），`assign` 與 `retention.manage` 僅管理者與營運主管）；全部在**後端**強制，不是前端藏按鈕；團主只看自己（`host_id`）、廠商只看自己（`vendor_id`）、跨組織一律 404，讀別人的 id 與讀不存在的 id 回應完全相同；財務第一階段完全不開放（13 項全無），**不會因為是財務就取得收件人電話與地址**；營運小編可建立、編輯、代廠商確認供樣、代寄、關聯檔期，但**不能做需要核准權限的決策**，且**資料範圍只及於自己承辦或被指派的申請**（D-39，見 FR-COLLAB-17；營運主管與管理者看全部；`campaignScope` 不變）；對外角色的回應走欄位白名單（`EXTERNAL_APP_FIELDS`，廠商另加 `backendSetupStatus`），不含內部備註、承辦人、`dedupeKey` | MUST | Given 財務 When 讀合作列表或任一端點 Then 403（不是空清單）；團主乙讀團主甲的案件、廠商乙讀廠商甲的案件 Then 404；小編呼叫內部核准 Then 403；外部角色的回應不含 `internalNote`／`ownerName`／`dedupeKey`／任何收件欄位，但含工作台需要的 `sample`／`sampleBucket`／`itemCount`／`recipientConfirmed`／意願與兩個日期 | collaboration-rbac（44 項，含權限矩陣、資料範圍、欄位白名單、越權寫入、稽核 403） | IMPLEMENTED | Owner 指令 §6、§10（案例 14、15、18） | ✅ |
+| FR-COLLAB-13 | 三種視角，同一份資料、不同授權視角（沒有第二份副本）：①內部總覽 `/collaboration`——分桶 KPI、篩選（月份、廠商、團主、商品、申請狀態、合作狀態、寄送進度、開團意願、是否投廣、後台設定狀態、承辦人、**預計與已確認開團日各自一組區間**）、搜尋、排序、分頁、授權範圍內匯出；收件個資不在列表上，要看必須進案件再點一次；②詳情頁 `/collaboration/:id` 分六個區塊（申請資料、申請樣品明細、收件資訊、樣品寄送紀錄、開團合作資訊、處理歷程）；③團主 `/collaboration/mine`——卡片式、手機可用，從團主主檔帶入基本資料但**收件資訊必須重新確認**；④廠商 `/collaboration/vendor`——七個分桶（待審核樣品、待寄出、已寄出、待補寄、團主待回覆、確認開團、已建立檔期），頁面明講「確認供樣不等於 G1–G5，也不會自動建立檔期」；工作佇列是**衍生分桶**，不另建平行任務引擎（`tasks.campaign_id` 為 NOT NULL 且只由流程模板產生，D-42）；**廠商入口未對外開放**（D-44） | MUST | Given 三種角色各自登入 Then 營運總覽有分桶 KPI 且預計與已確認日期分得開、列表沒有個資、搜尋與分頁可用、匯出帶 `attachment; filename=`；廠商工作台 7 個分桶齊備、看不到別家廠商資料、有 G1–G5 說明文案；團主頁在 390×844 無水平溢出、看不到別的團主資料；全流程結束後 `tasks` 列數不變 | E2E：e2e-smoke（170 項，含本模組 17 項）、e2e-flow（71 項，§13 完整流程只用畫面跑完、記 17 筆事件）；collaboration ›「不建平行任務引擎」 | IMPLEMENTED | Owner 指令 §7、§8、§13 | ✅ |
+| FR-COLLAB-14 | 匯入廠商現有的兩張表單：三步（上傳預覽 → 逐列確認主檔對應 → 建立申請單），需同時有 `collaboration.create` 與 `collaboration.update`；必須處理 8 種髒資料——同一團主不同名稱、同一廠商多筆申請、**團主名稱沒有對應 Host ID**（`HOST_NOT_FOUND`，阻斷，不自動建立團主主檔）、同名多個候選（`HOST_AMBIGUOUS`，阻斷）、同一商品不同規格（`SKU_UNRESOLVED`）、缺配送日期（不建立寄送紀錄、不補假日期）、缺開團意願（維持待回覆）、有開團日期或連結但沒有正式檔期（`CAMPAIGN_NOT_LINKED`，只留日期與連結）；收件資訊不完整則不建立收件資料；**對應不到唯一主檔一律列為待確認，不自動猜著合併不同的人**；防重複＝批次 checksum（同檔案重匯 409）＋匯入列 `dedupe_key` 唯一索引＋建立前再查一次申請單的 `dedupe_key`；冪等鍵只取來源列欄位，事後人工修正對應不改變鍵值；錯誤留在匯入列與 `import_errors`，全程寫稽核 | MUST | Given 同一份檔案匯入兩次 Then 第二次 409；Given 查無團主、同名多候選、缺日期、缺意願、有連結無檔期的列 Then 分別標對應的問題代碼、阻斷性的列不被建立、`hosts` 列數不變；已確認的列提交兩次 Then 只建立一張申請單；外部角色呼叫任一匯入端點 Then 403 | collaboration ›「匯入」（含 8 種狀況與冪等）；collaboration-rbac ›「匯入權限」 | IMPLEMENTED | Owner 指令 §9 | ✅ |
+| FR-COLLAB-15 | 匯出：支援表單一與表單二兩種格式（`?form=form1`／`form2`），欄位順序與來源表單一致，含 UTF-8 BOM；**依角色處理個資**（D-38）——內部且有 `collaboration.pii.read`：表單二含收件人／電話／地址（每次匯出寫稽核，記 `piiMode`）；內部但沒有 `pii.read`：三格輸出「［無權限］」；**廠商：表單二根本沒有這三個欄位（標題與內容都不存在，不是遮罩）**，也不得從任何其他端點取得；每個儲存格都經公式注入防護（開頭為 `= + - @ Tab CR` 補單引號）；只能匯出授權範圍內的資料（小編＝自己承辦的） | MUST | Given 主管匯出 Then CSV 含真實收件欄位且 `Content-Disposition` 為 `attachment; filename=`；Given 廠商匯出 Then CSV 標題沒有「收件人／聯繫電話／地址」且不含任何哨兵個資字串、也不含別家廠商的列；Given 團主顯示名稱為 `=HYPERLINK(…)` Then 匯出行以單引號開頭；兩種 `form` 參數各自的欄位順序與來源表單一致 | collaboration-rbac ›「匯出」；collaboration-hardening ›「D-38」「D-44 公式注入」；unit/collaboration-security-rules；E2E：e2e-smoke（主管 CSV 含個資、廠商 CSV 無個資欄位） | IMPLEMENTED | Owner 指令 §7（A）、§9 | ✅ |
+| FR-COLLAB-16 | 不影響既有模組（回歸）：完整流程跑完後 `approvals`、`campaigns`、`campaign_products`、`campaign_hosts`、`inventory_movements`、`settlements`、`settlement_items`、`payments`、`tasks`、`notifications` 的列數前後完全相同；`hosts` 全表沒有任何地址欄位；`product_trials` 的結論、覆核與有效期不被本模組改動；既有 57 個測試檔、937 項全部維持通過；migration 028 在舊版（001～017）資料庫上升級後，舊資料的列數與每個欄位前後相同，且重跑冪等 | MUST | Given 跑完 §13 完整流程 Then 上述 10 張表列數零差異；`npm run db:rehearsal` Then 20/20 通過並確認舊資料前後相同、028 重跑冪等；`npm run test` Then 60 檔 1039 項全綠（既有 937 項不變） | collaboration ›「對既有模組沒有副作用」；`scripts/migration-rehearsal.ts`（20/20） | IMPLEMENTED | Owner 指令 §2（紅線 1、2、5、6）、§13 | ✅ |
+
+| FR-COLLAB-17 | 承辦、交接與待指派佇列（D-39，migration 029）：申請有主要承辦（`PRIMARY`，一案一位）與共同承辦（`CO_OWNER`）；**營運小編只看得到自己承辦或被指派的申請**（`collaborationScope`）；沒有「有效主要承辦人」（未指派，或承辦人已停用）的案件進**待指派佇列**——營運主管看得到並可指派，營運小編看得到非個資摘要並可自行認領，認領前讀不到案件內容與收件資料；指派／交接（已有承辦人時必須填原因）／釋出／共同承辦／整批交接（離職）每次寫 append-only 的 `collaboration_handovers`、事件與稽核；承辦人只能經這些端點變更（PATCH 不接受 `ownerUserId`）；小編建立或匯入的案件預設自己承辦，主管建立未指定、團主或廠商自助建立的進佇列；不產生任何通知 | MUST | Given 小編乙讀小編甲承辦的案件 Then 404（列表、詳情、收件資料、匯出都沒有）；Given 主管建立未指定承辦人 Then 出現在佇列且小編讀不到內容；小編認領 Then 讀得到、其他小編再認領 409；Given 承辦人被停用 Then 案件回到佇列；交接未填原因 Then 422；小編呼叫指派 Then 403；整批交接 Then 每筆有交接紀錄；各表列數（approvals／campaigns／tasks／notifications 等）前後相同 | collaboration-hardening ›「D-39」（16 項）；db:rehearsal（029 專屬）；E2E（小編與主管視角） | IMPLEMENTED | Owner 決策 D-39 | ✅ |
+| FR-COLLAB-18 | 個資保留、清除與監控（D-40）：清除決策 `evaluatePurge`——有效保留例外→不清除；核准後超過 180 天（硬性上限）→強制清除；未到保留期→不處理；到期但履約未結束→延後；其餘→清除；保留例外需事由代碼＋依據（≥10 字、不可含個資）＋到期日（最長 365 天，資料庫 CHECK），到期自動失效、可解除，建立與解除寫稽核，只阻止清除不擴大讀取權限；每次執行寫 `collaboration_purge_runs`，逐筆結果寫 `collaboration_purge_items`（含失敗與略過原因，不含個資）；單筆失敗不回滾整批（記 FAILED、整體 PARTIAL）；支援試跑；匯入暫存列與匯入錯誤紀錄中的個資一併清除；監控 `GET /collaboration/retention/status`（`NEVER_RUN／LAST_RUN_FAILED／OVERDUE_BACKLOG`）；**沒有排程**：只能人工、API 或 `npm run collab:purge`（預設試跑；`APP_ENV=production` 預設拒絕） | MUST | Given 補寄待寄且已過保留期 Then 延後且內容仍在；Given 核准後 200 天 Then 強制清除並標 `PURGED_HARD_CAP`；Given 有效保留例外 Then `SKIPPED_HOLD`，到期或解除後清除；Given 保留到期日超過 365 天 Then 422（資料庫 CHECK 同樣擋）；Given 單筆觸發器失敗 Then 其他筆仍清除、本筆 FAILED、狀態頁出現 `LAST_RUN_FAILED`；Given 改地址 Then 舊列內容立即清空；Given 試跑 Then 資料不變；worker／workflow／compose 不含清除呼叫 | collaboration-hardening ›「D-40」（13 項）；unit/collaboration-security-rules ›「清除決策」「履約視窗」 | IMPLEMENTED | Owner 決策 D-40 | ✅ |
+| FR-COLLAB-19 | 匯入匯出安全（D-44）：匯出儲存格公式注入防護；匯入偵測公式字元（`=`、`@`、Tab／CR 開頭，或 `+`／`-` 後不是數字）→ 待人工確認、不建立申請單（電話 `+886…` 不誤判）；連結只接受 http／https、不可內嵌帳密、≤500 字（建立端 422、匯入端不保存）；後台設定 Mail 格式錯誤、含電話的備註在匯入時不保存；匯入暫存與錯誤紀錄去個資；同檔重複送出 409、並行 commit 只建立一次；個資讀取（60／分）、匯出（10／分）、匯入（10／分）、清除（5／分）限流回 429 | MUST | 見 collaboration-hardening ›「D-44」各區 | collaboration-hardening ›「D-44」；unit/collaboration-security-rules | IMPLEMENTED | Owner 決策 D-44 | ✅ |
+
 ---
 
 ## 5 非功能需求
@@ -891,7 +954,8 @@
 | NFR-OBS-02 | 可觀測性 | 監控、告警（失敗佇列、同步延遲、錯誤率） | **未做**；僅有 `automation_runs` 與 DEAD 通知 | 未做（KNOWN_ISSUES K5） |
 | NFR-PERF-01 | 效能 | 列表分頁上限 200 筆／頁；匯入上限 2 MB／20,000 列 | 已實作 | 上限常數未被測試斷言；**沒有負載或壓力測試**（KNOWN_ISSUES T3） |
 | NFR-PERF-02 | 效能 | Dashboard 為即時查詢（無快取、無快照）；財務總覽逐檔期計算（最多 100 檔期） | 已實作 | 資料量大時需優化（KNOWN_ISSUES K20）；無效能測試 |
-| NFR-DATA-01 | 資料保存 | 資料保存期限、封存與清理政策 | **未定義**；`idempotency_keys`、`sessions` 不會自動清理（KNOWN_ISSUES K6） | 未做 |
+| NFR-SEC-10 | 安全 | 合作申請的收件個資（姓名、電話、地址）存於獨立資料表，不寫回團主主檔；內部需 `collaboration.pii.read`、團主只能讀自己的、廠商需同時滿足「未清除、已核准、團主已確認可用、未超過硬性上限、履約仍需要地址」五個條件；案件詳情 API 完全不回傳收件內容，必須走專用端點，每次成功讀取寫稽核、被拒絕寫事件；匯出時內部無權限者的收件欄位為「［無權限］」、廠商的匯出沒有這三個欄位；被取代的舊地址立即清空；匯入暫存與錯誤紀錄不留個資；到期清除有保留例外、履約延後、硬性上限、執行與失敗紀錄（無排程） | 已實作（`collaboration.ts`、`migrations/028`） | 已測（collaboration-rbac：哨兵字串掃描 API 回應與 CSV、廠商四條件、稽核筆數） |
+| NFR-DATA-01 | 資料保存 | 資料保存期限、封存與清理政策 | **未定義**；`idempotency_keys`、`sessions` 不會自動清理（KNOWN_ISSUES K6）。**例外**：合作申請的收件個資有明確保留期（核准起算 90 天；送達後改以最後寄送日起算 30 天，取較早者，數字待 Owner 確認 D-40），到期由 `POST /api/collaboration/recipients/purge-expired` 覆寫成「［已清除］」，**需人工或排程觸發，系統沒有自動排程** | 合作申請部分已測（collaboration：核准→寄出→送達→補寄的保留期重算）；其餘未做 |
 | NFR-DATA-02 | 資料保護 | 訂單與售後只存去識別化 `buyer_ref`，不存買家姓名／電話／地址；售後文字欄位盡力擋手機號碼與 Email | 已實作（盡力而為，非完整個資偵測） | 售後已測；訂單匯入不驗證代號內容（KNOWN_ISSUES K15） |
 | NFR-COMP-01 | 相容性 | 日期以台北日曆日、`YYYY-MM-DD` 字串處理；時間戳 `timestamptz`；組織時區 `Asia/Taipei` | 已實作 | 已測（unit/misc 日期工具） |
 | NFR-COMP-02 | 相容性 | 瀏覽器：現代桌面瀏覽器；手機基本可用 | E2E 僅在 Chromium 驗證 | 未做跨瀏覽器（KNOWN_ISSUES T2） |
@@ -904,7 +968,7 @@
 
 ## 6 資料需求與資料品質規則
 
-### 6.1 資料實體（65 張表，由 migrations 001–011、013、014 建立）
+### 6.1 資料實體（81 張表，由 migrations 001–011、013、014、016、018、021–025、027、028、029 建立；029 新增承辦、交接、保留例外、清除紀錄 5 張）
 
 | 領域 | 資料表 | migration |
 |---|---|---|
@@ -920,10 +984,12 @@
 | 客群分析與適配（SOP 01） | `customer_segments`、`segment_preferences`、`partner_segment_links`、`segment_evidence`、`product_fit_assessments`；另 `hosts` 新增可空欄位 `partner_type`；評分設定存於 `system_settings['fit.scoring']`（無新表） | 013 |
 | 選品、合作資格審查、試用與可行性（SOP 02／03） | `evidence_items`、`vendor_dd_records`、`vendor_dd_items`、`product_evaluations`、`product_trials`、`trial_checks`、`feasibility_scenarios`；評分與有效期設定存於 `system_settings['selection.scoring']`（無新表）；既有表不改 | 014 |
 
+| 合作申請與樣品管理 | `collaboration_applications`、`collaboration_application_items`、`collaboration_recipients`（個資，含 `retention_until`／`purged_at`）、`collaboration_shipments`、`collaboration_launch_details`、`collaboration_events`（append-only）、`collaboration_import_rows`；匯入沿用既有 `import_batches`／`import_errors`；既有表不改 | 028 |
+
 （007 角色種子、008 冪等雜湊欄位無新表。）欄位級定義見 `docs/generated/DATA_DICTIONARY.md`；業務欄位定義（藍圖 §3.5 要求的五個核心字典）仍是 PROPOSED。
 
 ### 6.2 識別碼
-業務 ID 即主鍵，由資料庫計數器原子遞增產生，不依名稱或列號（ADR-014）：`VEN`、`OWN`（團主）、`GRP`（社群）、`PRD`、`SKU`、`CMP-YYYYMM-NNNN`、`TSK-YYYYMMDD-NNNN`、`ORD`、`IMP-YYYYMMDD-NNNN`、`CMR`、`APR`、`EXC`、`FBT`、`SHP`、`CAS`、`RFD`、`SET-YYYYMMDD-NNNN`、`SIT`、`ADJ`、`PAY`、`EXP`，以及 SOP 01 的 `SEG`（客群）、`SPF`（偏好）、`LNK`（團主↔客群連結）、`EVD`（證據）、`FIT`（適配評估）；SOP 02／03 的 `EVI`（證據連結，與 SOP 01 的 `EVD` 不同）、`VDD`（調查）、`VDI`（調查項目）、`SEL`（選品評估）、`TRL`（試用）、`TCK`（試用檢核項）、`FSB`（可行性情境）等。**注意**：發票使用 `INV-`；庫存異動於整合時改用 `STK-`（012 之前建立的紀錄沿用 `INV-`，見落差 G-06）。
+業務 ID 即主鍵，由資料庫計數器原子遞增產生，不依名稱或列號（ADR-014）：`VEN`、`OWN`（團主）、`GRP`（社群）、`PRD`、`SKU`、`CMP-YYYYMM-NNNN`、`TSK-YYYYMMDD-NNNN`、`ORD`、`IMP-YYYYMMDD-NNNN`、`CMR`、`APR`、`EXC`、`FBT`、`SHP`、`CAS`、`RFD`、`SET-YYYYMMDD-NNNN`、`SIT`、`ADJ`、`PAY`、`EXP`，以及 SOP 01 的 `SEG`（客群）、`SPF`（偏好）、`LNK`（團主↔客群連結）、`EVD`（證據）、`FIT`（適配評估）；SOP 02／03 的 `EVI`（證據連結，與 SOP 01 的 `EVD` 不同）、`VDD`（調查）、`VDI`（調查項目）、`SEL`（選品評估）、`TRL`（試用）、`TCK`（試用檢核項）、`FSB`（可行性情境）；合作申請與樣品管理的 `CLB`（合作申請單）、`CLI`（申請樣品明細）、`CRP`（收件資訊）、`CSP`（樣品寄送紀錄）、`CLD`（開團合作資訊）、`CIR`（匯入列，匯入批次沿用 `IMP-YYYYMMDD-NNNN`）等。**注意**：發票使用 `INV-`；庫存異動於整合時改用 `STK-`（012 之前建立的紀錄沿用 `INV-`，見落差 G-06）。
 
 ### 6.3 資料品質規則
 
@@ -944,6 +1010,10 @@
 | DQ-13 證據需有效 | 證據過期就不算證據：品質／供應評分、調查項目「已確認」、法務「確認無虞」都只認未過期的證據；核准後證據過期使調查自動失效；證據只存連結，拒絕 javascript:／data:／帶帳密的連結，文字不含個人資料 | FR-SEL-04、FR-DD-03、FR-DD-04、FR-DD-06、FR-EVI-01 |
 | DQ-14 缺資料不捏造（試算） | 可行性輸入缺少時，對應結果為 null（未知）並列出缺哪些輸入；明確填 0 與沒填不同；每個輸入須註明假設來源；GMV、NSV、品牌利潤、公司營業收入分開呈現 | FR-FEA-01、FR-FEA-02 |
 | DQ-15 敏感欄位 | 成本、費用、分潤與利潤沿用 `product.cost.read`：無權限者寫入 403、讀取為 null 並標 `restricted`，稽核與風險訊息不洩漏數值 | FR-DD-05、FR-FEA-03、FR-EVI-03、FR-G1S-04 |
+| DQ-16 狀態由事實推導 | 「是否已補寄」不存布林欄位：只有真的存在一列補寄紀錄且填了寄出日期才算已補寄（取消的補寄不算）；樣品進度同樣由所有寄送紀錄推導，來源表單的勾選只當參考值 | FR-COLLAB-06 |
+| DQ-17 預計與實際分開 | 開團日期分「預計開團日」與「已確認開團日」兩欄，列表、篩選與匯出都必須分得開；來源表單只有一欄，匯入時一律先進「預計」 | FR-COLLAB-08、FR-COLLAB-14 |
+| DQ-18 收件個資只存一處、有保留期 | 收件人姓名、電話、地址只存在 `collaboration_recipients`，不寫回團主主檔（`hosts` 全表沒有地址欄位）；改地址＝軟刪除舊列、新建一列，保留歷史；每列有保留期與清除時間；自由備註欄一律過個資檢查 | FR-COLLAB-03、FR-COLLAB-04 |
+| DQ-19 同名不等於同人 | 匯入時團主名稱對應不到唯一主檔（查無或多個候選）一律列為待確認，**不自動建立主檔、不自動合併不同的人**；缺日期、缺意願的列照原樣留白，不補假資料 | FR-COLLAB-14 |
 
 ---
 
@@ -1037,6 +1107,14 @@
 | D-34 | 試用品回收逾期的處理與責任 | A) 人工追蹤　B) 例外／自動化 | A（只記錄，不追蹤逾期） | `FR-TRL-02`、`FR-TRL-09` |
 | D-35 | 哪些調查類別須附證據才能標「已確認」 | 目前為第 1、7、8、9、10、11 類 | 如左，程式內定（`lib/dd-catalog.ts`） | `FR-DD-03` |
 | D-36 | 是否建立協議（`agreements`）CRUD 並與調查關聯 | A) 做　B) 維持文字版本 | B（以合約版本與合約編號文字記錄） | `FR-DD-01`、`FR-DD-08` |
+| D-37 | 個資權限 | **Owner 已裁示**：保留獨立的 `collaboration.pii.read`；一般案件讀取不含收件人姓名、電話、完整地址；團主僅能看自己的；廠商只經「受控的履約例外」取得必要收件資訊；所有個資存取留稽核 | 已落地（履約視窗、稽核用途） | `FR-COLLAB-03`、`FR-COLLAB-12`、`NFR-SEC-10` |
+| D-38 | 廠商資料匯出 | **Owner 已裁示**：廠商可匯出自己範圍內的申請紀錄，但**不含**收件人電話與完整地址；不得經其他報表、CSV、搜尋或 API 取得 | 已落地（欄位不存在；19 條讀取端點掃描） | `FR-COLLAB-15` |
+| D-39 | 營運小編資料範圍 | **Owner 已裁示**：小編只看自己承辦或被正式指派的申請；營運主管看全部；需支援交接、共同承辦、待指派佇列 | 已落地（migration 029；`campaignScope` 不變） | `FR-COLLAB-12`、`FR-COLLAB-17` |
+| D-40 | 個資保留與清除 | **Owner 已裁示（暫定政策）**：核准日起 90 天；送達後依最後寄送日起 30 天，取較早者；需檢視計算衝突與過早清除；法律保留／爭議需有依據、期限與稽核的例外；正式收集前須有可運作的清除機制、執行與失敗紀錄、監控；未授權前不得啟用 production worker／cron；需評估備份中的個資 | 已落地機制（衝突分析 C1～C8、保留例外、硬性上限 180 天、紀錄與監控、備份評估）；**排程未啟用，待 Owner 授權**；數字與 C7（被拒案件）待確認（W-42、W-44、W-45） | `FR-COLLAB-04`、`FR-COLLAB-18`、`NFR-DATA-01` |
+| D-41 | 後台設定 Mail | **Owner 已裁示**：維持兩個欄位（後台設定聯絡信箱、後台設定完成狀態）；不自動發送 Email、不建立真實通知 | 已維持並以測試固定 | `FR-COLLAB-09` |
+| D-42 | 無檔期任務 | **Owner 已裁示**：第一階段不修改 `tasks` 的 Campaign 綁定；沿用合作申請工作佇列與狀態分桶 | 已維持（`tasks.campaign_id` 仍 NOT NULL，測試固定） | `FR-COLLAB-13`、`FR-COLLAB-16` |
+| D-43 | Repository 安全 | **Owner 已裁示**：建議轉 Private，須先評估 Pages／Actions／協作者／既有連結；建立安全檢查並出報告；不得假設 Private＝安全；可見性變更需明確授權 | 報告完成（`docs/phase2/REPO_SECURITY_REPORT.md`）；**未更改可見性**，待 Owner 操作（W-33、W-46） | 全模組；`NFR-SEC-10` |
+| D-44 | 廠商對外入口 | **Owner 已裁示**：先完成安全 Gate（401／403／404、Session 與 CSRF、IDOR、個資範圍、公式注入、匯入重複、URL、限流、稽核、權限變更即時失效）；通過前不得對外開放 | Gate 技術檢查通過（`phase2/SECURITY_REVIEW.md` §7.5），**仍有未結項，入口未對外開放**（W-35、W-43、W-47） | `FR-COLLAB-13`、`FR-COLLAB-19` |
 
 ---
 
@@ -1253,6 +1331,25 @@
 | FR-G1S-02 | lib/decision-risk.ts, decision-summary.ts | unit/decision-risk、selection-g1 | IMPLEMENTED | ✅ |
 | FR-G1S-03 | decision-summary.ts, gates.ts（未修改）, products.ts（未修改） | selection-g1 | IMPLEMENTED | ✅ |
 | FR-G1S-04 | decision-summary.ts, lib/scope.ts | selection-g1、unit/decision-risk | IMPLEMENTED | ✅ |
+| FR-COLLAB-01 | collaboration.ts, migrations/028 | collaboration、collaboration-rbac | IMPLEMENTED | ✅ |
+| FR-COLLAB-02 | collaboration.ts, lib/collaboration-rules.ts | collaboration、unit/collaboration-rules | IMPLEMENTED | ✅ |
+| FR-COLLAB-03 | collaboration.ts, lib/permissions.ts, lib/scope.ts | collaboration-rbac、collaboration | IMPLEMENTED | ✅ |
+| FR-COLLAB-04 | collaboration.ts, lib/collaboration-rules.ts | collaboration、unit/collaboration-rules | IMPLEMENTED | ✅ |
+| FR-COLLAB-05 | collaboration.ts | collaboration、collaboration-rbac | IMPLEMENTED | ✅ |
+| FR-COLLAB-06 | collaboration.ts, lib/collaboration-rules.ts | collaboration、unit/collaboration-rules | IMPLEMENTED | ✅ |
+| FR-COLLAB-07 | collaboration.ts | collaboration | IMPLEMENTED | ✅ |
+| FR-COLLAB-08 | collaboration.ts | collaboration、collaboration-rbac | IMPLEMENTED | ✅ |
+| FR-COLLAB-09 | collaboration.ts | collaboration、collaboration-rbac | IMPLEMENTED | ✅ |
+| FR-COLLAB-10 | collaboration.ts, gates.ts（未修改） | collaboration | IMPLEMENTED | ✅ |
+| FR-COLLAB-11 | lib/collaboration-rules.ts, collaboration.ts | unit/collaboration-rules、collaboration | IMPLEMENTED | ✅ |
+| FR-COLLAB-12 | lib/permissions.ts, lib/scope.ts, collaboration.ts | collaboration-rbac | IMPLEMENTED | ✅ |
+| FR-COLLAB-13 | app/(app)/collaboration/* | E2E（e2e-smoke、e2e-flow） | IMPLEMENTED | ✅ |
+| FR-COLLAB-14 | collaboration-import.ts, migrations/028 | collaboration、collaboration-rbac | IMPLEMENTED | ✅ |
+| FR-COLLAB-15 | collaboration.ts | collaboration-rbac、E2E | IMPLEMENTED | ✅ |
+| FR-COLLAB-16 | collaboration.ts（不改既有模組） | collaboration | IMPLEMENTED | ✅ |
+| FR-COLLAB-17 | lib/scope.ts, collaboration-assignment.ts, collaboration-shared.ts, migrations/029 | collaboration-hardening、db:rehearsal、E2E | IMPLEMENTED | ✅ |
+| FR-COLLAB-18 | collaboration-retention.ts, lib/collaboration-rules.ts, scripts/collaboration-purge.ts, migrations/029 | collaboration-hardening、unit/collaboration-security-rules | IMPLEMENTED | ✅ |
+| FR-COLLAB-19 | lib/collaboration-rules.ts, collaboration-import.ts, collaboration.ts, api/routes.ts | collaboration-hardening、unit/collaboration-security-rules | IMPLEMENTED | ✅ |
 
 
 ---
@@ -1267,7 +1364,7 @@
 5. 驗欄 ❌ 的 7 條：程式存在，但找不到任何自動化測試保護；已標 PARTIAL，不當成已驗證。
 
 ### 11.2 測試重跑結果
-`npx vitest run`（真實 PostgreSQL 16）：本文件初版基準為 14 個測試檔 245 項；SOP 01 整合後為 20 個測試檔、405 項；SOP 02／03 整合後再新增 10 個測試檔、187 項（`unit/selection-score` 14、`unit/dd-catalog` 13、`unit/trial-catalog` 12、`unit/decision-risk` 6、`unit/feasibility-calc` 21、`selection` 27、`diligence` 30、`trials` 31、`feasibility` 18、`selection-g1` 15），合計 **30 個測試檔、592 項**（以 `grep` 統計 `it(` 得出；全部通過的結果見 `docs/TEST_REPORT.md`，既有 405 項不變）；E2E 煙霧測試：原 49 項＋SOP 01 新增 37 項＝86 項，SOP 02／03 另新增「選品與試用」主管、營運小編與非授權角色區塊（最終項數見 `docs/uat/e2e-results.json`）。這只證明「已寫的測試通過」，不代表所有需求都有測試——沒有測試保護的需求見 11.3 的 T 系列。
+`npx vitest run`（真實 PostgreSQL 16）：本文件初版基準為 14 個測試檔 245 項；SOP 01 整合後為 20 個測試檔、405 項；SOP 02／03 整合後再新增 10 個測試檔、187 項（`unit/selection-score` 14、`unit/dd-catalog` 13、`unit/trial-catalog` 12、`unit/decision-risk` 6、`unit/feasibility-calc` 21、`selection` 27、`diligence` 30、`trials` 31、`feasibility` 18、`selection-g1` 15），SOP 02／03 之後再整合「合作申請與樣品管理」，新增 3 個測試檔、102 項（`collaboration` 26、`collaboration-rbac` 44、`unit/collaboration-rules` 32）；連同其間已整合的履約、財務、費用歸屬等工作，合計 **60 個測試檔、1039 項**（以 `grep` 統計 `it(` 得出；全部通過的結果見 `docs/TEST_REPORT.md`，既有 405 項不變）；E2E 煙霧測試：原 49 項＋SOP 01 新增 37 項＝86 項，SOP 02／03 另新增「選品與試用」主管、營運小編與非授權角色區塊；合作申請與樣品管理另新增營運、廠商、團主三個區塊，煙霧測試最終為 170 項、全流程 UI 測試 71 項（見 `docs/uat/e2e-results.json` 與 `docs/uat/e2e-flow-results.json`）。這只證明「已寫的測試通過」，不代表所有需求都有測試——沒有測試保護的需求見 11.3 的 T 系列。
 
 ### 11.3 規格與程式的落差（需 Owner 決定改程式或改規格）
 

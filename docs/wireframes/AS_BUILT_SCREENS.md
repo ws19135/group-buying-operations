@@ -184,6 +184,36 @@
 | E4 | 導覽 | 側欄新增「選品與試用」（營運） | 相同；團主、廠商沒有此項，直接輸入網址顯示無權限 | E2E 驗證 |
 | E5 | 試用清單 | 商品頁卡片內列表 | 相同；另在檔期「選品與試用」分頁列出本檔試用與相關任務（唯讀） | 對應「G1 選品核准→查閱」的流程串接 |
 
+## 合作申請與樣品管理（T-COLLAB，營運／廠商／團主三種視角）
+
+> 這一組由 `scripts/e2e-smoke.ts`（Playwright，1440×900；手機版 390 寬）與全流程腳本（`npm run e2e:flow`）對示範資料庫截圖，資料為虛構 DEMO（`db:seed:demo:collaboration`：6 筆申請、4 筆寄送紀錄含補寄；只用保留測試號碼與 `example.invalid`，不含任何真實個資）。截圖存放在 `docs/uat/screens/`（每次重跑會更新）。
+> 現況線框見 [23](WIREFRAMES.md#23-collaboration-list)～[28](WIREFRAMES.md#28-collaboration-vendor)；模組規格見 [`docs/phase2/INFLUENCER_SAMPLE_APPLICATION.md`](../phase2/INFLUENCER_SAMPLE_APPLICATION.md)；實跑結果見 [TEST_REPORT.md](../TEST_REPORT.md) §18。
+> ⛔ 本模組**未部署**到正式環境、未碰任何真實資料；**廠商入口未對外開放**（見 KNOWN_ISSUES W-34、W-35）。
+
+| 畫面 | 路徑 | 截圖 | 結果 |
+|---|---|---|---|
+| 合作申請營運總覽 | `/collaboration` | [40-collaboration.png](../uat/screens/40-collaboration.png) | E2E 通過　分桶 KPI、篩選（含預計／已確認開團日兩組區間）、搜尋排序分頁、匯出；收件個資不在列表上 |
+| 合作申請詳情 | `/collaboration/[id]` | [41-collaboration-detail.png](../uat/screens/41-collaboration-detail.png) | E2E 通過　六個區塊（申請資料／申請樣品明細／收件資訊／樣品寄送紀錄／開團合作資訊／處理歷程）；四個維度的狀態各自獨立 |
+| 匯入廠商現有表單 | `/collaboration/import` | [42-collaboration-import.png](../uat/screens/42-collaboration-import.png) | E2E 通過　三步（上傳預覽→逐列確認→建立申請）；阻斷性問題標「待確認」，系統不替人猜 |
+| 廠商工作台 | `/collaboration/vendor` | [43-collaboration-vendor.png](../uat/screens/43-collaboration-vendor.png) | E2E 通過　七個分桶；頁面明講確認供樣不等於 G1～G5 核准、不會自動建立檔期 |
+| 團主工作台 | `/collaboration/mine` | [44-collaboration-mine.png](../uat/screens/44-collaboration-mine.png) | E2E 通過　卡片式版面；可申請樣品、確認收件資訊與收件、回覆開團意願與預計開團日 |
+| 團主工作台（手機版） | `/collaboration/mine`（390 寬） | [45-mobile-collaboration.png](../uat/screens/45-mobile-collaboration.png) | E2E 通過　**卡片式版面，實測 390px 寬無水平溢出**（E2E 檢查），不靠表格橫向捲動 |
+
+### 全流程（只用畫面跑完，三種角色各自登入）
+
+> `npm run e2e:flow`：**71/71 通過**；全程只操作畫面，記錄 17 筆事件。
+
+| 步驟 | 角色與路徑 | 截圖 | 結果 |
+|---|---|---|---|
+| 建立申請 | 營運 `/collaboration/new` → `/collaboration/[id]` | [flow-19-collaboration-created.png](../uat/screens/flow-19-collaboration-created.png) | 申請建立；沒有檔期也能運作，未寫入 `approvals` |
+| 確認供樣與寄出（含補寄） | 廠商 `/collaboration/vendor` | [flow-20-collaboration-vendor.png](../uat/screens/flow-20-collaboration-vendor.png) | 逐項確認供樣數量、建立寄送紀錄；「是否已補寄」由補寄紀錄推導 |
+| 收件與回覆意願 | 團主 `/collaboration/mine` | [flow-21-collaboration-host.png](../uat/screens/flow-21-collaboration-host.png) | 確認收件資訊、確認收件、回覆開團意願與預計開團日 |
+| 確認合作並關聯既有檔期 | 營運 `/collaboration/[id]` | [flow-22-collaboration-done.png](../uat/screens/flow-22-collaboration-done.png) | 只關聯既有正式檔期，不新建檔期、不改檔期狀態；稽核記 `gateImpact: 'NONE'` |
+
+### 線框與實際畫面的關係
+
+這個模組是**先有畫面、後補線框**（和 SOP 01／02／03 的情況相反），所以沒有「建置前線框 vs. 實際畫面」的差異表可列；線框 23～28 是依這些截圖整理的現況線框，SVG 尚未繪製。要改版時請先改線框、再改畫面。
+
 ## 範圍探測（不截圖）
 
 團主（demo-host1）與廠商（demo-vendor）分別依序開啟 5 檔期的詳情：

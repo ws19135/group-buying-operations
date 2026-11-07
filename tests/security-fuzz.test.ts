@@ -6,6 +6,7 @@ import * as ful from '@/server/modules/fulfillment';
 import * as as from '@/server/modules/aftersales';
 import * as fin from '@/server/modules/finance';
 import * as st from '@/server/modules/settlements';
+import * as collab from '@/server/modules/collaboration';
 import { Client } from './api-helper';
 import { addUser, dayOffset, makeWorld, mkCampaign, mkHost, mkProduct, mkVendor, type World } from './helpers';
 
@@ -37,6 +38,12 @@ beforeAll(async () => {
   D.pay = (await fin.createPayment(w.finance, { direction: 'IN', counterpartyType: 'PLATFORM', amount: 5, paidOn: dayOffset(-1) })).id;
   D.inv = (await fin.createInvoice(w.finance, { invoiceNo: 'FUZZ-1', invoiceDate: dayOffset(-1), amount: 1 })).id;
   D.exp = (await fin.createExpense(w.finance, { category: 'OTHER', amount: 1, incurredOn: dayOffset(-1) })).id;
+  // 合作申請與樣品管理：要有真的 id 才能模糊測到真正的路徑
+  D.collabApp = (await collab.createApplication(w.manager, { ownerUserId: w.editor.userId, vendorId: v, hostId: h, items: [{ productId: p.id, skuId: p.skuIds[0], requestedQty: 2 }] })).id;
+  D.collabItem = (await query<{ id: string }>('SELECT id FROM collaboration_application_items WHERE application_id=$1', [D.collabApp]))[0].id;
+  await collab.submitApplication(w.manager, D.collabApp);
+  await collab.internalReview(w.manager, D.collabApp, { decision: 'APPROVE' });
+  D.collabShip = (await collab.addShipment(w.editor, D.collabApp, { shipmentType: 'INITIAL' })).id;
   const hostU = await addUser(w.orgId, 'HOST', { hostIds: [h] });
   const vendU = await addUser(w.orgId, 'VENDOR', { vendorIds: [v] });
   cl = {};
@@ -45,6 +52,9 @@ beforeAll(async () => {
 
 /** 依路由網址猜它的 :id 是哪一種資料；猜不到就用假 id */
 function realFor(path: string, key: string): string {
+  if (path.startsWith('/collaboration/applications')) return D.collabApp;
+  if (path.startsWith('/collaboration/items')) return D.collabItem;
+  if (path.startsWith('/collaboration/shipments')) return D.collabShip;
   if (path.startsWith('/fulfillment/batches')) return D.batch;
   if (path.startsWith('/fulfillment/shipments')) return D.ship;
   if (path.startsWith('/aftersales/cases')) return D.case;

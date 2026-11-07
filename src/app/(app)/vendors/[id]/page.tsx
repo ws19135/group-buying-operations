@@ -9,6 +9,7 @@ import { Badge, Banner, Card, EmptyState, PageHeader, StatusBadge, Table } from 
 import { CAMPAIGN_STATUS, REVIEW_STATUS, VENDOR_STATUS } from '@/ui/labels';
 import { as } from '@/ui/types';
 import { DiligenceCard } from './DiligenceCard';
+import { VendorCollaborationCard } from '../../collaboration/Blocks';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,6 +59,7 @@ export default withActor(async (actor, props: { params: Params }) => {
           <Table head={['商品', '類別', '審核']}>{v.products.map((p) => <tr key={p.id}><td><Link href={`/products/${p.id}`}>{p.name}</Link></td><td>{p.category ?? '—'}</td><td><StatusBadge map={REVIEW_STATUS} value={p.reviewStatus} /></td></tr>)}</Table>
         )}
       </Card>
+      {can(actor, 'collaboration.read') || (can(actor, 'collaboration.self') && actor.vendorIds.includes(v.id)) ? <VendorCollaborationCard actor={actor} vendorId={v.id} /> : null}
       <Card title="合作檔期" flush testid="vendor-campaigns">
         {v.campaigns.length === 0 ? <EmptyState title="尚無檔期" /> : (
           <Table head={['檔期', '狀態', '期間']}>{v.campaigns.map((c) => <tr key={c.id}><td><Link href={`/campaigns/${c.id}`}>{c.title}</Link></td><td><StatusBadge map={CAMPAIGN_STATUS} value={c.status} /></td><td>{c.openDate ?? '—'} ～ {c.closeDate ?? '—'}</td></tr>)}</Table>

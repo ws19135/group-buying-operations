@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { chromium, type Browser, type Page } from 'playwright';
+import { chromium, type Browser, type Locator, type Page } from 'playwright';
 import { CHECK_CATALOG } from '../src/server/lib/trial-catalog';
 import { DD_CATEGORIES } from '../src/server/lib/dd-catalog';
 import { addDays } from '../src/server/lib/dates';
@@ -58,6 +58,16 @@ async function addEvidence(page: Page, subjectId: string, title: string, kind = 
   await dlg.getByTestId('field-title').fill(title);
   await dlg.getByTestId('field-url').fill('https://docs.example.invalid/e2e-flow');
   await submitAndWait(page, () => dlg.getByTestId(`evidence-form-${subjectId}-submit`).click(), /\/api\/evidence$/);
+}
+
+/** 依選項文字挑 <select> 的值（選項標籤含 id，直接用 label 比對不穩） */
+async function pickOption(page: Page, testid: string, re: RegExp, scope?: Locator): Promise<string> {
+  const sel = (scope ?? page).getByTestId(testid);
+  const opts = await sel.locator('option').evaluateAll((os) => os.map((o) => [(o as HTMLOptionElement).value, o.textContent ?? '']));
+  const hit = (opts as [string, string][]).find(([v, t]) => v !== '' && re.test(t));
+  if (!hit) throw new Error(`${testid} 找不到符合 ${re} 的選項：${(opts as [string, string][]).map(([, t]) => t).join('｜')}`);
+  await sel.selectOption(hit[0]);
+  return hit[0];
 }
 
 async function main() {
@@ -422,6 +432,200 @@ async function main() {
     await page.reload({ waitUntil: 'networkidle' });
     record('選品 V2 設定畫面：儲存新版本（仍為「提案」未確認）、重新載入後數值保留', !approvedBefore && !(await page.getByTestId('v2-cfg-approved').isChecked()) && (await page.getByTestId('v2-cfg-minCompleteness').inputValue()) === '0.6');
     await shot(page, '12-selection-v2-config');
+    // ---- 12. 合作申請與樣品管理：營運建立 → 廠商供樣 → 寄送 → 團主收件與回覆 → 營運確認並關聯檔期 → 三方各自追蹤 ----
+    // 用 DEMO 的廠商／團主主檔，因為這段要三種角色各自登入自己的工作台（新建的主檔沒有對應帳號）
+    const watch = (pp: Page) => {
+      pp.on('pageerror', (e) => errors.push(`pageerror@${pp.url()}: ${e.message.slice(0, 40)}`));
+      pp.on('response', (r) => { if (r.status() >= 500) errors.push(`HTTP ${r.status()} ${r.url()}`); });
+    };
+
+    await page.goto(`${BASE}/collaboration/new`, { waitUntil: 'networkidle' });
+    await pickOption(page, 'field-vendorId', /晴空保養/);
+    await page.waitForTimeout(200);
+    await pickOption(page, 'field-hostId', /小雅媽咪/);
+    await page.getByTestId('field-appliedOn').fill(today);
+    await page.getByTestId('field-items').locator('input[type=number]').first().fill('2');
+    await page.getByTestId('field-note').fill(`[E2E] 全流程樣品申請 ${tag}`);
+    await Promise.all([page.waitForURL(/\/collaboration\/CLB-/, { timeout: 20_000 }), page.getByTestId('create-application-submit').click()]);
+    const appUrl = page.url();
+    const appId = appUrl.split('/').pop() as string;
+    record('合作申請：營運用畫面建立（多規格勾選數量），導到申請詳情', appId.startsWith('CLB-'), appId);
+    record('新建的申請是草稿，樣品進度為「尚未安排」',
+      (await page.getByTestId('app-status').innerText()).includes('草稿') && /尚未安排/.test(await page.getByTestId('sample-progress').innerText()),
+      `${await page.getByTestId('app-status').innerText()}／${await page.getByTestId('sample-progress').innerText()}`);
+
+    // 收件資訊（個資）：營運代填並確認
+    const piiName = `[E2E] 收件人 ${tag}`, piiPhone = '0912345678', piiAddr = `[E2E] 台北市測試路 ${tag} 號`;
+    await page.getByTestId('btn-edit-recipient').click();
+    const recipDlg = page.getByTestId('btn-edit-recipient-dialog');
+    await recipDlg.getByTestId('field-recipientName').fill(piiName);
+    await recipDlg.getByTestId('field-recipientPhone').fill(piiPhone);
+    await recipDlg.getByTestId('field-addressLine').fill(piiAddr);
+    await submitAndWait(page, () => recipDlg.getByTestId('form-recipient-submit').click(), /\/recipient$/);
+    const afterPii = await page.locator('body').innerText();
+    record('收件資訊：存檔後詳情頁只顯示「已確認／保留至」，個資本身不在頁面上',
+      /團主已確認/.test(afterPii) && /保留至/.test(afterPii) && !afterPii.includes(piiPhone) && !afterPii.includes(piiAddr));
+    record('要按「顯示收件資訊」才會取得個資，按鈕明講會留下稽核紀錄',
+      (await page.getByTestId('btn-reveal-recipient').count()) === 1 && /稽核/.test(await page.getByTestId('btn-reveal-recipient').innerText()));
+
+    // 送出 → 內部審核轉廠商
+    await submitAndWait(page, () => page.getByTestId('btn-submit').click(), /\/submit$/);
+    await page.getByTestId('btn-internal-review').click();
+    const reviewDlg = page.getByTestId('btn-internal-review-dialog');
+    await reviewDlg.getByTestId('field-decision').selectOption('TO_VENDOR');
+    await reviewDlg.getByTestId('field-note').fill('[E2E] 客群相符，轉廠商確認供樣');
+    await submitAndWait(page, () => reviewDlg.getByTestId('form-internal-review-submit').click(), /\/internal-review$/);
+    record('內部審核：轉給廠商確認供樣（狀態＝廠商確認中）',
+      /廠商確認中/.test(await page.getByTestId('app-status').innerText()), await page.getByTestId('app-status').innerText());
+    await shot(page, '19-collaboration-created');
+
+    // 廠商：確認供樣 → 建立首次寄送
+    {
+      const vctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      const vp = await vctx.newPage(); watch(vp);
+      await login(vp, 'demo-vendor@example.invalid');
+      await vp.goto(`${BASE}/collaboration/vendor`, { waitUntil: 'networkidle' });
+      const vwb = await vp.locator('body').innerText();
+      record('廠商工作台：看得到這筆新申請，並明講確認供樣不等於 G1～G5 核准、不會自動建檔期',
+        vwb.includes(appId) && /G1～G5/.test(vwb) && /不會自動建立檔期/.test(vwb));
+      await vp.goto(`${BASE}/collaboration/${appId}`, { waitUntil: 'networkidle' });
+      const vBody = await vp.locator('body').innerText();
+      record('廠商看不到收件個資內容，也看不到內部備註',
+        !vBody.includes(piiPhone) && !vBody.includes(piiAddr) && !vBody.includes('內部備註'));
+
+      await vp.getByTestId('btn-vendor-review').click();
+      const vdlg = vp.getByTestId('btn-vendor-review-dialog');
+      await vdlg.locator('input[type=number]').first().fill('2');
+      await vdlg.getByTestId('field-review-note').fill('[E2E] 可供兩瓶，本週寄出');
+      await submitAndWait(vp, () => vdlg.getByTestId('vendor-review-submit').click(), /\/vendor-review$/);
+      record('廠商確認供樣：狀態轉為已核准供樣',
+        /已核准供樣/.test(await vp.getByTestId('app-status').innerText()), await vp.getByTestId('app-status').innerText());
+
+      // 廠商要先看到收件資訊才能寄：按一下取得（後端會寫稽核）
+      await vp.getByTestId('btn-reveal-recipient').click();
+      await vp.getByTestId('recipient-revealed').waitFor({ timeout: 15_000 });
+      record('履約期間內，廠商按下後才取得收件人與地址（每次讀取都留稽核）',
+        (await vp.getByTestId('recipient-phone').innerText()).includes(piiPhone) && /已記入稽核/.test(await vp.getByTestId('recipient-revealed').innerText()));
+
+      await vp.getByTestId('btn-add-shipment').click();
+      const sdlg2 = vp.getByTestId('btn-add-shipment-dialog');
+      await sdlg2.getByTestId('field-shipmentType').selectOption('INITIAL');
+      await sdlg2.getByTestId('field-shipDate').fill(addDays(today, -1));
+      await sdlg2.getByTestId('field-carrier').fill('[E2E] 示範物流');
+      await sdlg2.getByTestId('field-trackingNo').fill(`E2E-${tag}-1`);
+      await sdlg2.getByTestId('field-quantity').fill('2');
+      await submitAndWait(vp, () => sdlg2.getByTestId('form-add-shipment-submit').click(), /\/shipments$/);
+      record('廠商建立首次寄送（填了寄出日期＝已寄出），樣品進度改為已寄出',
+        /已寄出/.test(await vp.getByTestId('sample-progress').innerText()), await vp.getByTestId('sample-progress').innerText());
+      await shot(vp, '20-collaboration-vendor');
+      await vctx.close();
+    }
+
+    // 團主：確認收件 → 回覆開團意願
+    {
+      const hctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true });
+      const hp = await hctx.newPage(); watch(hp);
+      await login(hp, 'demo-host1@example.invalid');
+      await hp.goto(`${BASE}/collaboration/mine`, { waitUntil: 'networkidle' });
+      record('團主在手機上看得到「我的樣品申請」，含這筆新申請',
+        (await hp.locator(`[data-testid="mine-card-${appId}"]`).count()) === 1);
+      const overflow = await hp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      record('團主的樣品申請頁在手機寬度下沒有水平溢出', overflow <= 1, `溢出 ${overflow}px`);
+
+      await hp.goto(`${BASE}/collaboration/${appId}`, { waitUntil: 'networkidle' });
+      const shipRow = hp.locator('[data-testid^="btn-receipt-"]').first();
+      const shipBtnId = (await shipRow.getAttribute('data-testid')) as string;
+      await shipRow.click();
+      const cdlg = hp.getByTestId(`${shipBtnId}-dialog`);
+      await cdlg.getByTestId('field-receivedOn').fill(today);
+      await cdlg.getByTestId('field-receiptNote').fill('[E2E] 已收到，包裝完整');
+      await submitAndWait(hp, () => cdlg.locator('[data-testid^="form-receipt-"]').getByRole('button', { name: /確認/ }).click(), /\/receipt$/);
+      record('團主確認收件：樣品進度改為已確認收件，合作狀態進入團主試用中',
+        /已確認收件/.test(await hp.getByTestId('sample-progress').innerText()) && /團主試用中/.test(await hp.getByTestId('collab-status').innerText()),
+        `${await hp.getByTestId('sample-progress').innerText()}／${await hp.getByTestId('collab-status').innerText()}`);
+
+      await hp.getByTestId('btn-edit-launch').click();
+      const ldlg = hp.getByTestId('btn-edit-launch-dialog');
+      await ldlg.getByTestId('field-intent').selectOption('WILLING');
+      await ldlg.getByTestId('field-intentNote').fill('[E2E] 願意開團，想排在月底');
+      await ldlg.getByTestId('field-plannedOpenDate').fill(addDays(today, 21));
+      record('團主的開團表單只給意願與開團日期（投廣與合作備註是內部欄位，不出現在團主的表單裡）',
+        !/是否投廣|投廣說明|合作備註/.test(await ldlg.innerText()));
+      await submitAndWait(hp, () => ldlg.getByTestId('form-launch-submit').click(), /\/launch$/);
+      record('團主回覆開團意願「願意開團」並填預計開團日（已確認開團日仍空白，兩者分開）',
+        /願意開團/.test(await hp.getByTestId('launch-intent').innerText()) && (await hp.getByTestId('confirmed-open-date').innerText()).trim() === '—',
+        `${await hp.getByTestId('launch-intent').innerText()}／已確認=${(await hp.getByTestId('confirmed-open-date').innerText()).trim()}`);
+      record('團主看不到廠商後台連結、後台設定 Mail 與後台設定狀態',
+        !/廠商後台連結|後台設定 Mail|後台設定狀態/.test(await hp.getByTestId('block-launch').innerText()));
+      await shot(hp, '21-collaboration-host');
+      await hctx.close();
+    }
+
+    // 營運：確認正式合作 → 關聯既有檔期（不新建檔期、不動 G1～G5）
+    await page.goto(`${BASE}/collaboration/${appId}`, { waitUntil: 'networkidle' });
+    await page.getByTestId('btn-confirm-collab').click();
+    const ccdlg = page.getByTestId('btn-confirm-collab-dialog');
+    await ccdlg.getByTestId('field-confirmedOpenDate').fill(addDays(today, 24));
+    await ccdlg.getByTestId('field-note').fill('[E2E] 與團主確認檔期');
+    await submitAndWait(page, () => ccdlg.getByTestId('form-confirm-collab-submit').click(), /\/confirm-collaboration$/);
+    record('營運確認正式合作：已確認開團日與預計開團日並存且不同',
+      (await page.getByTestId('confirmed-open-date').innerText()).includes(addDays(today, 24)) && /已確認合作/.test(await page.getByTestId('collab-status').innerText()));
+
+    await page.getByTestId('btn-link-campaign').click();
+    const lcdlg = page.getByTestId('btn-link-campaign-dialog');
+    await pickOption(page, 'field-campaignId', /防曬|面膜|團/, lcdlg);
+    record('關聯檔期的說明明講只建立關聯、不建新檔期、不略過 G1～G5',
+      /不會建立新檔期/.test(await lcdlg.innerText()) && /G1～G5/.test(await lcdlg.innerText()));
+    await submitAndWait(page, () => lcdlg.getByTestId('form-link-campaign-submit').click(), /\/link-campaign$/);
+    record('關聯正式檔期後合作狀態＝已關聯檔期，申請資料區出現檔期連結',
+      /已關聯檔期/.test(await page.getByTestId('collab-status').innerText()) && (await page.getByTestId('block-basic').locator('a[href^="/campaigns/"]').count()) > 0);
+
+    // 廠商回填後台設定（只記錄，不自動寄信）
+    {
+      const vctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      const vp = await vctx.newPage(); watch(vp);
+      await login(vp, 'demo-vendor@example.invalid');
+      await vp.goto(`${BASE}/collaboration/${appId}`, { waitUntil: 'networkidle' });
+      await vp.getByTestId('btn-vendor-launch').click();
+      const bdlg = vp.getByTestId('btn-vendor-launch-dialog');
+      await bdlg.getByTestId('field-vendorPortalUrl').fill('https://portal.example.invalid/e2e');
+      await bdlg.getByTestId('field-backendSetupEmail').fill('e2e-backend@example.invalid');
+      await bdlg.getByTestId('field-backendSetupStatus').selectOption('DONE');
+      record('後台設定 Mail 欄位明講只是記錄聯絡信箱，系統不會自動寄信', /不會自動寄信/.test(await bdlg.innerText()));
+      await submitAndWait(vp, () => bdlg.getByTestId('form-vendor-launch-submit').click(), /\/vendor-launch$/);
+      record('廠商回填後台連結與設定狀態後讀得回來', /已完成/.test(await vp.getByTestId('block-launch').innerText()));
+      await vctx.close();
+    }
+
+    // 三方各自從自己的工作台追蹤同一筆案件
+    {
+      const seen: string[] = [];
+      for (const [email, url, label] of [
+        ['demo-manager@example.invalid', '/collaboration', '營運總覽'],
+        ['demo-vendor@example.invalid', '/collaboration/vendor', '廠商工作台'],
+        ['demo-host1@example.invalid', '/collaboration/mine', '團主工作台'],
+      ] as const) {
+        const c = await browser.newContext(); const pp = await c.newPage(); watch(pp);
+        await login(pp, email);
+        await pp.goto(`${BASE}${url}`, { waitUntil: 'networkidle' });
+        const body = await pp.locator('body').innerText();
+        if (body.includes(appId)) seen.push(label);
+        if (email.includes('vendor') || email.includes('host')) {
+          record(`${label}不會外洩收件個資`, !body.includes(piiPhone) && !body.includes(piiAddr));
+        }
+        await c.close();
+      }
+      record('同一筆案件在營運、廠商、團主三個工作台都追蹤得到', seen.length === 3, seen.join('、'));
+    }
+
+    // 處理歷程：四個維度的事件都寫下來了
+    await page.goto(`${BASE}/collaboration/${appId}`, { waitUntil: 'networkidle' });
+    const evText = await page.getByTestId('block-events').innerText();
+    record('處理歷程記下申請、合作、樣品、意願、檔期各維度的轉折（不是只記最後狀態）',
+      (await page.locator('[data-testid^="event-row-"]').count()) >= 8 && ['申請', '合作', '樣品'].every((t) => evText.includes(t)),
+      `${await page.locator('[data-testid^="event-row-"]').count()} 筆事件`);
+    await shot(page, '22-collaboration-done');
+
     record('全流程期間沒有 5xx 或前端錯誤', errors.length === 0, errors.slice(0, 3).join(' | '));
     await ctx.close();
   } catch (e) {

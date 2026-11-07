@@ -35,7 +35,13 @@ export type Permission =
   | 'intake.write'
   | 'segment.read' | 'segment.write'
   | 'fit.read' | 'fit.assess' | 'fit.review' | 'fit.config'
-  | 'selection.read' | 'selection.write' | 'selection.config';
+  | 'selection.read' | 'selection.write' | 'selection.config'
+  // 合作申請與樣品管理（COLLABORATION_APPLICATIONS）；收件個資另由 collaboration.pii.read 控管
+  | 'collaboration.read' | 'collaboration.create' | 'collaboration.update' | 'collaboration.review' | 'collaboration.self'
+  | 'collaboration.vendor.review' | 'collaboration.shipping.write' | 'collaboration.intent.write'
+  | 'collaboration.campaign.link' | 'collaboration.export' | 'collaboration.pii.read'
+  // D-39：指派／交接承辦人；D-40：設定個資保留例外、查看清除狀態（營運主管與管理者）
+  | 'collaboration.assign' | 'collaboration.retention.manage';
 
 const ALL: Permission[] = [
   'user.manage', 'audit.read',
@@ -58,6 +64,10 @@ const ALL: Permission[] = [
   'segment.read', 'segment.write',
   'fit.read', 'fit.assess', 'fit.review', 'fit.config',
   'selection.read', 'selection.write', 'selection.config',
+  'collaboration.read', 'collaboration.create', 'collaboration.update', 'collaboration.review', 'collaboration.self',
+  'collaboration.vendor.review', 'collaboration.shipping.write', 'collaboration.intent.write',
+  'collaboration.campaign.link', 'collaboration.export', 'collaboration.pii.read',
+  'collaboration.assign', 'collaboration.retention.manage',
 ];
 
 /**
@@ -66,7 +76,7 @@ const ALL: Permission[] = [
  */
 export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
   SYSTEM_ADMIN: ALL,
-  OPS_MANAGER: ALL.filter((p) => !['user.manage', 'commission.write', 'host.self', 'vendor.self', 'refund.complete', 'finance.write', 'settlement.confirm'].includes(p)) as Permission[],
+  OPS_MANAGER: ALL.filter((p) => !['user.manage', 'commission.write', 'host.self', 'vendor.self', 'collaboration.self', 'refund.complete', 'finance.write', 'settlement.confirm'].includes(p)) as Permission[],
   OPS_EDITOR: [
     'vendor.read', 'vendor.write', 'host.read', 'host.write', 'community.read', 'community.write',
     'product.read', 'product.write', 'campaign.read', 'campaign.write', 'campaign.transition',
@@ -76,6 +86,11 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     'aftersales.read', 'aftersales.write',
     'segment.read', 'segment.write', 'fit.read', 'fit.assess',
     'selection.read', 'selection.write',
+    // 合作申請：可建立／編輯案件、處理收件資料、追蹤寄送、代廠商回填供樣、關聯既有檔期；
+    // 刻意不給 collaboration.review（需核准權限的決策留給主管）
+    'collaboration.read', 'collaboration.create', 'collaboration.update', 'collaboration.vendor.review',
+    'collaboration.shipping.write', 'collaboration.intent.write', 'collaboration.campaign.link',
+    'collaboration.export', 'collaboration.pii.read',
   ],
   FINANCE: [
     'vendor.read', 'host.read', 'community.read', 'product.read', 'product.cost.read',
@@ -86,8 +101,8 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     'finance.read', 'finance.write', 'settlement.confirm',
     'selection.read',
   ],
-  HOST: ['host.self', 'community.read', 'product.read', 'campaign.read', 'task.read', 'task.complete', 'dashboard.host', 'commission.read', 'fulfillment.read', 'aftersales.read'],
-  VENDOR: ['vendor.self', 'product.read', 'campaign.read', 'task.read', 'task.complete', 'fulfillment.read', 'aftersales.read'],
+  HOST: ['host.self', 'community.read', 'product.read', 'campaign.read', 'task.read', 'task.complete', 'dashboard.host', 'commission.read', 'fulfillment.read', 'aftersales.read', 'collaboration.self', 'collaboration.create', 'collaboration.intent.write'],
+  VENDOR: ['vendor.self', 'product.read', 'campaign.read', 'task.read', 'task.complete', 'fulfillment.read', 'aftersales.read', 'collaboration.self', 'collaboration.create', 'collaboration.vendor.review', 'collaboration.shipping.write', 'collaboration.export'],
 };
 
 export function isRole(v: string): v is RoleKey {
